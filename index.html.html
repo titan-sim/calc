@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>공룡 룬 시뮬레이터 (최종 보정판)</title>
+    <title>공룡 룬 시뮬레이터</title>
     <style>
         body { font-family: 'Apple SD Gothic Neo', sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; background: #f4f7f6; }
         .input-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 550px; margin-bottom: 20px; }
@@ -48,7 +48,7 @@
         </div>
 
         <div class="result-box">
-            <div id="status-msg">연결 중...</div>
+            <div id="status-msg">데이터 로드 중...</div>
             <div class="result-row"><span>최종 공격력 (마리당)</span><span class="result-val" id="res-atk">0</span></div>
             <div class="result-row"><span>최종 체력 (마리당)</span><span class="result-val" id="res-hp">0</span></div>
             <hr>
@@ -88,14 +88,22 @@
         let targetSlot = 0;
         let selectedRuneInfo = null;
 
+        // [수정됨] 타이탄 스탯 자동 생성 로직
         function generateTitanStats() {
-            let atk = 5, hp = 2500000;
+            let atk = 5;       
+            let hp = 2500000;  
             titanStats[1] = { atk, hp };
+
             for (let i = 2; i <= 40; i++) {
-                if (i <= 8) atk += 5; else atk += 15;
-                if (i <= 6) hp += 2500000;
-                else if (i === 7) hp += 3125000;
+                // 공격력: 6레벨까지 +5, 7레벨부터 +15
+                if (i <= 6) atk += 5;
+                else atk += 15;
+
+                // 체력: 4레벨까지 +2.5M, 5레벨 +3.125M, 6레벨부터 +3.75M
+                if (i <= 4) hp += 2500000;
+                else if (i === 5) hp += 3125000;
                 else hp += 3750000;
+                
                 titanStats[i] = { atk, hp };
             }
         }
@@ -132,33 +140,18 @@
 
         async function loadRuneData() {
             const baseUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQi0P-i3d-QipG8R_9HNS-pdZCxrBYUVGzS6C-h9TtRF7UXMpaW6TfUgtU6r47lz7zU8xFXNISvIdrh/pub?gid=0&single=true&output=csv";
+            const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(baseUrl);
             const statusEl = document.getElementById('status-msg');
-            
+
             try {
-                // 시트 호출 시 캐시 우회 파라미터 추가
-                const response = await fetch(`${baseUrl}&t=${new Date().getTime()}`);
-                if (!response.ok) throw new Error("CORS_OR_HTTP_ERROR");
-                
-                const csv = await response.text();
-                parseCsvData(csv);
+                const response = await fetch(proxyUrl);
+                const json = await response.json();
+                parseCsvData(json.contents);
                 statusEl.style.color = "#2f855a";
                 statusEl.innerText = "✅ 데이터 연결 성공";
                 calculate();
             } catch (e) {
-                console.warn("일반 fetch 실패, 우회 경로 시도...");
-                // 우회 경로로 재시도
-                try {
-                    const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(baseUrl);
-                    const proxyRes = await fetch(proxyUrl);
-                    const proxyJson = await proxyRes.json();
-                    parseCsvData(proxyJson.contents);
-                    statusEl.style.color = "#2f855a";
-                    statusEl.innerText = "✅ 데이터 연결 성공 (우회)";
-                    calculate();
-                } catch (e2) {
-                    statusEl.style.color = "#d9534f";
-                    statusEl.innerText = "⚠️ 시트 연결 실패. 인터넷 상태나 시트 공유 설정을 확인하세요.";
-                }
+                statusEl.innerText = "⚠️ 시트 연결 실패. 서버 배포 후 다시 확인하세요.";
             }
         }
 
@@ -168,12 +161,7 @@
             rows.forEach(row => {
                 const cols = row.split(",").map(c => c.replace(/^"|"$/g, '').trim());
                 if (cols.length < 4) return;
-                
-                const name = cols[0];
-                const lv = parseInt(cols[1]);
-                const v1 = parseFloat(cols[2]) || 0;
-                const v2 = parseFloat(cols[3]) || 0;
-
+                const name = cols[0], lv = parseInt(cols[1]), v1 = parseFloat(cols[2]) || 0, v2 = parseFloat(cols[3]) || 0;
                 if (name && !isNaN(lv)) {
                     if (!sheetData[name]) sheetData[name] = {};
                     sheetData[name][lv] = [v1, v2];
@@ -216,8 +204,7 @@
             const lv = parseInt(document.getElementById('titan-level').value);
             let baseAtk = parseFloat(document.getElementById('base-atk').value) || 0;
             let baseHp = parseFloat(document.getElementById('base-hp').value) || 0;
-            if (baseAtk < 1) baseAtk = 1;
-            if (baseHp < 10) baseHp = 10;
+            if (baseAtk < 1) baseAtk = 1; if (baseHp < 10) baseHp = 10;
 
             const titan = titanStats[lv];
             if (!titan) return;
@@ -229,7 +216,6 @@
                 if (slot && sheetData[slot.name] && sheetData[slot.name][slot.level]) {
                     const data = sheetData[slot.name][slot.level];
                     const val0 = data[0], valPct = data[1] / 100;
-
                     if (slot.name.includes("공격력 증가")) addAtk += val0;
                     else if (slot.name.includes("체력 증가")) addHp += val0;
                     else if (slot.name === "압축된 힘") { mulAtk += valPct; mulHp -= valPct; }
