@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dino Mutant 시뮬레이터 Pro (룬 업데이트 완료)</title>
+    <title>Dino Mutant 시뮬레이터 Pro</title>
     <style>
         body { font-family: 'Pretendard', sans-serif; padding: 15px; background-color: #f4f4f9; color: #333; max-width: 800px; margin: 0 auto; line-height: 1.5; }
         .warning { font-size: 11px; color: #888; text-align: center; margin-bottom: 10px; }
@@ -13,9 +13,12 @@
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 12px; color: #666; }
         
         .slot-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
-        .slot { aspect-ratio: 1; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fafafa; cursor: pointer; overflow: hidden; position: relative; }
+        .slot { aspect-ratio: 1; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fafafa; cursor: pointer; overflow: hidden; position: relative; transition: all 0.2s; }
         .slot img { width: 100%; height: 100%; object-fit: cover; }
         
+        /* 선택된 슬롯 강조 스타일 */
+        .slot.active { border: 2px solid ##b0ccd6; background-color: #e3f2fd; box-shadow: 0 0 8px rgba(33, 150, 243, 0.4); }
+
         #runePicker { border-top: 2px solid #eee; padding-top: 20px; display: none; }
         .rune-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; max-height: 350px; overflow-y: auto; padding: 5px; }
         .rune-item { cursor: pointer; text-align: center; border: 2px solid transparent; padding: 5px; border-radius: 8px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -64,7 +67,7 @@
 
 <div class="card">
     <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #444; text-align: center;">
-        룬을 장착할 슬롯을 선택하세요
+        룬을 선택해주세요
     </div>
     <div class="slot-container">
         <script>for(let i=0;i<5;i++) document.write(`<div class="slot" id="slot${i}" onclick="openPicker(${i})"><small style="color:#ccc">슬롯 ${i+1}</small></div>`);</script>
@@ -158,16 +161,14 @@
     const lvSelect = document.getElementById('runeLevel');
     for(let i=1; i<=31; i++) lvSelect.add(new Option(i + "Lv", i));
 
-       const grid = document.getElementById('runeGrid');
-    let separatorAdded = false; // 구분선이 한 번만 추가되도록 체크
+    const grid = document.getElementById('runeGrid');
+    let separatorAdded = false;
 
     for (let name in RUNES_DATA) {
         const rune = RUNES_DATA[name];
-        
-        // 미지원 룬(levels가 비어있는 경우)을 처음 만났을 때 구분선 추가
         if (!separatorAdded && Object.keys(rune.levels).length === 0) {
             const hrContainer = document.createElement('div');
-            hrContainer.style.gridColumn = "1 / -1"; // 그리드 전체 너비 차지
+            hrContainer.style.gridColumn = "1 / -1";
             hrContainer.style.margin = "15px 0 10px 0";
             hrContainer.innerHTML = `
                 <hr style="border:0; border-top:1px solid #eee; margin-bottom:10px;">
@@ -181,18 +182,30 @@
 
         const item = document.createElement('div');
         item.className = 'rune-item';
-        // 미지원 룬은 시각적으로 약간 흐리게 처리 (선택 사항)
-        if (Object.keys(rune.levels).length === 0) {
-            item.style.opacity = "0.7";
-        }
+        if (Object.keys(rune.levels).length === 0) item.style.opacity = "0.7";
         
         item.innerHTML = `<img src="https://drive.google.com/thumbnail?id=${rune.imgId}&sz=200"><span>${name}</span>`;
         item.onclick = () => selectRuneFromGrid(name, item);
         grid.appendChild(item);
     }
 
-    function openPicker(idx) {
+       function openPicker(idx) {
+        // 이미 해당 슬롯이 열려있는 상태에서 다시 누르면 닫기
+        if (state.activeIdx === idx && document.getElementById('runePicker').style.display === 'block') {
+            state.activeIdx = null;
+            document.querySelectorAll('.slot').forEach(slot => slot.classList.remove('active'));
+            document.getElementById('runePicker').style.display = 'none';
+            return;
+        }
+
         state.activeIdx = idx;
+        
+        // 슬롯 활성화 시각화
+        document.querySelectorAll('.slot').forEach((slot, i) => {
+            if(i === idx) slot.classList.add('active');
+            else slot.classList.remove('active');
+        });
+
         document.getElementById('runePicker').style.display = 'block';
         if(state.slots[idx]) {
             document.getElementById('removeBtn').style.display = 'block';
@@ -201,8 +214,10 @@
         } else { 
             document.getElementById('removeBtn').style.display = 'none'; 
             document.getElementById('detailArea').style.display = 'none';
+            document.querySelectorAll('.rune-item').forEach(i => i.style.borderColor = 'transparent');
         }
     }
+
 
     function selectRuneFromGrid(name, el) {
         state.tempRune = name;
@@ -244,14 +259,18 @@
             }
         });
         state.slots[idx] = { name: runeName, level: lv, effect: RUNES_DATA[runeName].levels[lv] };
-        document.getElementById(`slot${idx}`).innerHTML = `<img src="https://drive.google.com/thumbnail?id=${RUNES_DATA[runeName].imgId}&sz=200">`;
+        const slotEl = document.getElementById(`slot${idx}`);
+        slotEl.innerHTML = `<img src="https://drive.google.com/thumbnail?id=${RUNES_DATA[runeName].imgId}&sz=200">`;
+        slotEl.classList.remove('active');
         document.getElementById('runePicker').style.display = 'none';
         autoCalc();
     }
 
     function removeRune() {
         state.slots[state.activeIdx] = null;
-        document.getElementById(`slot${state.activeIdx}`).innerHTML = `<small style="color:#ccc">슬롯 ${state.activeIdx+1}</small>`;
+        const slotEl = document.getElementById(`slot${state.activeIdx}`);
+        slotEl.innerHTML = `<small style="color:#ccc">슬롯 ${state.activeIdx+1}</small>`;
+        slotEl.classList.remove('active');
         document.getElementById('runePicker').style.display = 'none';
         autoCalc();
     }
@@ -296,7 +315,6 @@
             if(n==="매머드의 힘") { pH += parseFloat(e.hp); pA -= 25; }
             if(n.includes("단단한 피부")) redFix += Number(e.value);
             if(n.includes("피해 저항")) redFix += (e.prob/100 * e.value);
-            // 보호막 기댓값 반영 (데미지 감소율 * 발동횟수/전체공격수)
             if(n==="보호막") redFix += (titanInfo[1] * (e.value/100) * (e.turn/10)); 
             
             if(n==="메테오" || n==="낙뢰") { 
@@ -348,7 +366,6 @@
                     회복 기댓값: <span style="color:#2e7d32;">${Math.floor(recoverPerHit)}</span>
                 </div>
             </div>
-            
             <div class="accum-dmg-box">
                 <span style="font-size:12px; color:#555;">시간 설정: </span>
                 <select class="small-select" onchange="state.selectedAccumTime = this.value; autoCalc();">
@@ -359,7 +376,6 @@
                     (전체 체력의 ${hpPercent}%)
                 </div>
             </div>
-
             <div style="font-weight:bold; font-size:20px; color:#2e7d32; margin:5px 0;">DPS: ${Math.floor(dps).toLocaleString()}</div>
             <div style="font-size:13px;">킬타임: ${formatTime(timeToKill)} / 생존시간: ${formatTime(survivalTime)}</div>
             <div class="status-badge ${isWin?'pass':'fail'}">${isWin?'클리어 가능':'스펙 부족'}</div>
