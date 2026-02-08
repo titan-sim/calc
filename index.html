@@ -371,12 +371,14 @@
         const totalAccumDmg = dps * accumTimeSec;
         const hpPercent = ((totalAccumDmg / titanInfo[2]) * 100).toFixed(2);
 
-        // --- 정수 기반 일치 로직 ---
+        // --- 수정된 핵심 로직 ---
         const pureDamage = titanInfo[1];
         const finalRedFix = Math.floor(redFix);
         const finalReducedDamage = Math.max(0, pureDamage - finalRedFix);
+
+        // 흡혈은 bA(기본 공격력) 기준, 힐은 fH(최종 체력) 기준
         const finalRecover = Math.floor((fH * hRate) + (bA * lsRate * (tSpd / dSpd)));
- netChange = finalRecover - finalReducedDamage;
+        const netChange = finalRecover - finalReducedDamage; // 잘렸던 변수 선언 복구
         // -------------------------
 
         const changeClass = netChange >= 0 ? 'text-green' : 'text-red';
@@ -418,6 +420,7 @@
 
     autoCalc();
 </script>
+
 
 
 
