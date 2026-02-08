@@ -15,9 +15,7 @@
         .slot-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
         .slot { aspect-ratio: 1; border: 2px dashed #ccc; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fafafa; cursor: pointer; overflow: hidden; position: relative; transition: all 0.2s; }
         .slot img { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* 선택된 슬롯 강조 스타일 */
-        .slot.active { border: 2px solid ##b0ccd6; background-color: #e3f2fd; box-shadow: 0 0 8px rgba(33, 150, 243, 0.4); }
+        .slot.active { border: 2px solid #b0ccd6; background-color: #e3f2fd; box-shadow: 0 0 8px rgba(33, 150, 243, 0.4); }
 
         #runePicker { border-top: 2px solid #eee; padding-top: 20px; display: none; }
         .rune-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; max-height: 350px; overflow-y: auto; padding: 5px; }
@@ -54,8 +52,8 @@
 
 <div class="card">
     <div class="input-grid">
-        <div><label>공룡 공격력</label><input type="number" id="baseAtk" value="1" onfocus="this.select()" oninput="autoCalc()"></div>
-        <div><label>공룡 체력</label><input type="number" id="baseHp" value="10" onfocus="this.select()" oninput="autoCalc()"></div>
+        <div><label>공룡 공격력</label><input type="number" id="baseAtk" value="470" onfocus="this.select()" oninput="autoCalc()"></div>
+        <div><label>공룡 체력</label><input type="number" id="baseHp" value="2860" onfocus="this.select()" oninput="autoCalc()"></div>
         <div style="grid-column: span 2;">
             <label>내 공룡 수</label>
             <select id="dinoCount" onchange="autoCalc()">
@@ -190,7 +188,6 @@
     }
 
      function openPicker(idx) {
-        // 이미 해당 슬롯이 열려있는 상태에서 다시 누르면 닫기
         if (state.activeIdx === idx && document.getElementById('runePicker').style.display === 'block') {
             state.activeIdx = null;
             document.querySelectorAll('.slot').forEach(slot => slot.classList.remove('active'));
@@ -199,8 +196,6 @@
         }
 
         state.activeIdx = idx;
-        
-        // 슬롯 활성화 시각화
         document.querySelectorAll('.slot').forEach((slot, i) => {
             if(i === idx) slot.classList.add('active');
             else slot.classList.remove('active');
@@ -208,7 +203,6 @@
 
         document.getElementById('runePicker').style.display = 'block';
 
-        // [수정] 슬롯에 이미 룬이 있다면 그 룬의 레벨과 이름을 불러와서 설명 고정
         if(state.slots[idx]) {
             const currentRune = state.slots[idx];
             state.tempRune = currentRune.name; 
@@ -227,11 +221,9 @@
         state.tempRune = name;
         document.querySelectorAll('.rune-item').forEach(i => i.style.borderColor = 'transparent');
         
-        // 시각적 피드백 (그리드에서 선택 강조)
         if(el) {
             el.style.borderColor = '#2196F3';
         } else {
-            // 이름을 통해 요소를 찾아 강조 (openPicker에서 호출될 때)
             const items = document.querySelectorAll('.rune-item');
             items.forEach(item => {
                 if(item.querySelector('span').innerText === name) {
@@ -263,7 +255,6 @@
         let d = data.desc;
         const eff = data.levels[lv];
         if (eff) {
-            // [수정] 슬롯이나 레벨이 바뀌어도 현재 tempRune 데이터만 참조하도록 엄격히 제한
             for (let k in eff) {
                 d = d.split(`{${k}}`).join(eff[k]);
             }
@@ -271,17 +262,11 @@
         document.getElementById('runeDesc').innerText = d;
     }
 
-        let d = data.desc;
-        const eff = data.levels[lv];
-        for (let k in eff) d = d.split(`{${k}}`).join(eff[k]);
-        document.getElementById('runeDesc').innerText = d;
-    }
-
     function applyToSlot() {
         const idx = state.activeIdx;
         const lv = document.getElementById('runeLevel').value;
         const runeName = state.tempRune;
-        if (Object.keys(RUNES_DATA[runeName].levels).length === 0) return;
+        if (!runeName || Object.keys(RUNES_DATA[runeName].levels).length === 0) return;
 
         state.slots.forEach((s, i) => {
             if (s && s.name === runeName && i !== idx) {
@@ -371,15 +356,12 @@
         const totalAccumDmg = dps * accumTimeSec;
         const hpPercent = ((totalAccumDmg / titanInfo[2]) * 100).toFixed(2);
 
-        // --- 수정된 핵심 로직 ---
         const pureDamage = titanInfo[1];
         const finalRedFix = Math.floor(redFix);
         const finalReducedDamage = Math.max(0, pureDamage - finalRedFix);
 
-        // 흡혈은 bA(기본 공격력) 기준, 힐은 fH(최종 체력) 기준
         const finalRecover = Math.floor((fH * hRate) + (bA * lsRate * (tSpd / dSpd)));
-        const netChange = finalRecover - finalReducedDamage; // 잘렸던 변수 선언 복구
-        // -------------------------
+        const netChange = finalRecover - finalReducedDamage;
 
         const changeClass = netChange >= 0 ? 'text-green' : 'text-red';
         const changeSign = netChange >= 0 ? '+' : '';
@@ -415,12 +397,9 @@
             <div style="font-size:13px;">킬타임: ${formatTime(timeToKill)} / 생존시간: ${formatTime(survivalTime)}</div>
             <div class="status-badge ${isWin?'pass':'fail'}">${isWin?'클리어 가능':'스펙 부족'}</div>
         `;
-
     }
 
     autoCalc();
 </script>
-
-
-
-
+</body>
+</html>
