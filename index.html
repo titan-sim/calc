@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dino Mutant 시뮬레이터 Pro</title>
-    <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Mutant 시뮬레이터 Pro</title>
+<style>
         body { font-family: 'Pretendard', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; max-width: 800px; margin: 0 auto; line-height: 1.6; }
         .warning { font-size: 12px; color: #999; text-align: center; margin-bottom: 15px; }
         .card { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #eee; }
@@ -36,54 +36,68 @@
         .result-box { text-align: center; }
         .res-val { font-weight: bold; color: #333; }
         .res-main { font-size: 24px; font-weight: bold; margin: 10px 0; }
-    </style>
+</style>
 </head>
 <body>
-    <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
-
-    <div class="card">
-        <div class="input-grid">
-            <div><label>공룡 공격력</label><input type="number" id="baseAtk" value="1" oninput="updateLiveStats()"></div>
-            <div><label>공룡 체력</label><input type="number" id="baseHp" value="10" oninput="updateLiveStats()"></div>
-            <div style="grid-column: span 2;"><label>내 공룡 수</label>
-                <select id="dinoCount" onchange="updateLiveStats()">
-                    <script>for(let i=1;i<=9;i++) document.write(`<option value="${i}">${i}마리</option>`);</script>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #444; text-align: center;">장착된 룬</div>
-        <div class="slot-container">
-            <script>for(let i=0;i<5;i++) document.write(`<div class="slot" id="slot${i}" onclick="openPicker(${i})"><small style="color:#ccc">슬롯 ${i+1}</small></div>`);</script>
-        </div>
-        <div id="runePicker">
-            <div class="rune-grid" id="runeGrid"></div>
-            <div id="detailArea" class="detail-card" style="display:none;">
-                <div id="runeGrade" class="rune-grade">등급</div>
-                <div style="margin-bottom:12px;"><label>레벨 (1~31)</label><select id="runeLevel" onchange="updateDetail()"></select></div>
-                <div id="runeDesc" style="font-size:13px; color:#444; margin: 10px 0; white-space: pre-line; background:#fff; padding:12px; border-radius:6px; border:1px solid #eee;"></div>
-                <button class="btn-apply" onclick="applyToSlot()">룬 장착하기</button>
-                <button id="removeBtn" class="btn-remove" onclick="removeRune()">장착 해제</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="card" style="margin-bottom: 10px;">
-        <label>타이탄 레벨 선택</label>
-        <select id="targetTitan" onchange="updateLiveStats()"></select>
-        
-        <div id="liveStats" class="stat-summary" style="margin-top:15px;"></div>
-        
-        <button class="btn-sim" onclick="startSimulation()">시뮬레이션 시작</button>
-    </div>
-
-    <div class="card">
-        <div id="finalStats" class="result-box">결과창</div>
-    </div>
-
-    <script>
+<div class="warning">
+	※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.
+</div>
+<div class="card">
+	<div class="input-grid">
+		<div>
+			<label>공룡 공격력</label><input type="number" id="baseAtk" value="1" oninput="updateLiveStats()" onfocus="this.select()">
+		</div>
+		<div>
+			<label>공룡 체력</label><input type="number" id="baseHp" value="10" oninput="updateLiveStats()" onfocus="this.select()">
+		</div>
+		<div style="grid-column: span 2;">
+			<label>내 공룡 수</label>
+			<select id="dinoCount" onchange="updateLiveStats()">
+				<script>for(let i=1;i<=9;i++) document.write(`<option value="${i}">${i}마리</option>`);</script>
+			</select>
+		</div>
+	</div>
+</div>
+<div class="card">
+	<div style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #444; text-align: center;">
+		장착된 룬
+	</div>
+	<div class="slot-container">
+		<script>for(let i=0;i<5;i++) document.write(`<div class="slot" id="slot${i}" onclick="openPicker(${i})"><small style="color:#ccc">슬롯 ${i+1}</small></div>`);</script>
+	</div>
+	<div id="runePicker">
+		<div class="rune-grid" id="runeGrid">
+		</div>
+		<div id="detailArea" class="detail-card" style="display:none;">
+			<div id="runeGrade" class="rune-grade">
+				등급
+			</div>
+			<div style="margin-bottom:12px;">
+				<label>레벨 (1~31)</label>
+				<select id="runeLevel" onchange="updateDetail()">
+				</select>
+			</div>
+			<div id="runeDesc" style="font-size:13px; color:#444; margin: 10px 0; white-space: pre-line; background:#fff; padding:12px; border-radius:6px; border:1px solid #eee;">
+			</div>
+			<button class="btn-apply" onclick="applyToSlot()">룬 장착하기</button>
+			<button id="removeBtn" class="btn-remove" onclick="removeRune()">장착 해제</button>
+		</div>
+	</div>
+</div>
+<div class="card" style="margin-bottom: 10px;">
+	<label>타이탄 레벨 선택</label>
+	<select id="targetTitan" onchange="updateLiveStats()">
+	</select>
+	<div id="liveStats" class="stat-summary" style="margin-top:15px;">
+	</div>
+	<button class="btn-sim" onclick="startSimulation()">시뮬레이션 시작</button>
+</div>
+<div class="card">
+	<div id="finalStats" class="result-box">
+		결과창
+	</div>
+</div>
+<script>
                 const RUNES_DATA = {
             "힐": { grade: "일반", imgId: "10kOU5_hHneBmIpMJ-Hx0FuN-UanR5FDN", desc: "유닛에게 공격당할 때 {prob}% 확률로 내 유닛 최대 체력의 {value}% 회복", levels: (function(){ let lv={}; const data=[[5,1.0],[5,1.1],[5,1.2],[5,1.3],[5,1.4],[5,2.0],[5,2.1],[5,2.2],[5,2.3],[5,2.4],[8,2.5],[8,2.6],[8,2.7],[8,2.8],[8,2.9],[8,3.5],[8,3.6],[8,3.7],[8,3.8],[8,3.9],[10,4.0],[10,4.1],[10,4.2],[10,4.3],[10,4.4],[10,5.0],[10,5.1],[10,5.2],[10,5.3],[10,5.4],[13,8.0]]; data.forEach((d,i)=>lv[i+1]={prob:d[0], value:d[1]}); return lv; })() },
             "공격력 증가 1": { grade: "일반", imgId: "1ihowBMqeNvWag_4ou2JLgYilpLGvgnPa", desc: "유닛 공격력 {value} 증가", levels: (function(){ let lv={}; for(let i=1;i<=31;i++) lv[i]={value:i}; return lv; })() },
@@ -113,7 +127,6 @@
             "보스 슬레이어": { grade: "유니크", imgId: "1UaNaWoiuUASIRx62ixYoUTleH-wc_gFI", desc: "보스를 공격할 때 유닛의 공격력 {value}% 증가", levels: (function(){ let lv={}; const vals=[20,22,24,26,28,40,42,44,46,48,60,62,64,66,68,80,83,86,89,92,110,115,120,125,130,150,160,170,180,190,250]; vals.forEach((v,i)=>lv[i+1]={value:v.toFixed(1)}); return lv; })() },
             "메테오": { grade: "전설", imgId: "1fJVyoKiTVH1i0votjXaXuwAbTZjxnM-P", desc: "유닛을 공격할 때 {prob}% 확률로 현재 타일에 있는 모든 적에게 공격력의 {value}% 스킬 추가 피해\n레전더리 패시브 : 공격력{extra}%, 체력{extra}% 증가", levels: (function(){ let lv={}; const probs=[50,50,50,50,50,55,55,55,55,55,55,55,55,55,55,55,55,55,55,55,60,60,60,60,60,65,65,65,65,65,65]; const dmgs=[15,16,17,18,19,20,21,22,23,24,40,41,42,43,44,50,51,52,53,54,65,66,67,68,69,70,71,72,73,74,80]; const extras=[2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,7,7,7,7,7,7,7,7,7,7,10]; probs.forEach((p,i)=>lv[i+1]={prob:p, value:dmgs[i], extra:extras[i]}); return lv; })() },
             "낙뢰": { grade: "전설", imgId: "1pPUwyTblvZJDbTAPUOJYr8hdUqPTZmy4", desc: "유닛을 공격할 때 {prob}% 확률로 전투중인 상대 유닛에게 {value}% 스킬 추가 피해\n레전더리 패시브: 공격력{extra}%, 체력{extra}% 증가", levels: (function(){ let lv={}; const probs=[40,40,40,40,40,45,45,45,45,45,50,50,50,50,50,50,50,50,50,50,60,60,60,60,60,65,65,65,65,65,65]; const dmgs=[40.0,40.5,41.0,41.5,42.0,50.0,50.5,51.0,51.5,52.0,67.5,68.0,68.5,69.0,69.5,82.5,83.0,83.5,84.0,84.5,90.0,90.5,91.0,91.5,92.0,100.0,100.5,101.0,101.5,102.0,115.0]; const extras=[2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,7,7,7,7,7,7,7,7,7,7,10]; probs.forEach((p,i)=>lv[i+1]={prob:p, value:dmgs[i], extra:extras[i]}); return lv; })() },
-            
             "승리의 함성": { grade: "일반", imgId: "1kdYTPMnC9sHD_xVfJ7KlMEAmepKrI5U3", levels: {} },
             "자연의 포옹": { grade: "일반", imgId: "11shDd_9139ob8f3NJpu51kASPqzfDZTF", levels: {} },
             "파괴자 1": { grade: "일반", imgId: "1gEKQmAPtu3APq91BSK7YlUldIkPQQKV3", levels: {} },
@@ -125,7 +138,6 @@
             "강인함 2": { grade: "유니크", imgId: "12R07txrHKhMhwoxbE4M-QBw4mxxOUTxf", levels: {} },
             "지진": { grade: "유니크", imgId: "1qH0wEmw_otlxQBBofd-H4kuA2SMKIVKn", levels: {} }
         };
-
         const TITAN_DATA = (function() {
             let data = [];
             let currentAtk = 5; let currentHp = 2500000;
@@ -136,17 +148,13 @@
             }
             return data;
         })();
-
         let state = { slots: [null,null,null,null,null], activeIdx: null, tempRune: null };
-        
         const titanSel = document.getElementById('targetTitan');
         TITAN_DATA.forEach(t => titanSel.add(new Option(`Lv.${t[0]} (ATK ${t[1]} / HP ${t[2].toLocaleString()})`, t[0])));
         const lvSelect = document.getElementById('runeLevel');
         for(let i=1; i<=31; i++) lvSelect.add(new Option(i + "Lv", i));
-
         const grid = document.getElementById('runeGrid');
         let separatorAdded = false;
-
         for (let name in RUNES_DATA) {
             const rune = RUNES_DATA[name];
             if (!separatorAdded && Object.keys(rune.levels).length === 0) {
@@ -163,17 +171,14 @@
             item.onclick = () => selectRuneFromGrid(name, item);
             grid.appendChild(item);
         }
-
 function updateLiveStats() {
     const bA = Number(document.getElementById('baseAtk').value) || 0;
     const bH = Number(document.getElementById('baseHp').value) || 0;
     const titanLv = Number(document.getElementById('targetTitan').value);
     const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
     const tAtk = titanInfo ? titanInfo[1] : 0;
-
     let stats = { iA: 0, iH: 0, pA: 0, pH: 0 };
     let defense = { fixed: 0, probFixed: [], healProb: 0, healRate: 0, lsProb: 0, lsRate: 0 };
-
     state.slots.forEach(s => {
         if(!s) return;
         const e = s.effect, n = s.name;
@@ -188,24 +193,19 @@ function updateLiveStats() {
         if(n === "힐") { defense.healProb = e.prob/100; defense.healRate = e.value/100; }
         if(n === "흡혈") { defense.lsProb = e.prob/100; defense.lsRate = e.value/100; }
     });
-
     const fAtk = (bA + stats.iA) * (1 + stats.pA / 100);
     const fHp = (bH + stats.iH) * (1 + stats.pH / 100);
-
     // 1. 대미지 기댓값 (피격 1회당)
     let expectedDmgReduction = defense.fixed;
     defense.probFixed.forEach(r => expectedDmgReduction += (r.prob * r.value));
     const netDmg = Math.max(0, tAtk - expectedDmgReduction);
-
     // 2. 3초간 총 회복량 (힐 1회 + 흡혈 3회)
     const expectedHealRune = fHp * defense.healRate * defense.healProb;
     const expectedLifesteal = fAtk * defense.lsRate * defense.lsProb;
     const totalHealIn3Sec = expectedHealRune + (expectedLifesteal * 3);
-
     // 3. 순수 체력 변동량 (정수 계산)
     // 회복량에서 대미지를 뺀 순수 수치입니다.
     const hpNetChange = totalHealIn3Sec - netDmg;
-
     document.getElementById('liveStats').innerHTML = `
         <div class="stat-row"><span>최종 공격력:</span><span class="res-val">${Math.floor(fAtk).toLocaleString()}</span></div>
         <div class="stat-row"><span>최종 체력:</span><span class="res-val">${Math.floor(fHp).toLocaleString()}</span></div>
@@ -219,108 +219,124 @@ function updateLiveStats() {
         <div class="stat-row"><span>1회 피격 당 회복(기댓값):</span><span class="res-val" style="color:green;">+${totalHealIn3Sec.toFixed(1)}</span></div>
     `;
 }
-
         function startSimulation() {
             document.getElementById('finalStats').innerHTML = `<div style="padding:20px; font-weight:bold; color:#2196F3;">시뮬레이션 중...</div>`;
             setTimeout(autoCalc, 50);
         }
-
-        function autoCalc() {
-            const bA = Number(document.getElementById('baseAtk').value) || 0;
-            const bH = Number(document.getElementById('baseHp').value) || 0;
-            const dinoCount = Number(document.getElementById('dinoCount').value);
-            const titanLv = Number(document.getElementById('targetTitan').value);
-            const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
-            const tOriginalAtk = titanInfo[1];
-            const tMaxHp = titanInfo[2];
-
-            let stats = { iA: 0, iH: 0, pA: 0, pH: 0, cProb: 3, cDmg: 50, lifestealProb: 0, lifestealRate: 0 };
-            let attackRunes = [];
-            let defenseRunes = { fixed: 0, probFixed: [], shield: { rate: 0, turns: 0 }, healProb: 0, healRate: 0 };
-
-            state.slots.forEach(s => {
-                if(!s) return;
-                const e = s.effect, n = s.name;
-                if(n.includes("공격력 증가")) stats.iA += Number(e.value || 0);
-                if(n.includes("체력 증가")) stats.iH += Number(e.value || 0);
-                if(n === "강타" || n === "보스 슬레이어") stats.pA += parseFloat(e.value);
-                if(n === "방어벽") stats.pH += parseFloat(e.value);
-                if(n === "치명타 확률") stats.cProb += parseFloat(e.value);
-                if(n === "치명타 피해") stats.cDmg += parseFloat(e.value);
-                if(n === "압축된 힘") { stats.pA += parseFloat(e.atk); stats.pH -= 25; }
-                if(n === "매머드의 힘") { stats.pH += parseFloat(e.hp); stats.pA -= 25; }
-                if(n === "흡혈") { stats.lifestealProb = e.prob / 100; stats.lifestealRate = e.value / 100; }
-                if(n === "트리플 임팩트") attackRunes.push({ type: 'triple', rate: e.value/100 });
-                if(n === "낙뢰" || n === "메테오") {
-                    attackRunes.push({ type: 'prob', prob: e.prob/100, rate: e.value/100 });
-                    if(e.extra) { stats.pA += e.extra; stats.pH += e.extra; }
-                }
-                if(n.includes("단단한 피부")) defenseRunes.fixed += Number(e.value);
-                if(n.includes("피해 저항")) defenseRunes.probFixed.push({ prob: e.prob/100, value: e.value });
-                if(n === "보호막") { defenseRunes.shield.rate = e.value/100; defenseRunes.shield.turns = e.turn; }
-                if(n === "힐") { defenseRunes.healProb = e.prob / 100; defenseRunes.healRate = e.value / 100; }
-            });
-
-            const fAtk = (bA + stats.iA) * (1 + stats.pA / 100);
-            const fMaxHp = (bH + stats.iH) * (1 + stats.pH / 100);
-
-            const SIM_COUNT = 2000;
-            let totalWins = 0, totalDeadSum = 0, totalLifeTimeSum = 0, totalDmgSum = 0;
-
-            for(let i=0; i<SIM_COUNT; i++) {
-                let currentTHp = tMaxHp;
-                let dinos = Array(dinoCount).fill(0).map(() => ({ hp: fMaxHp, shield: defenseRunes.shield.turns, hits: 0, alive: true, time: 0 }));
-                let time = 0;
-
-                // 종료 조건: 전멸 OR 2시간(7200초)
-                while(currentTHp > 0 && dinos.some(d => d.alive) && time < 7200) {
-                    time++;
-                    dinos.forEach(d => {
-                        if(!d.alive) return;
-                        d.time++; d.hits++;
-                        let isCrit = Math.random() < (stats.cProb / 100);
-                        let dmg = isCrit ? fAtk * (1 + stats.cDmg / 100) : fAtk;
-                        attackRunes.forEach(r => {
-                            if(r.type === 'triple' && d.hits % 3 === 0) dmg += fAtk * r.rate;
-                            if(r.type === 'prob' && Math.random() < r.prob) dmg += fAtk * r.rate;
-                        });
-                        currentTHp -= dmg; totalDmgSum += dmg;
-                        if(Math.random() < stats.lifestealProb) d.hp = Math.min(fMaxHp, d.hp + (fAtk * stats.lifestealRate));
-                    });
-
-                    if(time % 3 === 0 && currentTHp > 0) {
-                        dinos.forEach(d => {
-                            if(!d.alive) return;
-                            let tDmg = tOriginalAtk - defenseRunes.fixed;
-                            defenseRunes.probFixed.forEach(r => { if(Math.random() < r.prob) tDmg -= r.value; });
-                            if(d.shield > 0) { tDmg *= (1 - defenseRunes.shield.rate); d.shield--; }
-                            d.hp -= Math.max(0, tDmg);
-                            if(Math.random() < defenseRunes.healProb) d.hp = Math.min(fMaxHp, d.hp + (fMaxHp * defenseRunes.healRate));
-                            if(d.hp <= 0) { d.alive = false; }
-                        });
-                    }
-                }
-                if(currentTHp <= 0) totalWins++;
-                totalDeadSum += dinos.filter(d => !d.alive).length;
-                dinos.forEach(d => totalLifeTimeSum += d.time);
-            }
-
-            const winRate = (totalWins / SIM_COUNT * 100).toFixed(1);
-            const avgDead = (totalDeadSum / SIM_COUNT).toFixed(1);
-            const avgLife = (totalLifeTimeSum / (SIM_COUNT * dinoCount)).toFixed(1);
-            const avgDmg = (totalDmgSum / SIM_COUNT);
-            const dmgPercent = (avgDmg / tMaxHp * 100).toFixed(1);
-
-            document.getElementById('finalStats').innerHTML = `
-                <div class="res-main" style="color:${winRate > 50 ? '#2e7d32' : '#c62828'}">${winRate}% 승률</div>
-                <div style="text-align:left; display:inline-block; font-size:14px;">
-                    <div>• 죽은 공룡 수: <span class="res-val">${avgDead}마리</span></div>
-                    <div>• 죽은 공룡의 생존 시간 평균: <span class="res-val">${avgLife}초</span></div>
-                    <div>• 최종 준 대미지 합계: <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (${dmgPercent}%)</span></div>
-                </div>
-            `;
+function autoCalc() {
+    const bA = Number(document.getElementById('baseAtk').value) || 0;
+    const bH = Number(document.getElementById('baseHp').value) || 0;
+    const dinoCount = Number(document.getElementById('dinoCount').value);
+    const titanLv = Number(document.getElementById('targetTitan').value);
+    const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
+    const tOriginalAtk = titanInfo[1];
+    const tMaxHp = titanInfo[2];
+    // 스탯 초기화
+    let stats = { iA: 0, iH: 0, pA: 0, pH: 0, cProb: 3, cDmg: 50, lifestealProb: 0, lifestealRate: 0 };
+    // 흡혈 전용 스탯 (특정 룬 제외용)
+    let lsStats = { iA: 0, pA: 0 };
+    let attackRunes = [];
+    let defenseRunes = { fixed: 0, probFixed: [], shield: { rate: 0, turns: 0 }, healProb: 0, healRate: 0 };
+    // 제외 대상 룬 리스트
+    const excludedRunes = ["고독한분노", "협동공격", "마지막선물", "자연의 포옹", "승리의함성", "부족의 축복", "보스 슬레이어", "파괴자"];
+    state.slots.forEach(s => {
+        if(!s) return;
+        const e = s.effect, n = s.name;
+        const isExcluded = excludedRunes.some(ex => n.includes(ex));
+        // 1. 공격력 관련 (일반 및 흡혈용 분리)
+        if(n.includes("공격력 증가")) {
+            const val = Number(e.value || 0);
+            stats.iA += val;
+            if(!isExcluded) lsStats.iA += val;
         }
-
+        if(n === "강타" || n === "보스 슬레이어" || n === "파괴자" || n === "고독한분노" || n === "협동공격" || n === "부족의 축복") {
+            const val = parseFloat(e.value || 0);
+            stats.pA += val;
+            if(!isExcluded) lsStats.pA += val;
+        }
+        if(n === "압축된 힘") {
+            stats.pA += parseFloat(e.atk || 0);
+            if(!isExcluded) lsStats.pA += parseFloat(e.atk || 0);
+            stats.pH -= 25;
+        }
+        // 2. 체력 및 기타 스탯
+        if(n.includes("체력 증가")) stats.iH += Number(e.value || 0);
+        if(n === "방어벽") stats.pH += parseFloat(e.value || 0);
+        if(n === "매머드의 힘") { stats.pH += parseFloat(e.hp || 0); stats.pA -= 25; }
+        if(n === "치명타 확률") stats.cProb += parseFloat(e.value || 0);
+        if(n === "치명타 피해") stats.cDmg += parseFloat(e.value || 0);
+        // 3. 흡혈 및 특수 효과
+        if(n === "흡혈") { stats.lifestealProb = (e.prob || 0) / 100; stats.lifestealRate = (e.value || 0) / 100; }
+        if(n === "트리플 임팩트") attackRunes.push({ type: 'triple', rate: (e.value || 0) / 100 });
+        if(n === "낙뢰" || n === "메테오") {
+            attackRunes.push({ type: 'prob', prob: (e.prob || 0) / 100, rate: (e.value || 0) / 100 });
+            if(e.extra) { stats.pA += e.extra; stats.pH += e.extra; }
+        }
+        // 4. 방어 관련
+        if(n.includes("단단한 피부")) defenseRunes.fixed += Number(e.value || 0);
+        if(n.includes("피해 저항")) defenseRunes.probFixed.push({ prob: (e.prob || 0) / 100, value: Number(e.value || 0) });
+        if(n === "보호막") { defenseRunes.shield.rate = (e.value || 0) / 100; defenseRunes.shield.turns = e.turn || 0; }
+        if(n === "힐") { defenseRunes.healProb = (e.prob || 0) / 100; defenseRunes.healRate = (e.value || 0) / 100; }
+    });
+    // 최종 스탯 확정
+    const fAtk = (bA + stats.iA) * (1 + stats.pA / 100);             // 실제 공격력
+    const lsAtk = (bA + lsStats.iA) * (1 + lsStats.pA / 100);       // 흡혈용 공격력 (특정 룬 제외)
+    const fMaxHp = (bH + stats.iH) * (1 + stats.pH / 100);
+    const SIM_COUNT = 2000;
+    let totalWins = 0, totalDeadSum = 0, totalLifeTimeSum = 0, totalDmgSum = 0;
+    for(let i=0; i<SIM_COUNT; i++) {
+        let currentTHp = tMaxHp;
+        let dinos = Array(dinoCount).fill(0).map(() => ({ hp: fMaxHp, shield: defenseRunes.shield.turns, hits: 0, alive: true, time: 0 }));
+        let time = 0;
+        while(currentTHp > 0 && dinos.some(d => d.alive) && time < 7200) {
+            time++;
+            dinos.forEach(d => {
+                if(!d.alive) return;
+                d.time++; d.hits++;
+                // 공격 대미지 계산
+                let isCrit = Math.random() < (stats.cProb / 100);
+                let dmg = isCrit ? fAtk * (1 + stats.cDmg / 100) : fAtk;
+                attackRunes.forEach(r => {
+                    if(r.type === 'triple' && d.hits % 3 === 0) dmg += fAtk * r.rate;
+                    if(r.type === 'prob' && Math.random() < r.prob) dmg += fAtk * r.rate;
+                });
+                currentTHp -= dmg; totalDmgSum += dmg;
+                // 흡혈 적용 (lsAtk 기준)
+                if(Math.random() < stats.lifestealProb) {
+                    d.hp = Math.min(fMaxHp, d.hp + (lsAtk * stats.lifestealRate));
+                }
+            });
+            // 타이탄의 공격 (3초마다)
+            if(time % 3 === 0 && currentTHp > 0) {
+                dinos.forEach(d => {
+                    if(!d.alive) return;
+                    let tDmg = tOriginalAtk - defenseRunes.fixed;
+                    defenseRunes.probFixed.forEach(r => { if(Math.random() < r.prob) tDmg -= r.value; });
+                    if(d.shield > 0) { tDmg *= (1 - defenseRunes.shield.rate); d.shield--; }
+                    d.hp -= Math.max(0, tDmg);
+                    // 힐 룬 적용
+                    if(Math.random() < defenseRunes.healProb) d.hp = Math.min(fMaxHp, d.hp + (fMaxHp * defenseRunes.healRate));
+                    if(d.hp <= 0) d.alive = false;
+                });
+            }
+        }
+        if(currentTHp <= 0) totalWins++;
+        totalDeadSum += dinos.filter(d => !d.alive).length;
+        dinos.forEach(d => totalLifeTimeSum += d.time);
+    }
+    // 결과 출력 (승률 제외)
+    const avgDead = (totalDeadSum / SIM_COUNT).toFixed(1);
+    const avgLife = (totalLifeTimeSum / (SIM_COUNT * dinoCount)).toFixed(1);
+    const avgDmg = (totalDmgSum / SIM_COUNT);
+    const dmgPercent = (avgDmg / tMaxHp * 100).toFixed(1);
+    document.getElementById('finalStats').innerHTML = `
+        <div style="text-align:left; display:inline-block; font-size:14px; margin-top:10px;">
+            <div>• 죽은 공룡 수: <span class="res-val">${avgDead}마리</span></div>
+            <div>• 죽은 공룡의 생존 시간 평균: <span class="res-val">${avgLife}초</span></div>
+            <div>• 최종 준 대미지 합계: <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (${dmgPercent}%)</span></div>
+        </div>
+    `;
+}
         function openPicker(idx) {
             if (state.activeIdx === idx && document.getElementById('runePicker').style.display === 'block') {
                 state.activeIdx = null; document.querySelectorAll('.slot').forEach(s => s.classList.remove('active'));
@@ -334,13 +350,16 @@ function updateLiveStats() {
                 document.getElementById('removeBtn').style.display = 'block'; selectRuneFromGrid(state.tempRune);
             } else { state.tempRune = null; document.getElementById('removeBtn').style.display = 'none'; document.getElementById('detailArea').style.display = 'none'; }
         }
-
         function selectRuneFromGrid(name, el) {
-            state.tempRune = name; document.querySelectorAll('.rune-item').forEach(i => i.style.borderColor = 'transparent');
-            if(el) el.style.borderColor = '#2196F3';
-            document.getElementById('detailArea').style.display = 'block'; updateDetail();
-        }
-
+    state.tempRune = name; 
+    document.querySelectorAll('.rune-item').forEach(i => i.style.borderColor = 'transparent');
+    if(el) el.style.borderColor = '#2196F3';
+    const detailArea = document.getElementById('detailArea');
+    detailArea.style.display = 'block'; 
+    updateDetail();
+    // 추가: 룬 클릭 시 레벨 설정 칸으로 자동 스크롤
+    detailArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
         function updateDetail() {
             if (!state.tempRune) return;
             const lv = document.getElementById('runeLevel').value; const data = RUNES_DATA[state.tempRune];
@@ -350,7 +369,6 @@ function updateLiveStats() {
             if (eff) for (let k in eff) d = d.split(`{${k}}`).join(eff[k]);
             document.getElementById('runeDesc').innerText = d;
         }
-
         function applyToSlot() {
             const idx = state.activeIdx; const lv = document.getElementById('runeLevel').value;
             const runeName = state.tempRune; if (!runeName || !RUNES_DATA[runeName].levels[lv]) return;
@@ -360,14 +378,12 @@ function updateLiveStats() {
             document.getElementById('runePicker').style.display = 'none';
             updateLiveStats();
         }
-
         function removeRune() {
             state.slots[state.activeIdx] = null;
             document.getElementById(`slot${state.activeIdx}`).innerHTML = `<small style="color:#ccc">슬롯 ${state.activeIdx+1}</small>`;
             document.getElementById('runePicker').style.display = 'none';
             updateLiveStats();
         }
-
         updateLiveStats();
     </script>
 </body>
