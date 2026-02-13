@@ -231,69 +231,65 @@ function autoCalc() {
     const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
     const tOriginalAtk = titanInfo[1];
     const tMaxHp = titanInfo[2];
-    // 스탯 초기화
+
     let stats = { iA: 0, iH: 0, pA: 0, pH: 0, cProb: 3, cDmg: 50, lifestealProb: 0, lifestealRate: 0 };
-    // 흡혈 전용 스탯 (특정 룬 제외용)
     let lsStats = { iA: 0, pA: 0 };
     let attackRunes = [];
     let defenseRunes = { fixed: 0, probFixed: [], shield: { rate: 0, turns: 0 }, healProb: 0, healRate: 0 };
-    // 제외 대상 룬 리스트
     const excludedRunes = ["고독한분노", "협동공격", "마지막선물", "자연의 포옹", "승리의함성", "부족의 축복", "보스 슬레이어", "파괴자"];
+
     state.slots.forEach(s => {
         if(!s) return;
         const e = s.effect, n = s.name;
         const isExcluded = excludedRunes.some(ex => n.includes(ex));
-        // 1. 공격력 관련 (일반 및 흡혈용 분리)
         if(n.includes("공격력 증가")) {
             const val = Number(e.value || 0);
-            stats.iA += val;
-            if(!isExcluded) lsStats.iA += val;
+            stats.iA += val; if(!isExcluded) lsStats.iA += val;
         }
         if(n === "강타" || n === "보스 슬레이어" || n === "파괴자" || n === "고독한분노" || n === "협동공격" || n === "부족의 축복") {
             const val = parseFloat(e.value || 0);
-            stats.pA += val;
-            if(!isExcluded) lsStats.pA += val;
+            stats.pA += val; if(!isExcluded) lsStats.pA += val;
         }
         if(n === "압축된 힘") {
-            stats.pA += parseFloat(e.atk || 0);
-            if(!isExcluded) lsStats.pA += parseFloat(e.atk || 0);
+            stats.pA += parseFloat(e.atk || 0); if(!isExcluded) lsStats.pA += parseFloat(e.atk || 0);
             stats.pH -= 25;
         }
-        // 2. 체력 및 기타 스탯
         if(n.includes("체력 증가")) stats.iH += Number(e.value || 0);
         if(n === "방어벽") stats.pH += parseFloat(e.value || 0);
         if(n === "매머드의 힘") { stats.pH += parseFloat(e.hp || 0); stats.pA -= 25; }
         if(n === "치명타 확률") stats.cProb += parseFloat(e.value || 0);
         if(n === "치명타 피해") stats.cDmg += parseFloat(e.value || 0);
-        // 3. 흡혈 및 특수 효과
         if(n === "흡혈") { stats.lifestealProb = (e.prob || 0) / 100; stats.lifestealRate = (e.value || 0) / 100; }
         if(n === "트리플 임팩트") attackRunes.push({ type: 'triple', rate: (e.value || 0) / 100 });
         if(n === "낙뢰" || n === "메테오") {
             attackRunes.push({ type: 'prob', prob: (e.prob || 0) / 100, rate: (e.value || 0) / 100 });
             if(e.extra) { stats.pA += e.extra; stats.pH += e.extra; }
         }
-        // 4. 방어 관련
         if(n.includes("단단한 피부")) defenseRunes.fixed += Number(e.value || 0);
         if(n.includes("피해 저항")) defenseRunes.probFixed.push({ prob: (e.prob || 0) / 100, value: Number(e.value || 0) });
         if(n === "보호막") { defenseRunes.shield.rate = (e.value || 0) / 100; defenseRunes.shield.turns = e.turn || 0; }
         if(n === "힐") { defenseRunes.healProb = (e.prob || 0) / 100; defenseRunes.healRate = (e.value || 0) / 100; }
     });
-    // 최종 스탯 확정
-    const fAtk = (bA + stats.iA) * (1 + stats.pA / 100);             // 실제 공격력
-    const lsAtk = (bA + lsStats.iA) * (1 + lsStats.pA / 100);       // 흡혈용 공격력 (특정 룬 제외)
+
+    const fAtk = (bA + stats.iA) * (1 + stats.pA / 100);
+    const lsAtk = (bA + lsStats.iA) * (1 + lsStats.pA / 100);
     const fMaxHp = (bH + stats.iH) * (1 + stats.pH / 100);
+
     const SIM_COUNT = 2000;
     let totalWins = 0, totalDeadSum = 0, totalLifeTimeSum = 0, totalDmgSum = 0;
+    let minHpRecords = []; // 모든 판의 최저 체력 기록
+
     for(let i=0; i<SIM_COUNT; i++) {
         let currentTHp = tMaxHp;
-        let dinos = Array(dinoCount).fill(0).map(() => ({ hp: fMaxHp, shield: defenseRunes.shield.turns, hits: 0, alive: true, time: 0 }));
+        // minHp: 각 공룡의 이번 판 최저 체력을 fMaxHp로 초기화하여 추적
+        let dinos = Array(dinoCount).fill(0).map(() => ({ hp: fMaxHp, minHp: fMaxHp, shield: defenseRunes.shield.turns, hits: 0, alive: true, time: 0 }));
         let time = 0;
+
         while(currentTHp > 0 && dinos.some(d => d.alive) && time < 7200) {
             time++;
             dinos.forEach(d => {
                 if(!d.alive) return;
                 d.time++; d.hits++;
-                // 공격 대미지 계산
                 let isCrit = Math.random() < (stats.cProb / 100);
                 let dmg = isCrit ? fAtk * (1 + stats.cDmg / 100) : fAtk;
                 attackRunes.forEach(r => {
@@ -301,12 +297,9 @@ function autoCalc() {
                     if(r.type === 'prob' && Math.random() < r.prob) dmg += fAtk * r.rate;
                 });
                 currentTHp -= dmg; totalDmgSum += dmg;
-                // 흡혈 적용 (lsAtk 기준)
-                if(Math.random() < stats.lifestealProb) {
-                    d.hp = Math.min(fMaxHp, d.hp + (lsAtk * stats.lifestealRate));
-                }
+                if(Math.random() < stats.lifestealProb) d.hp = Math.min(fMaxHp, d.hp + (lsAtk * stats.lifestealRate));
             });
-            // 타이탄의 공격 (3초마다)
+
             if(time % 3 === 0 && currentTHp > 0) {
                 dinos.forEach(d => {
                     if(!d.alive) return;
@@ -314,26 +307,36 @@ function autoCalc() {
                     defenseRunes.probFixed.forEach(r => { if(Math.random() < r.prob) tDmg -= r.value; });
                     if(d.shield > 0) { tDmg *= (1 - defenseRunes.shield.rate); d.shield--; }
                     d.hp -= Math.max(0, tDmg);
-                    // 힐 룬 적용
                     if(Math.random() < defenseRunes.healProb) d.hp = Math.min(fMaxHp, d.hp + (fMaxHp * defenseRunes.healRate));
-                    if(d.hp <= 0) d.alive = false;
+                    
+                    // 최저 체력 갱신
+                    if(d.hp < d.minHp) d.minHp = d.hp;
+                    if(d.hp <= 0) { d.hp = 0; d.alive = false; d.minHp = 0; }
                 });
             }
         }
         if(currentTHp <= 0) totalWins++;
         totalDeadSum += dinos.filter(d => !d.alive).length;
-        dinos.forEach(d => totalLifeTimeSum += d.time);
+        dinos.forEach(d => {
+            totalLifeTimeSum += d.time;
+            minHpRecords.push(Math.max(0, d.minHp)); // 모든 공룡의 최저 기록 수집
+        });
     }
-    // 결과 출력 (승률 제외)
+
     const avgDead = (totalDeadSum / SIM_COUNT).toFixed(1);
     const avgLife = (totalLifeTimeSum / (SIM_COUNT * dinoCount)).toFixed(1);
     const avgDmg = (totalDmgSum / SIM_COUNT);
     const dmgPercent = (avgDmg / tMaxHp * 100).toFixed(1);
+    // 최저 체력 평균 계산
+    const avgMinHp = (minHpRecords.reduce((a, b) => a + b, 0) / minHpRecords.length);
+    const minHpPercent = ((avgMinHp / fMaxHp) * 100).toFixed(1);
+
     document.getElementById('finalStats').innerHTML = `
         <div style="text-align:left; display:inline-block; font-size:14px; margin-top:10px;">
             <div>• 죽은 공룡 수: <span class="res-val">${avgDead}마리</span></div>
-            <div>• 죽은 공룡의 생존 시간 평균: <span class="res-val">${avgLife}초</span></div>
-            <div>• 최종 준 대미지 합계: <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (${dmgPercent}%)</span></div>
+            <div>• 생존 시 평균 최저 체력: <span class="res-val" style="color:#e91e63;">${Math.floor(avgMinHp).toLocaleString()} (${minHpPercent}%)</span></div>
+            <div>• 공룡의 생존 시간 평균: <span class="res-val">${avgLife}초</span></div>
+            <div>• 최종 준 대미지 합계: <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (타이탄의 ${dmgPercent}%)</span></div>
         </div>
     `;
 }
