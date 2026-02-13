@@ -431,97 +431,120 @@
             return res;
         }
 
-        function autoCalc() {
-            const bA = Number(document.getElementById('baseAtk').value) || 0;
-            const bH = Number(document.getElementById('baseHp').value) || 0;
-            const count = Number(document.getElementById('dinoCount').value);
-            const titanLv = Number(document.getElementById('targetTitan').value);
-            const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
-            const dSpd = 1.0, tSpd = 3.0;
-            
-            let cProb = 3, cDmg = 5; 
-            let iA = 0, iH = 0, pA = 0, pH = 0;
-            let exceptIA = 0, exceptPA = 0;
-            let extraProbs = []; 
-            let hRate = 0, lsRate = 0, redFix = 0;
+function autoCalc() {
+    // 1. 기본 데이터 수집
+    const bA = Number(document.getElementById('baseAtk').value) || 0;
+    const bH = Number(document.getElementById('baseHp').value) || 0;
+    const count = Number(document.getElementById('dinoCount').value);
+    const titanLv = Number(document.getElementById('targetTitan').value);
+    const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
+    
+    const titanOriginalAtk = titanInfo[1];
+    const titanOriginalHp = titanInfo[2];
+    
+    // 2. 룬 데이터 정리 (공격/방어/유산 분리)
+    let stats = { iA: 0, iH: 0, pA: 0, pH: 0, cProb: 3, cDmg: 5, lifesteal: 0 };
+    let attackRunes = []; // 트리플, 낙뢰, 메테오
+    let defenseRunes = { fixed: 0, probFixed: [], shield: { rate: 0, turns: 0 }, heal: 0 };
+    let deathRunes = { sacrifice: 0, gift: 0, ready: 0 };
 
-            state.slots.forEach(s => {
-                if(!s) return;
-                const e = s.effect, n = s.name;
-                if(n.includes("공격력 증가") && !n.includes("%")) iA += Number(e.value);
-                else if(n==="협동 공격" && count >= 5) { iA += Number(e.atk); iH += Number(e.hp); exceptIA += Number(e.atk); }
-                else if(n==="고독한 분노" && count === 1) { iA += Number(e.atk); iH += Number(e.hp); exceptIA += Number(e.atk); }
-                else if(n.includes("체력 증가") && !n.includes("%")) iH += Number(e.value);
-                if(n==="강타") pA += parseFloat(e.value);
-                if(n==="보스 슬레이어") { pA += parseFloat(e.value); exceptPA += parseFloat(e.value); }
-                if(n==="방어벽") pH += parseFloat(e.value);
-                if(n==="압축된 힘") { pA += parseFloat(e.atk); pH -= 25; }
-                if(n==="매머드의 힘") { pH += parseFloat(e.hp); pA -= 25; }
-                if(n==="메테오" || n==="낙뢰") { pA += Number(e.extra); pH += Number(e.extra); }
-                if(n==="치명타 확률") cProb += parseFloat(e.value);
-                if(n==="치명타 피해") cDmg += parseFloat(e.value);
-                if(n.includes("단단한 피부")) redFix += Number(e.value);
-                if(n.includes("피해 저항")) redFix += (e.prob/100 * e.value);
-                if(n==="메테오" || n==="낙뢰") extraProbs.push({prob: e.prob/100, rate: e.value/100}); 
-                if(n==="트리플 임팩트") extraProbs.push({prob: 1/3, rate: e.value/100}); 
-                if(n==="힐") hRate += (e.prob/100 * e.value/100); 
-                if(n==="흡혈") lsRate += (e.prob/100 * e.value/100); 
+    state.slots.forEach(s => {
+        if(!s) return;
+        const e = s.effect, n = s.name;
+        // 스탯 버프 (흡혈에 영향 주는 항목)
+        if(n.includes("공격력 증가") && !n.includes("%")) stats.iA += Number(e.value);
+        if(n === "강타") stats.pA += parseFloat(e.value);
+        if(n === "보스 슬레이어") stats.pA += parseFloat(e.value);
+        if(n === "흡혈") stats.lifesteal = (e.prob/100) * (e.value/100); // 기댓값 처리 혹은 시뮬 반영
+
+        // 공격 룬 (흡혈 제외)
+        if(n === "트리플 임팩트") attackRunes.push({ type: 'triple', rate: e.value/100 });
+        if(n === "낙뢰") attackRunes.push({ type: 'prob', prob: e.prob/100, rate: e.value/100 });
+        if(n === "메테오") attackRunes.push({ type: 'prob', prob: e.prob/100, rate: e.value/100 });
+
+        // 방어 룬
+        if(n.includes("단단한 피부")) defenseRunes.fixed += Number(e.value);
+        if(n.includes("피해 저항")) defenseRunes.probFixed.push({ prob: e.prob/100, value: e.value });
+        if(n === "보호막") { defenseRunes.shield.rate = e.value/100; defenseRunes.shield.turns = e.turn; }
+        if(n === "힐") defenseRunes.heal = (e.prob/100) * (e.value/100);
+    });
+
+    // 3. 시뮬레이션 변수 설정
+    const SIM_COUNT = 1000; // 1000번의 전투 시뮬레이션
+    let totalWin = 0;
+    let totalSurvivalTime = 0;
+
+    // --- 시뮬레이션 루프 (핵심 로직) ---
+    for(let i = 0; i < SIM_COUNT; i++) {
+        let currentTitanHp = titanOriginalHp;
+        let currentDinoHp = (bH + stats.iH) * (1 + stats.pH/100);
+        let currentDinoAtk = (bA + stats.iA) * (1 + stats.pA/100); // 버프 포함 공격력
+        let shieldActiveTurns = defenseRunes.shield.turns;
+        let hitCount = 0;
+        let battleTime = 0;
+
+        while(currentDinoHp > 0 && currentTitanHp > 0) {
+            battleTime += 1; // 1초 단위 계산 (간략화)
+
+            // [1단계] 공룡 공격 (1초마다)
+            hitCount++;
+            let damageToTitan = currentDinoAtk; // 흡혈 기준이 되는 공격력
+            let extraDamage = 0;
+
+            // 추가 룬 데미지 계산 (흡혈 제외 리스트)
+            attackRunes.forEach(rune => {
+                if(rune.type === 'triple' && hitCount % 3 === 0) extraDamage += currentDinoAtk * rune.rate;
+                if(rune.type === 'prob' && Math.random() < rune.prob) extraDamage += currentDinoAtk * rune.rate;
             });
 
-            const fA = (bA + iA) * (1 + pA/100);
-            const vA = (bA + (iA - exceptIA)) * (1 + (pA - exceptPA)/100);
-            const fH = (bH + iH) * (1 + pH/100);
-            const critMultiplier = 1 + (cProb/100 * (cDmg/100));
+            currentTitanHp -= (damageToTitan + extraDamage);
+            
+            // [흡혈] 버프된 공격력 기준으로만 회복
+            if(Math.random() < 0.2) { // 흡혈 확률 예시
+                currentDinoHp += (damageToTitan * stats.lifesteal); 
+            }
 
-            let avgDmgPerHit = fA * critMultiplier; 
-            extraProbs.forEach(ex => { avgDmgPerHit += (fA * ex.rate * ex.prob) * critMultiplier; });
+            // [2단계] 타이탄 공격 (3초마다)
+            if(battleTime % 3 === 0) {
+                let damageFromTitan = titanOriginalAtk;
+                
+                // 1. 정수 차감 (단단한 피부 + 피해 저항)
+                damageFromTitan -= defenseRunes.fixed;
+                defenseRunes.probFixed.forEach(r => {
+                    if(Math.random() < r.prob) damageFromTitan -= r.value;
+                });
 
-            const dps = avgDmgPerHit / dSpd * count;
-            const accumTimeSec = state.selectedAccumTime * 60;
-            const totalAccumDmg = dps * accumTimeSec;
-            const hpPercent = ((totalAccumDmg / titanInfo[2]) * 100).toFixed(2);
+                // 2. 보호막 (%) 적용
+                if(shieldActiveTurns > 0) {
+                    damageFromTitan *= (1 - defenseRunes.shield.rate);
+                    shieldActiveTurns--;
+                }
 
-            const pureDamage = titanInfo[1];
-            const finalRedFix = Math.floor(redFix);
-            const finalReducedDamage = Math.max(0, pureDamage - finalRedFix);
-            const finalRecover = Math.floor((fH * hRate) + (vA * lsRate * (tSpd / dSpd)));
-            const netChange = finalRecover - finalReducedDamage;
+                damageFromTitan = Math.max(0, damageFromTitan);
+                currentDinoHp -= damageFromTitan;
 
-            const changeClass = netChange >= 0 ? 'text-green' : 'text-red';
-            const changeSign = netChange >= 0 ? '+' : '';
-            const survivalTime = netChange >= 0 ? 999999 : (fH / (Math.abs(netChange) / tSpd));
-            const timeToKill = titanInfo[2] / dps;
-            const isWin = survivalTime >= timeToKill;
-
-            let options = '';
-            for(let m=10; m<=120; m+=10) options += `<option value="${m}" ${state.selectedAccumTime == m ? 'selected' : ''}>${m}분</option>`;
-
-            document.getElementById('finalStats').innerHTML = `
-                <div style="font-size:13px; color:#666; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:15px;">
-                    최종 공격력: <b>${Math.floor(fA).toLocaleString()}</b> / 최종 체력: <b>${Math.floor(fH).toLocaleString()}</b>
-                    <div style="margin-top:10px; padding:12px; background:#f8fbff; border-radius:8px; line-height:1.8; border:1px solid #e3f2fd;">
-                        1회 피격 시 체력 변동 수치: <span class="${changeClass}">${changeSign}${netChange.toLocaleString()}</span><br>
-                        피해량(-${finalRedFix}): <span style="color:#d32f2f;">${finalReducedDamage}</span> | 
-                        회복 기댓값: <span style="color:#2e7d32;">${finalRecover}</span>
-                        ${exceptPA > 0 || exceptIA > 0 ? `<br><small style="color:#999;">(일부 룬의 효과가 흡혈에서 제외되었습니다)</small>` : ''}
-                    </div>
-                </div>
-                <div class="accum-dmg-box">
-                    <span style="font-size:12px; color:#666; font-weight:600;">누적 피해 시간 설정: </span>
-                    <select class="small-select" onchange="state.selectedAccumTime = this.value; autoCalc();">
-                        ${options}
-                    </select>
-                    <div style="font-size:14px; font-weight:bold; margin-top:8px; color:#1976d2;">
-                        ${state.selectedAccumTime}분간 총 피해: ${Math.floor(totalAccumDmg).toLocaleString()}<br>
-                        (전체 체력의 ${hpPercent}%)
-                    </div>
-                </div>
-                <div style="font-weight:800; font-size:24px; color:#333; margin:10px 0;">DPS: ${Math.floor(dps).toLocaleString()}</div>
-                <div style="font-size:13px; color:#666; margin-bottom:10px;">킬타임: ${formatTime(timeToKill)} / 생존시간: ${formatTime(survivalTime)}</div>
-                <div class="status-badge ${isWin?'pass':'fail'}">${isWin?'클리어 가능':'스펙 부족'}</div>`;
+                // 3. 힐 확률 체크
+                if(Math.random() < 0.1) currentDinoHp += (bH * 0.05); // 예시 수치
+            }
+            
+            if(battleTime > 3600) break; // 1시간 넘으면 중단
         }
+        if(currentTitanHp <= 0) totalWin++;
+    }
+
+    // 4. 결과 출력 (UI 업데이트)
+    const winRate = (totalWin / SIM_COUNT * 100).toFixed(1);
+    document.getElementById('finalStats').innerHTML = `
+        <div class="result-box">
+            <h3>시뮬레이션 승률: <span class="${winRate > 50 ? 'text-green' : 'text-red'}">${winRate}%</span></h3>
+            <p>보호막 적용 횟수: ${defenseRunes.shield.turns}회</p>
+            <p>흡혈 적용 기준 공격력: ${Math.floor(currentDinoAtk).toLocaleString()}</p>
+        </div>
+    `;
+}
         
         autoCalc();
     </script>
 </body>
 </html>
+
