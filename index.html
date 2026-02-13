@@ -210,7 +210,7 @@ function updateLiveStats() {
         <div class="stat-row"><span>최종 공격력:</span><span class="res-val">${Math.floor(fAtk).toLocaleString()}</span></div>
         <div class="stat-row"><span>최종 체력:</span><span class="res-val">${Math.floor(fHp).toLocaleString()}</span></div>
         <div style="border-top:1px dashed #ccc; margin:8px 0;"></div>
-        <div class="stat-row"><span>1회 피격 시 체력 변동 수치:</span>
+        <div class="stat-row"><span>1회 피격 시 체력 변동 수치(기댓값):</span>
             <span class="res-val" style="color:${hpNetChange >= 0 ? 'green' : 'red'}">
                 ${hpNetChange >= 0 ? '+' : ''}${Math.floor(hpNetChange).toLocaleString()}
             </span>
@@ -218,6 +218,15 @@ function updateLiveStats() {
         <div class="stat-row"><span>1회 받는 대미지(기댓값):</span><span class="res-val" style="color:red;">-${netDmg.toFixed(1)}</span></div>
         <div class="stat-row"><span>1회 피격 당 회복(기댓값):</span><span class="res-val" style="color:green;">+${totalHealIn3Sec.toFixed(1)}</span></div>
     `;
+// --- 자동 저장 로직 ---
+    const saveData = {
+        baseAtk: document.getElementById('baseAtk').value,
+        baseHp: document.getElementById('baseHp').value,
+        dinoCount: document.getElementById('dinoCount').value,
+        targetTitan: document.getElementById('targetTitan').value,
+        slots: state.slots 
+    };
+    localStorage.setItem('dino_mutant_config', JSON.stringify(saveData));
 }
         function startSimulation() {
             document.getElementById('finalStats').innerHTML = `<div style="padding:20px; font-weight:bold; color:#2196F3;">시뮬레이션 중...</div>`;
@@ -275,7 +284,7 @@ function autoCalc() {
     const lsAtk = (bA + lsStats.iA) * (1 + lsStats.pA / 100);
     const fMaxHp = (bH + stats.iH) * (1 + stats.pH / 100);
 
-    const SIM_COUNT = 2000;
+    const SIM_COUNT = 1000;
     let totalWins = 0, totalDeadSum = 0, totalLifeTimeSum = 0, totalDmgSum = 0;
     let minHpRecords = []; // 모든 판의 최저 체력 기록
 
@@ -323,20 +332,60 @@ function autoCalc() {
         });
     }
 
+   // ... (이전 시뮬레이션 연산 로직은 동일)
+
+    // 결과 데이터 가공
     const avgDead = (totalDeadSum / SIM_COUNT).toFixed(1);
     const avgLife = (totalLifeTimeSum / (SIM_COUNT * dinoCount)).toFixed(1);
     const avgDmg = (totalDmgSum / SIM_COUNT);
     const dmgPercent = (avgDmg / tMaxHp * 100).toFixed(1);
-    // 최저 체력 평균 계산
+    
+    // 최저 체력 평균 및 비율 계산
     const avgMinHp = (minHpRecords.reduce((a, b) => a + b, 0) / minHpRecords.length);
-    const minHpPercent = ((avgMinHp / fMaxHp) * 100).toFixed(1);
+    const minHpPercent = (avgMinHp / fMaxHp * 100);
 
+ // 1. 안정성 멘트 및 색상 세분화 (7단계)
+    let stabilityText = "";
+    let textColor = "";
+
+    if (parseFloat(avgDead) > 0) {
+        stabilityText = "공룡이 버틸 수 없습니다";
+        textColor = "#8B0000"; // 검붉은색
+    } else {
+        if (minHpPercent <= 10) { stabilityText = "매우 위험"; textColor = "#FF0000"; } // 붉은색
+        else if (minHpPercent <= 20) { stabilityText = "위험"; textColor = "#FF8C00"; } // 주황색
+        else if (minHpPercent <= 30) { stabilityText = "보통"; textColor = "#FFD700"; } // 노란색 (골드)
+        else if (minHpPercent <= 40) { stabilityText = "안정"; textColor = "#90EE90"; } // 연초록색
+        else if (minHpPercent <= 50) { stabilityText = "매우 안정"; textColor = "#008000"; } // 초록색
+        else { stabilityText = "공룡이 죽을 수 없습니다"; textColor = "#0000FF"; } // 파란색
+    }
+
+    // 2. 게이지 바 색상 로직 (3단계)
+    let barColor = "#f44336"; // 25% 미만 빨강
+    if (minHpPercent >= 50) barColor = "#4caf50"; // 50% 이상 초록
+    else if (minHpPercent >= 25) barColor = "#ffc107"; // 25% 이상 노랑
+
+    // 3. UI 렌더링
     document.getElementById('finalStats').innerHTML = `
-        <div style="text-align:left; display:inline-block; font-size:14px; margin-top:10px;">
-            <div>• 죽은 공룡 수: <span class="res-val">${avgDead}마리</span></div>
-            <div>• 생존 시 평균 최저 체력: <span class="res-val" style="color:#e91e63;">${Math.floor(avgMinHp).toLocaleString()} (${minHpPercent}%)</span></div>
-            <div>• 공룡의 생존 시간 평균: <span class="res-val">${avgLife}초</span></div>
-            <div>• 최종 준 대미지 합계: <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (타이탄의 ${dmgPercent}%)</span></div>
+        <div style="font-weight: bold; font-size: 16px; margin-bottom: 12px; border-bottom: 2px solid #eee; padding-bottom: 8px; color:#444;">
+            📊 시뮬레이션 결과(천 번 반복 계산)
+        </div>
+        
+        <div style="margin-bottom: 18px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px;">
+                <span style="font-size: 13px; color: #000;">공룡 체력 바</span>
+                <span style="font-size: 16px; font-weight: 900; color: ${textColor};">${stabilityText}</span>
+            </div>
+            <div style="width: 100%; height: 14px; background: #eee; border-radius: 7px; overflow: hidden; border: 1px solid #ddd;">
+                <div style="width: ${minHpPercent}%; height: 100%; background-color: ${barColor}; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #999; margin-top: 4px;">체력 최저치 기록 평균: ${minHpPercent.toFixed(1)}%</div>
+        </div>
+
+        <div style="text-align:left; display:inline-block; font-size:14px; width: 100%;">
+            <div class="stat-row"><span>• 죽은 공룡 수 평균:</span> <span class="res-val">${avgDead}마리</span></div>
+            <div class="stat-row"><span>• 공룡 생존 시간 평균:</span> <span class="res-val">${avgLife}초</span></div>
+            <div class="stat-row"><span>• 타이탄에게 준 대미지:</span> <span class="res-val">${Math.floor(avgDmg).toLocaleString()} (${dmgPercent}%)</span></div>
         </div>
     `;
 }
@@ -387,7 +436,28 @@ function autoCalc() {
             document.getElementById('runePicker').style.display = 'none';
             updateLiveStats();
         }
-        updateLiveStats();
+  // --- 자동 불러오기 로직 ---
+const savedData = localStorage.getItem('dino_mutant_config');
+if (savedData) {
+    const data = JSON.parse(savedData);
+    document.getElementById('baseAtk').value = data.baseAtk || 1;
+    document.getElementById('baseHp').value = data.baseHp || 10;
+    document.getElementById('dinoCount').value = data.dinoCount || 1;
+    document.getElementById('targetTitan').value = data.targetTitan || 1;
+    
+    if (data.slots) {
+        state.slots = data.slots;
+        state.slots.forEach((s, i) => {
+            if (s && RUNES_DATA[s.name]) {
+                document.getElementById(`slot${i}`).innerHTML = 
+                    `<img src="https://drive.google.com/thumbnail?id=${RUNES_DATA[s.name].imgId}&sz=200">`;
+            }
+        });
+    }
+}
+// -----------------------
+updateLiveStats(); // 기존에 있던 호출문     
+  updateLiveStats();
     </script>
 </body>
 </html>
