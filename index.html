@@ -310,106 +310,127 @@
         return res;
     }
 
-    function autoCalc() {
-        const bA = Number(document.getElementById('baseAtk').value) || 0;
-        const bH = Number(document.getElementById('baseHp').value) || 0;
-        const count = Number(document.getElementById('dinoCount').value);
-        const titanLv = Number(document.getElementById('targetTitan').value);
-        const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
-        const dSpd = 1.0, tSpd = 3.0;
-        
-        let cProb = 3, cDmg = 5; 
-        let iA = 0, iH = 0, pA = 0, pH = 0;
-        let extraProbs = []; 
-        let hRate = 0, lsRate = 0, redFix = 0;
+function autoCalc() {
+    const bA = Number(document.getElementById('baseAtk').value) || 0;
+    const bH = Number(document.getElementById('baseHp').value) || 0;
+    const count = Number(document.getElementById('dinoCount').value);
+    const titanLv = Number(document.getElementById('targetTitan').value);
+    const titanInfo = TITAN_DATA.find(t => t[0] === titanLv);
+    const dSpd = 1.0, tSpd = 3.0;
+    
+    let cProb = 3, cDmg = 5; 
+    let iA = 0, iH = 0, pA = 0, pH = 0;
+    let extraDmgRate = 0; // 추가 피해 % 합계
+    let extraProbs = []; 
+    let hRate = 0, lsRate = 0, redFix = 0;
 
-        state.slots.forEach(s => {
-            if(!s) return;
-            const e = s.effect, n = s.name;
-            if(n.includes("공격력 증가") && !n.includes("%")) iA += Number(e.value);
-            else if(n.includes("체력 증가") && !n.includes("%")) iH += Number(e.value);
-            else if(n==="협동 공격" && count >= 5) { iA += Number(e.atk); iH += Number(e.hp); }
-            else if(n==="고독한 분노" && count === 1) { iA += Number(e.atk); iH += Number(e.hp); }
-            if(n==="강타") pA += parseFloat(e.value);
-            if(n==="치명타 확률") cProb += parseFloat(e.value);
-            if(n==="치명타 피해") cDmg += parseFloat(e.value);
-            if(n==="방어벽") pH += parseFloat(e.value);
-            if(n==="압축된 힘") { pA += parseFloat(e.atk); pH -= 25; }
-            if(n==="매머드의 힘") { pH += parseFloat(e.hp); pA -= 25; }
-            if(n.includes("단단한 피부")) redFix += Number(e.value);
-            if(n.includes("피해 저항")) redFix += (e.prob/100 * e.value);
-            
-            if(n==="메테오" || n==="낙뢰") { 
-                pA += Number(e.extra); 
-                pH += Number(e.extra); 
-                extraProbs.push({prob: e.prob/100, rate: e.value/100}); 
-            }
-            if(n==="트리플 임팩트") extraProbs.push({prob: 1/3, rate: e.value/100}); 
-            if(n==="힐") hRate += (e.prob/100 * e.value/100); 
-            if(n==="흡혈") lsRate += (e.prob/100 * e.value/100); 
-        });
+    // 1. 룬 데이터 순회 및 분류
+    state.slots.forEach(s => {
+        if(!s) return;
+        const e = s.effect, n = s.name;
 
-        const fA = (bA + iA) * (1 + pA/100);
-        const fH = (bH + iH) * (1 + pH/100);
-        const critMultiplier = 1 + (cProb/100 * (cDmg/100));
+        // 정수 증가치 (iA, iH)
+        if(n.includes("공격력 증가") && !n.includes("%")) iA += Number(e.value);
+        else if(n.includes("체력 증가") && !n.includes("%")) iH += Number(e.value);
+        else if(n==="협동 공격" && count >= 5) { iA += Number(e.atk); iH += Number(e.hp); }
+        else if(n==="고독한 분노" && count === 1) { iA += Number(e.atk); iH += Number(e.hp); }
 
-        let avgDmgPerHit = fA * critMultiplier; 
-        extraProbs.forEach(ex => {
-            avgDmgPerHit += (fA * ex.rate * ex.prob) * critMultiplier;
-        });
+        // 퍼센트 증가치 (pA, pH) - 보스 슬레이어 포함
+        if(n==="강타") pA += parseFloat(e.value);
+        if(n==="보스 슬레이어") pA += parseFloat(e.value); // 보스 슬레이어 합산
+        if(n==="방어벽") pH += parseFloat(e.value);
+        if(n==="압축된 힘") { pA += parseFloat(e.atk); pH -= 25; }
+        if(n==="매머드의 힘") { pH += parseFloat(e.hp); pA -= 25; }
 
-        const dps = avgDmgPerHit / dSpd * count;
-        const accumTimeSec = state.selectedAccumTime * 60;
-        const totalAccumDmg = dps * accumTimeSec;
-        const hpPercent = ((totalAccumDmg / titanInfo[2]) * 100).toFixed(2);
-
-        const pureDamage = titanInfo[1];
-        const finalRedFix = Math.floor(redFix);
-        const finalReducedDamage = Math.max(0, pureDamage - finalRedFix);
-
-        const finalRecover = Math.floor((fH * hRate) + (fA * lsRate * (tSpd / dSpd)));
-        const netChange = finalRecover - finalReducedDamage;
-
-        const changeClass = netChange >= 0 ? 'text-green' : 'text-red';
-        const changeSign = netChange >= 0 ? '+' : '';
-        const survivalTime = netChange >= 0 ? 999999 : (fH / (Math.abs(netChange) / tSpd));
-        const timeToKill = titanInfo[2] / dps;
-        const isWin = survivalTime >= timeToKill;
-
-        let options = '';
-        for(let m=10; m<=120; m+=10) {
-            options += `<option value="${m}" ${state.selectedAccumTime == m ? 'selected' : ''}>${m}분</option>`;
+        // 전설 패시브
+        if(n==="메테오" || n==="낙뢰") { 
+            pA += Number(e.extra); 
+            pH += Number(e.extra); 
         }
 
-        document.getElementById('finalStats').innerHTML = `
-            <div style="font-size:13px; color:#666; margin-bottom:10px; border-bottom:1px solid #bbdefb; padding-bottom:10px;">
-                최종 공격력: <b>${Math.floor(fA).toLocaleString()}</b> / 최종 체력: <b>${Math.floor(fH).toLocaleString()}</b>
-                <div style="margin-top:8px; padding:8px; background:#f0f7ff; border-radius:6px; line-height:1.6;">
-                    1회 피격 시 체력 변동 수치: <span class="${changeClass}">${changeSign}${netChange.toLocaleString()}</span><br>
-                    피해량(-${finalRedFix}): <span style="color:#d32f2f;">${finalReducedDamage}</span> | 
-                    회복 기댓값: <span style="color:#2e7d32;">${finalRecover}</span>
-                </div>
-            </div>
-            <div class="accum-dmg-box">
-                <span style="font-size:12px; color:#555;">시간 설정: </span>
-                <select class="small-select" onchange="state.selectedAccumTime = this.value; autoCalc();">
-                    ${options}
-                </select>
-                <div style="font-size:13px; font-weight:bold; margin-top:5px; color:#1976d2;">
-                    ${state.selectedAccumTime}분간 총 피해: ${Math.floor(totalAccumDmg).toLocaleString()}<br>
-                    (전체 체력의 ${hpPercent}%)
-                </div>
-            </div>
-            <div style="font-weight:bold; font-size:20px; color:#2e7d32; margin:5px 0;">DPS: ${Math.floor(dps).toLocaleString()}</div>
-            <div style="font-size:13px;">킬타임: ${formatTime(timeToKill)} / 생존시간: ${formatTime(survivalTime)}</div>
-            <div class="status-badge ${isWin?'pass':'fail'}">${isWin?'클리어 가능':'스펙 부족'}</div>
-        `;
+        // 치명타 및 고정 감소
+        if(n==="치명타 확률") cProb += parseFloat(e.value);
+        if(n==="치명타 피해") cDmg += parseFloat(e.value);
+        if(n.includes("단단한 피부")) redFix += Number(e.value);
+        if(n.includes("피해 저항")) redFix += (e.prob/100 * e.value);
+        
+        // 2. 추가 피해 로직 (공격 시 확률/조건부 발동)
+        if(n==="메테오" || n==="낙뢰") extraProbs.push({prob: e.prob/100, rate: e.value/100}); 
+        if(n==="트리플 임팩트") extraProbs.push({prob: 1/3, rate: e.value/100}); 
+
+        // 회복 관련
+        if(n==="힐") hRate += (e.prob/100 * e.value/100); 
+        if(n==="흡혈") lsRate += (e.prob/100 * e.value/100); 
+    });
+
+    // 3. 최종 연산 순서 적용
+    // [1단계] (정수 합산 후 % 적용)
+    const fA = (bA + iA) * (1 + pA/100);
+    const fH = (bH + iH) * (1 + pH/100);
+
+    // [2단계] 치명타 기댓값 계산
+    const critMultiplier = 1 + (cProb/100 * (cDmg/100));
+
+    // [3단계] 추가 피해 계산 (최종 공격력 fA 기준)
+    let avgDmgPerHit = fA * critMultiplier; 
+    extraProbs.forEach(ex => {
+        avgDmgPerHit += (fA * ex.rate * ex.prob) * critMultiplier;
+    });
+
+    // --- 이하 시뮬레이션 전 단계의 평균값 출력 로직 ---
+    const dps = avgDmgPerHit / dSpd * count;
+    const accumTimeSec = state.selectedAccumTime * 60;
+    const totalAccumDmg = dps * accumTimeSec;
+    const hpPercent = ((totalAccumDmg / titanInfo[2]) * 100).toFixed(2);
+
+    const pureDamage = titanInfo[1];
+    const finalRedFix = Math.floor(redFix);
+    const finalReducedDamage = Math.max(0, pureDamage - finalRedFix);
+
+    const finalRecover = Math.floor((fH * hRate) + (fA * lsRate * (tSpd / dSpd)));
+    const netChange = finalRecover - finalReducedDamage;
+
+    const changeClass = netChange >= 0 ? 'text-green' : 'text-red';
+    const changeSign = netChange >= 0 ? '+' : '';
+    const survivalTime = netChange >= 0 ? 999999 : (fH / (Math.abs(netChange) / tSpd));
+    const timeToKill = titanInfo[2] / dps;
+    const isWin = survivalTime >= timeToKill;
+
+    let options = '';
+    for(let m=10; m<=120; m+=10) {
+        options += `<option value="${m}" ${state.selectedAccumTime == m ? 'selected' : ''}>${m}분</option>`;
     }
+
+    document.getElementById('finalStats').innerHTML = `
+        <div style="font-size:13px; color:#666; margin-bottom:10px; border-bottom:1px solid #bbdefb; padding-bottom:10px;">
+            최종 공격력: <b>${Math.floor(fA).toLocaleString()}</b> / 최종 체력: <b>${Math.floor(fH).toLocaleString()}</b>
+            <div style="margin-top:8px; padding:8px; background:#f0f7ff; border-radius:6px; line-height:1.6;">
+                1회 피격 시 체력 변동 수치: <span class="${changeClass}">${changeSign}${netChange.toLocaleString()}</span><br>
+                피해량(-${finalRedFix}): <span style="color:#d32f2f;">${finalReducedDamage}</span> | 
+                회복 기댓값: <span style="color:#2e7d32;">${finalRecover}</span>
+            </div>
+        </div>
+        <div class="accum-dmg-box">
+            <span style="font-size:12px; color:#555;">시간 설정: </span>
+            <select class="small-select" onchange="state.selectedAccumTime = this.value; autoCalc();">
+                ${options}
+            </select>
+            <div style="font-size:13px; font-weight:bold; margin-top:5px; color:#1976d2;">
+                ${state.selectedAccumTime}분간 총 피해: ${Math.floor(totalAccumDmg).toLocaleString()}<br>
+                (전체 체력의 ${hpPercent}%)
+            </div>
+        </div>
+        <div style="font-weight:bold; font-size:20px; color:#2e7d32; margin:5px 0;">DPS: ${Math.floor(dps).toLocaleString()}</div>
+        <div style="font-size:13px;">킬타임: ${formatTime(timeToKill)} / 생존시간: ${formatTime(survivalTime)}</div>
+        <div class="status-badge ${isWin?'pass':'fail'}">${isWin?'클리어 가능':'스펙 부족'}</div>
+    `;
+}
 
     autoCalc();
 </script>
 </body>
 </html>
+
 
 
 
