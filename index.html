@@ -1427,9 +1427,8 @@
     window.onload = () => {
       // 1. 타이탄 데이터 및 커스텀 드롭다운 목록 생성
       const titanList = document.getElementById('titanList');
-      for (let lv = 1; lv <= 39; lv++) {
+      for (let lv = 1; lv <= 50; lv++) {
         let atk, hp;
-        // 제공해주신 자료 기반 정확한 스탯 계산
         if (lv <= 6) {
           atk = lv * 5;
           hp = 2500000 * lv;
@@ -2082,3 +2081,4 @@
 </body>
 
 </html>
+
