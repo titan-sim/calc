@@ -1,7 +1,7 @@
     const RUNES_DATA = {
       "힐": {
         grade: "일반",
-        imgId: "10kOU5_hHneBmIpMJ-Hx0FuN-UanR5FDN",
+        imgId: "RuneSprite_6",
         desc: "유닛에게 공격당할 때 {prob}% 확률로 내 유닛 최대 체력의 {rec_p}% 회복",
         levels: (function() {
           let lv = {};
@@ -16,7 +16,7 @@
       },
       "공격력 증가 1": {
         grade: "일반",
-        imgId: "1ihowBMqeNvWag_4ou2JLgYilpLGvgnPa",
+        imgId: "RuneSprite_7",
         desc: "유닛 공격력 {atk_f} 증가",
         levels: (function() {
           let lv = {};
@@ -28,7 +28,7 @@
       },
       "체력 증가 1": {
         grade: "일반",
-        imgId: "1vNpdtLIozfnNOhjl2-gIMFH33xLmgh3P",
+        imgId: "RuneSprite_11",
         desc: "유닛 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -40,7 +40,7 @@
       },
       "희생": {
         grade: "일반",
-        imgId: "1Yuy6PLeo7Jx-fAef04PVuqmiZjR_mw64",
+        imgId: "RuneSprite_16",
         desc: "사망 시 {prob}% 확률로 같은 타일에 있는 동일 부족 소속의 유닛에게 나의 유닛 최대 체력의 {rec_p}% 회복",
         levels: (function() {
           let lv = {};
@@ -55,7 +55,7 @@
       },
       "마지막 선물": {
         grade: "일반",
-        imgId: "16X52VhA2_Z-UFH6bNFdqA_XkXwPdWZJg",
+        imgId: "RuneSprite_17",
         desc: "사망 시 {prob}% 확률로 같은 타일에 있는 동일 부족 소속의 유닛에게 공격력 {atk_f} 증가 버프 {turn}턴 지속",
         levels: (function() {
           let lv = {};
@@ -71,7 +71,7 @@
       },
       "트리플 임팩트": {
         grade: "일반",
-        imgId: "1nO4CtfdB_FH7ZvCmL3uj1QPLDJte5mLB",
+        imgId: "RuneSprite_24",
         desc: "세번 째 공격마다 내 유닛의 공격력의 {burst_p}%의 추가 피해",
         levels: (function() {
           let lv = {};
@@ -84,7 +84,7 @@
       },
       "단단한 피부 1": {
         grade: "일반",
-        imgId: "1oHu7Ep7BwL7Es4dBRVdTyfnSrfd_xIq1",
+        imgId: "RuneSprite_25",
         desc: "적 유닛에게 공격당할 때 피해 {red_f}만큼 감소",
         levels: (function() {
           let lv = {};
@@ -96,7 +96,7 @@
       },
       "피해 저항 1": {
         grade: "일반",
-        imgId: "1tBCAdO-UyCTP32gHwEc7TVISeRINsrqa",
+        imgId: "RuneSprite_27",
         desc: "적 유닛에게 공격당할 때 {prob}%의 확률로 피해 {red_f}만큼 감소",
         levels: (function() {
           let lv = {};
@@ -111,7 +111,7 @@
       },
       "보호막": {
         grade: "일반",
-        imgId: "1-FCajygUymZcpCCxaK7_Scg5NtiPKyiM",
+        imgId: "RuneSprite_29",
         desc: "{turn}번의 적 공격 피해를 {red_p}% 감소",
         levels: (function() {
           let lv = {};
@@ -126,7 +126,7 @@
       },
       "공격력 증가 2": {
         grade: "희귀",
-        imgId: "1PKky7_H1ZXJNxzZJhByTw7hUclQ0aTRG",
+        imgId: "RuneSprite_8",
         desc: "유닛 공격력 {atk_f} 증가",
         levels: (function() {
           let lv = {};
@@ -138,7 +138,7 @@
       },
       "체력 증가 2": {
         grade: "희귀",
-        imgId: "1oIkxrSL3mVZo-fHXOv2Ot2Zmmftwpp3H",
+        imgId: "RuneSprite_12",
         desc: "유닛 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -150,7 +150,7 @@
       },
       "협동 공격": {
         grade: "희귀",
-        imgId: "1DzFWPRILgHZAF28JrzUzKZQWKCtAN2vR",
+        imgId: "RuneSprite_18",
         desc: "같은 타일에 내 유닛이 5마리 이상일 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -165,7 +165,7 @@
       },
       "고독한 분노": {
         grade: "희귀",
-        imgId: "1hAyyAwatFwvlKqth4sunU_gURWoTY4ZJ",
+        imgId: "RuneSprite_19",
         desc: "같은 타일에 내 유닛이 1마리일 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -178,7 +178,7 @@
       },
       "단단한 피부 2": {
         grade: "희귀",
-        imgId: "1XfdIrPSz_xm9v1KHB-TArpaRdv47zHLF",
+        imgId: "RuneSprite_26",
         desc: "적 유닛에게 공격당할 때 피해 {red_f}만큼 감소",
         levels: (function() {
           let lv = {};
@@ -190,7 +190,7 @@
       },
       "피해 저항 2": {
         grade: "희귀",
-        imgId: "13As5kbKRnyJA81fUClKxILhq8P9Rws0c",
+        imgId: "RuneSprite_28",
         desc: "적 유닛에게 공격당할 때 {prob}% 확률로 피해 {red_f}만큼 감소",
         levels: (function() {
           let lv = {};
@@ -205,7 +205,7 @@
       },
       "치명타 확률": {
         grade: "에픽",
-        imgId: "1rZUa6JfGfbksXt1qOO32veoEty9er_Bu",
+        imgId: "RuneSprite_4",
         desc: "유닛 치명타 확률 {prob}% 증가",
         levels: (function() {
           let lv = {};
@@ -218,7 +218,7 @@
       },
       "치명타 피해": {
         grade: "에픽",
-        imgId: "127l8ExJLlQENOySkwk_TiNDLO5gKo7Rm",
+        imgId: "RuneSprite_5",
         desc: "유닛 치명타 피해량 {crit_d}% 증가",
         levels: (function() {
           let lv = {};
@@ -231,7 +231,7 @@
       },
       "공격력 증가 3": {
         grade: "에픽",
-        imgId: "1MBbzM8Snw4awmVoS-mBe1ATN_WlkcwqL",
+        imgId: "RuneSprite_9",
         desc: "유닛 공격력 {atk_f} 증가",
         levels: (function() {
           let lv = {};
@@ -244,7 +244,7 @@
       },
       "체력 증가 3": {
         grade: "에픽",
-        imgId: "1r_tPl7V2ydsAD3p_amPfL1d92i-6AFLN",
+        imgId: "RuneSprite_13",
         desc: "유닛 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -257,7 +257,7 @@
       },
       "죽을 준비": {
         grade: "에픽",
-        imgId: "1x77384PZAogZ_hTJeRH1iLXPrOfM5e_g",
+        imgId: "RuneSprite_15",
         desc: "사망 시 {prob}% 확률로 현재 전투중인 유닛에게 나의 유닛의 공격력의 {burst_p}% 피해",
         levels: (function() {
           let lv = {};
@@ -272,7 +272,7 @@
       },
       "압축된 힘": {
         grade: "에픽",
-        imgId: "1aaijjlcR-GjrDeZy4WzBqFN2J7oBiw2C",
+        imgId: "RuneSprite_20",
         desc: "유닛의 크기가 작아지며 유닛의 공격력이 {atk_p}% 증가하고 최대 체력이 25% 감소",
         levels: (function() {
           let lv = {};
@@ -286,7 +286,7 @@
       },
       "매머드의 힘": {
         grade: "에픽",
-        imgId: "14UVrJVEIr5xZghRiG96doS_QhOQ0VxBK",
+        imgId: "RuneSprite_21",
         desc: "유닛의 크기가 커지며 유닛의 체력이 {hp_p}% 증가하고 공격력이 25% 감소",
         levels: (function() {
           let lv = {};
@@ -300,7 +300,7 @@
       },
       "흡혈": {
         grade: "유니크",
-        imgId: "1wpM4jrjnyShM9jkrWQuleCMRQzqajRg-",
+        imgId: "RuneSprite_3",
         desc: "유닛을 공격할 때 {prob}% 확률로 내 유닛 공격력의 {rec_p}% 만큼 체력 회복",
         levels: (function() {
           let lv = {};
@@ -315,7 +315,7 @@
       },
       "강타": {
         grade: "유니크",
-        imgId: "1duFRCFWSfwJIT4FcOfDcJU5t9_sYYSNd",
+        imgId: "RuneSprite_10",
         desc: "유닛 공격력 {atk_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -328,7 +328,7 @@
       },
       "방어벽": {
         grade: "유니크",
-        imgId: "19nNX-o2m8lDQfKLe5YXd7JijVf7HK0iI",
+        imgId: "RuneSprite_14",
         desc: "유닛 체력 {hp_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -341,7 +341,7 @@
       },
       "보스 슬레이어": {
         grade: "유니크",
-        imgId: "1UaNaWoiuUASIRx62ixYoUTleH-wc_gFI",
+        imgId: "RuneSprite_38",
         desc: "보스를 공격할 때 유닛의 공격력 {atk_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -354,7 +354,7 @@
       },
       "메테오": {
         grade: "전설",
-        imgId: "1fJVyoKiTVH1i0votjXaXuwAbTZjxnM-P",
+        imgId: "RuneSprite_1",
         desc: "유닛을 공격할 때 {prob}% 확률로 현재 타일에 있는 모든 적에게 공격력의 {burst_p}% 스킬 추가 피해\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -372,7 +372,7 @@
       },
       "낙뢰": {
         grade: "전설",
-        imgId: "1pPUwyTblvZJDbTAPUOJYr8hdUqPTZmy4",
+        imgId: "RuneSprite_2",
         desc: "유닛을 공격할 때 {prob}% 확률로 전투중인 상대 유닛에게 {burst_p}% 스킬 추가 피해\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -391,7 +391,7 @@
       // 부적합 룬 목록 (데이터 추가됨)
       "승리의 함성": {
         grade: "일반",
-        imgId: "1kdYTPMnC9sHD_xVfJ7KlMEAmepKrI5U3",
+        imgId: "RuneSprite_22",
         desc: "적 유닛을 처치 시 유닛의 공격력 {atk_p}% 버프 {turn}턴 지속",
         levels: (function() {
           let lv = {};
@@ -406,7 +406,7 @@
       },
       "자연의 포옹": {
         grade: "일반",
-        imgId: "11shDd_9139ob8f3NJpu51kASPqzfDZTF",
+        imgId: "RuneSprite_23",
         desc: "자연 구조물(채집지 제외)이 있는 타일 옆에 있을 경우 유닛의 공격력 {atk_f} 체력 {hp_f} 버프",
         levels: (function() {
           let lv = {};
@@ -419,7 +419,7 @@
       },
       "파괴자 1": {
         grade: "일반",
-        imgId: "1gEKQmAPtu3APq91BSK7YlUldIkPQQKV3",
+        imgId: "RuneSprite_30",
         desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -441,7 +441,7 @@
       },
       "강인함 1": {
         grade: "일반",
-        imgId: "1USRrGEG4SiMnOwYYV_IYy0hllT6fXNhN",
+        imgId: "RuneSprite_33",
         desc: "건축물에게 공격당할 때 피해 {red_f} 감소",
         levels: (function() {
           let lv = {};
@@ -453,7 +453,7 @@
       },
       "부족의 축복 1": {
         grade: "일반",
-        imgId: "19K30pdy48M0_TW7kR5Iz8Cxbx5NxYVkX",
+        imgId: "RuneSprite_34",
         desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -466,7 +466,7 @@
       },
       "파괴자 2": {
         grade: "희귀",
-        imgId: "1XWpJQ3PShBg43fHvfVgf1f8t0pDoD5mj",
+        imgId: "RuneSprite_31",
         desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -488,7 +488,7 @@
       },
       "부족의 축복 2": {
         grade: "희귀",
-        imgId: "1EIJibIbgJ2EXyMhJT59cSWNACb-ROxxv",
+        imgId: "RuneSprite_35",
         desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
         levels: (function() {
           let lv = {};
@@ -501,7 +501,7 @@
       },
       "파괴자 3": {
         grade: "에픽",
-        imgId: "1sSwqcPHGFhZIR1i-UfwHuU34NvvDPwN2",
+        imgId: "RuneSprite_32",
         desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
         levels: (function() {
           let lv = {};
@@ -523,7 +523,7 @@
       },
       "강인함 2": {
         grade: "유니크",
-        imgId: "12R07txrHKhMhwoxbE4M-QBw4mxxOUTxf",
+        imgId: "RuneSprite_36",
         desc: "건축물에게 공격당할 때 피해 {red_p}% 감소",
         levels: (function() {
           let lv = {};
@@ -545,7 +545,7 @@
       },
       "지진": {
         grade: "유니크",
-        imgId: "1qH0wEmw_otlxQBBofd-H4kuA2SMKIVKn",
+        imgId: "RuneSprite_37",
         desc: "적 건축물 대상 {count}번째 공격마다 주변 1칸 타일에 있는 적 건축물까지 건축물 대상 최종 피해량의 {burst_p}%만큼 피해를 줍니다.",
         levels: (function() {
           let lv = {};
