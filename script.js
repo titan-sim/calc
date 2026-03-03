@@ -103,6 +103,16 @@ const vampExclusion = [
 let selectedRunes = [null, null, null, null, null];
 let activeSlotIdx = null;
 let tempName = "";
+function getLvClass(lv) {
+  const n = parseInt(lv);
+  if (n <= 5) return "lv-5";
+  if (n <= 10) return "lv-10";
+  if (n <= 15) return "lv-15";
+  if (n <= 20) return "lv-20";
+  if (n <= 25) return "lv-25";
+  if (n <= 30) return "lv-30";
+  return "lv-31"; 
+}
 // 모든 설정값 저장 함수
 function saveUserConfig() {
   const config = {
@@ -140,24 +150,25 @@ function loadUserConfig() {
   document.querySelector(
     "#timeDropdown .selected-value"
   ).textContent = `${tLimit}분`;
-  // 룬 슬롯 복구
-  if (config.selectedRunes) {
-    selectedRunes = config.selectedRunes;
-    selectedRunes.forEach((rune, idx) => {
-      const slot = document.getElementById(`slot-${idx}`);
-      if (rune && rune.name && RUNES_DATA[rune.name]) {
-        slot.innerHTML = `
-                    <img src="${getImgUrl(
-                      RUNES_DATA[rune.name].imgId
-                    )}" class="slot-img">
-                    <div class="slot-lv-tag">Lv.${rune.lv}</div>`;
-      } else {
-        slot.innerHTML = `<span style="font-size:10px; color:#aaa;">슬롯 ${
-          idx + 1
-        }</span>`;
-      }
-    });
-  }
+// 룬 슬롯 복구
+if (config.selectedRunes) {
+  selectedRunes = config.selectedRunes;
+  selectedRunes.forEach((rune, idx) => {
+    const slot = document.getElementById(`slot-${idx}`);
+    if (rune && rune.name && RUNES_DATA[rune.name]) {
+      const r = RUNES_DATA[rune.name];
+      const lvClass = getLvClass(rune.lv); // 공통 함수 호출
+
+      // [최종 수정] 룬 테두리 클래스를 제거하고 이미지와 레벨만 배치
+      slot.innerHTML = `
+        <img src="${getImgUrl(r.imgId)}" class="slot-img">
+        <div class="slot-lv-tag ${lvClass}">${rune.lv}</div>
+      `;
+    } else {
+      slot.innerHTML = ""; // 데이터 없으면 비우기
+    }
+  });
+}
   calcFinal(); // 화면 스탯 갱신
 }
 window.onload = () => {
@@ -217,18 +228,15 @@ window.onload = () => {
   // 3. 공룡 마리수 (기존 select 유지)
   const dCount = document.getElementById("dinoCount");
   for (let i = 1; i <= 9; i++) dCount.add(new Option(`${i}마리`, i));
-  // 4. 룬 슬롯 생성
-  const sc = document.getElementById("slotContainer");
-  for (let i = 0; i < 5; i++) {
-    const div = document.createElement("div");
-    div.className = "slot";
-    div.id = `slot-${i}`;
-    div.innerHTML = `<span style="font-size:10px; color:#aaa;">슬롯 ${
-      i + 1
-    }</span>`;
-    div.onclick = () => openPicker(i);
-    sc.appendChild(div);
-  }
+// 4. 룬 슬롯 생성
+const sc = document.getElementById("slotContainer");
+for (let i = 0; i < 5; i++) {
+  const div = document.createElement("div");
+  div.className = "slot";
+  div.id = `slot-${i}`;
+  div.onclick = () => openPicker(i);
+  sc.appendChild(div);
+}
   // 5. 룬 그리드 생성
   const mainGrid = document.getElementById("mainGrid");
   const unsuitableGrid = document.getElementById("unsuitableGrid");
@@ -257,20 +265,35 @@ window.onload = () => {
 function openPicker(idx) {
   const picker = document.getElementById("runePicker");
   const isSameSlot = activeSlotIdx === idx;
+
   if (isSameSlot && picker.style.display === "block") {
     picker.style.display = "none";
     activeSlotIdx = null;
-    document
-      .querySelectorAll(".slot")
-      .forEach((s) => s.classList.remove("active"));
+    document.querySelectorAll(".slot").forEach((s) => s.classList.remove("active"));
   } else {
     activeSlotIdx = idx;
     picker.style.display = "block";
     document.querySelectorAll(".slot").forEach((s, i) => {
       s.classList.toggle("active", i === idx);
     });
-    // 추가된 코드: 창이 열릴 때 룬 피커 위치로 부드럽게 스크롤
-    // block: 'nearest'는 화면에 이미 보이면 움직이지 않고, 가려져 있으면 최소한으로 움직입니다.
+
+    // [수정 핵심] 장착된 룬 데이터 가져오기
+    const savedRune = selectedRunes[idx]; 
+
+    if (savedRune && savedRune.name) {
+      // 1. 상세창에 이름과 등급 표시
+      showDetail(savedRune.name);
+      
+      // 2. 저장된 레벨이 있다면 레벨 선택 셀렉트 박스 값을 맞추고 상세 설명 갱신
+      if (savedRune.lv) {
+        document.getElementById("levelSelect").value = savedRune.lv;
+        updateDetail(savedRune.name, savedRune.lv);
+      }
+    } else {
+      // 장착된 룬이 없는 빈 슬롯이면 상세창 숨김
+      document.getElementById("runeDetail").style.display = "none";
+    }
+
     picker.scrollIntoView({
       behavior: "smooth",
       block: "nearest"
@@ -307,45 +330,43 @@ function updateDetail(name, lv) {
 function applyRuneToSlot() {
   const lv = document.getElementById("levelSelect").value;
   const slot = document.getElementById(`slot-${activeSlotIdx}`);
-  const warnEl = document.getElementById("runeWarning"); // 경고 요소 가져오기
+  const warnEl = document.getElementById("runeWarning");
 
-  // --- 상호 배타적 체크 ---
+  // --- 상호 배타적 체크 (기존 로직 유지) ---
   const isAddingCompression = tempName === "압축된 힘";
   const isAddingMammoth = tempName === "매머드의 힘";
 
   if (isAddingCompression || isAddingMammoth) {
     const targetToRemove = isAddingCompression ? "매머드의 힘" : "압축된 힘";
-    const hasOpposite = selectedRunes.some(
-      (r) => r && r.name === targetToRemove
-    );
+    const hasOpposite = selectedRunes.some((r) => r && r.name === targetToRemove);
 
     if (hasOpposite) {
-      // 사이트 alert 대신 디자인된 문구 노출
       warnEl.innerText = `⚠️ '${targetToRemove}'과 동시에 장착할 수 없습니다.`;
       warnEl.style.display = "block";
-
-      // 사용자가 인지하도록 살짝 강조 효과 (선택사항)
       warnEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
       return;
     }
   }
-  // -----------------------
 
-  // 중복 룬 제거 및 데이터 저장 로직 (기존과 동일)
+  // 중복 룬 제거 로직
   selectedRunes.forEach((rune, idx) => {
     if (rune && rune.name === tempName) {
       selectedRunes[idx] = null;
-      const otherSlot = document.getElementById(`slot-${idx}`);
-      otherSlot.innerHTML = `<span style="font-size:10px; color:#aaa;">슬롯 ${
-        idx + 1
-      }</span>`;
+      document.getElementById(`slot-${idx}`).innerHTML = ""; 
     }
   });
 
+  // [수정 포인트] 레벨 클래스 계산 (이게 없어서 장착이 안 됐던 것임)
+  const lvClass = getLvClass(lv); 
+
+  // 데이터 저장
   selectedRunes[activeSlotIdx] = { name: tempName, lv: lv };
-  slot.innerHTML = `<img src="${getImgUrl(
-    RUNES_DATA[tempName].imgId
-  )}" class="slot-img"><div class="slot-lv-tag">Lv.${lv}</div>`;
+
+  // [구조 유지] 기존에 위치가 잘 잡혔던 구조에 클래스만 추가
+  slot.innerHTML = `
+    <img src="${getImgUrl(RUNES_DATA[tempName].imgId)}" class="slot-img">
+    <div class="slot-lv-tag ${lvClass}">${lv}</div>
+  `;
 
   // 장착 성공 시 UI 정리
   document.getElementById("runePicker").style.display = "none";
@@ -360,9 +381,6 @@ function removeRuneFromSlot() {
   const slot = document.getElementById(`slot-${activeSlotIdx}`);
   // 안전하게 비우고 기본 텍스트 삽입
   slot.textContent = "";
-  slot.innerHTML = `<span style="font-size:10px; color:#aaa;">슬롯 ${
-    activeSlotIdx + 1
-  }</span>`;
   document.getElementById("runePicker").style.display = "none";
   calcFinal();
   saveUserConfig();
