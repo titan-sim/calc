@@ -764,7 +764,18 @@ b .dropdown-list::-webkit-scrollbar {
   color: 52a4e8;
 }
 
+.chart-container {
+  width: 100%;
+  /* 가로가 좁아지면 세로도 비율에 맞춰 줄어들게 함 */
+  aspect-ratio: 2 / 1; 
+  position: relative;
+  background: #111; /* 배경색 예시 */
+  padding: 0;
+  margin: 10px 0;
+}
 
-
-
-
+#hpChart {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
