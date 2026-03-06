@@ -533,101 +533,78 @@ async function startSimulation() {
   const batchSize = 1;
   let completed = 0;
   detailedLogs = [];
-  // 통계 합산용 변수 (최저 기록 관련 변수 제거)
-  let totalTitanHp = 0,
-    totalTime = 0,
-    totalDead = 0,
-    totalDmg = 0;
-  const limitSec =
-    Number(document.getElementById("timeLimitSelect").value) * 60;
+  let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0;
+
+  const limitSec = Number(document.getElementById("timeLimitSelect").value) * 60;
   let timeSeriesHp = new Array(limitSec + 1).fill(0);
   let timeSeriesCount = new Array(limitSec + 1).fill(0);
+  
   const btn = document.querySelector(".btn-simulate");
-  const originalBtnText = "시뮬레이션 시작 ⚔️";
   btn.disabled = true;
+
   const bAtk = Number(document.getElementById("baseAtk").value);
   const bHp = Number(document.getElementById("baseHp").value);
   const tLv = document.getElementById("titanLevelSelect").value;
   const targetTitan = titanStats[tLv];
   const maxDino = Number(document.getElementById("dinoCount").value);
-  const runes = selectedRunes.map((r) =>
-    r
-      ? {
-          ...r,
-          s: RUNES_DATA[r.name].levels[r.lv]
-        }
-      : null
-  );
-  let atkF_vamp = 0,
-    atkP_vamp = 0;
-  runes.forEach((r) => {
-    if (
-      !r ||
-      (typeof vampExclusion !== "undefined" && vampExclusion.includes(r.name))
-    )
-      return;
+
+  // [수정] runes 변수명을 그대로 쓰되, find를 안 써도 되게 active한 5개만 필터링
+  const activeRunes = selectedRunes
+    .filter(r => r !== null)
+    .map(r => ({
+      ...r,
+      s: RUNES_DATA[r.name].levels[r.lv]
+    }));
+
+  // 흡혈용 기초 공격력 계산 (원본 로직 유지)
+  let atkF_vamp = 0, atkP_vamp = 0;
+  activeRunes.forEach((r) => {
+    if (typeof vampExclusion !== "undefined" && vampExclusion.includes(r.name)) return;
     if (r.s.atk_f) atkF_vamp += r.s.atk_f;
     if (r.s.atk_p) atkP_vamp += r.s.atk_p;
   });
   const vampBaseAtk = (bAtk + atkF_vamp) * (1 + atkP_vamp / 100);
+
   const runBatch = () => {
     const end = Math.min(completed + batchSize, iterations);
     for (let i = completed; i < end; i++) {
       let dinos = [];
       for (let dIdx = 0; dIdx < maxDino; dIdx++) {
-        dinos.push({
-          hp: 0,
-          giftAtk: 0,
-          giftSteps: 0,
-          shieldSteps: 0,
-          attackCount: 0
-        });
+        dinos.push({ hp: 0, giftAtk: 0, giftSteps: 0, shieldSteps: 0, attackCount: 0 });
       }
+
       let tHp = targetTitan.hp;
       let sessionTime = 0;
       let prevAliveCount = maxDino;
       let initialFullHp = 0;
+
       for (let t = 1; t <= limitSec; t++) {
         sessionTime = t;
         let aliveDinos = dinos.filter((d) => d.hp > 0);
         let aliveCount = t === 1 ? maxDino : aliveDinos.length;
         if (aliveCount <= 0) break;
+
+        // 인원수 변화에 따른 즉시 데미지 (협동/고독)
         if (t > 1 && aliveCount < prevAliveCount) {
-          if (prevAliveCount >= 5 && aliveCount < 5) {
-            const coopRune = runes.find((r) => r && r.name === "협동 공격");
-            if (coopRune && coopRune.s.hp_f) {
-              dinos.forEach((d) => {
-                if (d.hp > 0) d.hp = Math.max(0, d.hp - coopRune.s.hp_f);
-              });
+          activeRunes.forEach(r => {
+            if (prevAliveCount >= 5 && aliveCount < 5 && r.name === "협동 공격") {
+              dinos.forEach(d => { if (d.hp > 0) d.hp = Math.max(0, d.hp - r.s.hp_f); });
             }
-          }
-          if (prevAliveCount === 1 && aliveCount > 1) {
-            const soloRune = runes.find((r) => r && r.name === "고독한 분노");
-            if (soloRune && soloRune.s.hp_f) {
-              dinos.forEach((d) => {
-                if (d.hp > 0) d.hp = Math.max(0, d.hp - soloRune.s.hp_f);
-              });
+            if (prevAliveCount === 1 && aliveCount > 1 && r.name === "고독한 분노") {
+              dinos.forEach(d => { if (d.hp > 0) d.hp = Math.max(0, d.hp - r.s.hp_f); });
             }
-          }
+          });
           aliveDinos = dinos.filter((d) => d.hp > 0);
           aliveCount = aliveDinos.length;
           if (aliveCount <= 0) break;
         }
         prevAliveCount = aliveCount;
-        let atkF = 0,
-          atkP = 0,
-          hpF = 0,
-          hpP = 0;
-        let cRate = 3,
-          cDmg = 105;
-        runes.forEach((r) => {
-          if (!r) return;
-          let active =
-            r.name === "협동 공격"
-              ? aliveCount >= 5
-              : r.name === "고독한 분노"
-              ? aliveCount === 1
-              : true;
+
+        // 스탯 계산
+        let atkF = 0, atkP = 0, hpF = 0, hpP = 0;
+        let cRate = 3, cDmg = 105;
+        activeRunes.forEach((r) => {
+          let active = r.name === "협동 공격" ? aliveCount >= 5 : r.name === "고독한 분노" ? aliveCount === 1 : true;
           if (active) {
             if (r.s.atk_f) atkF += r.s.atk_f;
             if (r.s.atk_p) atkP += r.s.atk_p;
@@ -637,153 +614,99 @@ async function startSimulation() {
           if (r.name === "치명타 확률") cRate += r.s.prob;
           if (r.name === "치명타 피해") cDmg += r.s.crit_d;
         });
+
         const currentMaxHp = (bHp + hpF) * (1 + hpP / 100);
         const currentAtk = (bAtk + atkF) * (1 + atkP / 100);
+
         if (t === 1) {
           initialFullHp = currentMaxHp;
-          const sRune = runes.find((r) => r && r.name === "보호막");
+          const sRune = activeRunes.find(r => r.name === "보호막");
           dinos.forEach((d) => {
             d.hp = initialFullHp;
             d.shieldSteps = sRune ? sRune.s.turn : 0;
           });
           aliveDinos = dinos;
         }
-        // --- 공룡 공격 시작 ---
+
+        // --- 공룡 공격 ---
         for (let d of aliveDinos) {
           d.attackCount++;
           let finalBaseAtk = currentAtk + d.giftAtk;
-          const calcDmg = (val) =>
-            Math.random() * 100 < cRate ? val * (cDmg / 100) : val;
-          // 평타
-          tHp -= calcDmg(finalBaseAtk);
-          // 낙뢰: s.prob(확률), s.burst_p(데미지 배율)
-          const thunder = runes.find((r) => r && r.name === "낙뢰");
-          if (thunder && Math.random() * 100 < thunder.s.prob) {
-            tHp -= calcDmg(finalBaseAtk * (thunder.s.burst_p / 100));
-          }
-          // 메테오: s.prob(확률), s.burst_p(데미지 배율)
-          const meteor = runes.find((r) => r && r.name === "메테오");
-          if (meteor && Math.random() * 100 < meteor.s.prob) {
-            tHp -= calcDmg(finalBaseAtk * (meteor.s.burst_p / 100));
-          }
-          // 트리플 임팩트: s.burst_p(데미지 배율)
-          const triple = runes.find((r) => r && r.name === "트리플 임팩트");
-          if (triple && d.attackCount % 3 === 0) {
-            tHp -= calcDmg(finalBaseAtk * (triple.s.burst_p / 100));
-          }
-          // 타이탄 사망 체크
-          if (tHp <= 0) {
-            tHp = 0;
-            break;
-          }
-          // 흡혈: s.prob(확률), s.rec_p(회복 배율)
-          const vRune = runes.find((r) => r && r.name === "흡혈");
-          if (vRune && Math.random() * 100 < vRune.s.prob) {
-            d.hp = Math.min(
-              currentMaxHp,
-              d.hp + (vampBaseAtk * vRune.s.rec_p) / 100
-            );
-          }
-          if (d.giftSteps > 0) {
-            d.giftSteps--;
-            if (d.giftSteps === 0) d.giftAtk = 0;
-          }
+          const calcDmg = (val) => Math.random() * 100 < cRate ? val * (cDmg / 100) : val;
+
+          tHp -= calcDmg(finalBaseAtk); // 평타
+
+          // [최적화] activeRunes 순회로 공격 룬 통합
+          activeRunes.forEach(r => {
+            if ((r.name === "낙뢰" || r.name === "메테오") && Math.random() * 100 < r.s.prob) {
+              tHp -= calcDmg(finalBaseAtk * (r.s.burst_p / 100));
+            }
+            if (r.name === "트리플 임팩트" && d.attackCount % 3 === 0) {
+              tHp -= calcDmg(finalBaseAtk * (r.s.burst_p / 100));
+            }
+            if (r.name === "흡혈" && Math.random() * 100 < r.s.prob) {
+              d.hp = Math.min(currentMaxHp, d.hp + (vampBaseAtk * r.s.rec_p) / 100);
+            }
+          });
+
+          if (tHp <= 0) { tHp = 0; break; }
+          if (d.giftSteps > 0 && --d.giftSteps === 0) d.giftAtk = 0;
         }
-        if (tHp <= 0) {
-          tHp = 0;
-          break;
-        }
-        // --- 공룡 공격 끝 ---
+        if (tHp <= 0) break;
+
+        // --- 타이탄 공격 (3초마다) ---
         if (t % 3 === 0) {
           let baseTDmg = targetTitan.atk;
-          const healRune = runes.find((r) => r && r.name === "힐");
-          const sRune = runes.find((r) => r && r.name === "보호막");
-          const sacrificeRune = runes.find((r) => r && r.name === "희생");
-          const giftRune = runes.find((r) => r && r.name === "마지막 선물");
-          const deathRune = runes.find((r) => r && r.name === "죽을 준비");
           for (let d of dinos) {
-            if (d.hp > 0) {
-              if (healRune && Math.random() * 100 < healRune.s.prob)
-                d.hp = Math.min(
-                  currentMaxHp,
-                  d.hp + (currentMaxHp * healRune.s.rec_p) / 100
-                );
-              let currentTDmg = baseTDmg;
-              const skin1 = runes.find((r) => r && r.name === "단단한 피부 1");
-              const skin2 = runes.find((r) => r && r.name === "단단한 피부 2");
-              const res1 = runes.find((r) => r && r.name === "피해 저항 1");
-              const res2 = runes.find((r) => r && r.name === "피해 저항 2");
-              if (skin1) currentTDmg -= skin1.s.red_f;
-              if (skin2) currentTDmg -= skin2.s.red_f;
-              if (res1 && Math.random() * 100 < res1.s.prob)
-                currentTDmg -= res1.s.red_f;
-              if (res2 && Math.random() * 100 < res2.s.prob)
-                currentTDmg -= res2.s.red_f;
-              currentTDmg = Math.max(0, currentTDmg);
-              if (d.shieldSteps > 0) {
-                currentTDmg =
-                  currentTDmg * (1 - (sRune ? sRune.s.red_p : 0) / 100);
-                d.shieldSteps--;
+            if (d.hp <= 0) continue;
+
+            activeRunes.forEach(r => {
+              if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
+                d.hp = Math.min(currentMaxHp, d.hp + (currentMaxHp * r.s.rec_p) / 100);
               }
-              d.hp = Math.max(0, d.hp - currentTDmg);
-              // 사망 시 발동 효과
-              if (d.hp === 0) {
-                if (
-                  sacrificeRune &&
-                  Math.random() * 100 < sacrificeRune.s.prob
-                ) {
-                  dinos.forEach((target) => {
-                    if (target.hp > 0)
-                      target.hp = Math.min(
-                        currentMaxHp,
-                        target.hp + (currentMaxHp * sacrificeRune.s.rec_p) / 100
-                      );
-                  });
+            });
+
+            let currentTDmg = baseTDmg;
+            activeRunes.forEach(r => {
+              if (r.name.includes("단단한 피부")) currentTDmg -= r.s.red_f;
+              if (r.name.includes("피해 저항") && Math.random() * 100 < r.s.prob) currentTDmg -= r.s.red_f;
+            });
+
+            currentTDmg = Math.max(0, currentTDmg);
+            if (d.shieldSteps > 0) {
+              const sRune = activeRunes.find(r => r.name === "보호막");
+              currentTDmg *= (1 - (sRune ? sRune.s.red_p : 0) / 100);
+              d.shieldSteps--;
+            }
+
+            d.hp = Math.max(0, d.hp - currentTDmg);
+
+            if (d.hp === 0) {
+              activeRunes.forEach(r => {
+                if (r.name === "희생" && Math.random() * 100 < r.s.prob) {
+                  dinos.forEach(target => { if (target.hp > 0) target.hp = Math.min(currentMaxHp, target.hp + (currentMaxHp * r.s.rec_p) / 100); });
                 }
-                if (deathRune && Math.random() * 100 < deathRune.s.prob) {
-                  tHp -= (currentAtk * deathRune.s.burst_p) / 100;
-                  if (tHp <= 0) tHp = 0;
+                if (r.name === "죽을 준비" && Math.random() * 100 < r.s.prob) {
+                  tHp = Math.max(0, tHp - (currentAtk * r.s.burst_p) / 100);
                 }
-                if (giftRune && Math.random() * 100 < giftRune.s.prob) {
-                  dinos.forEach((target) => {
-                    if (target.hp > 0) {
-                      target.giftAtk += giftRune.s.atk_f;
-                      target.giftSteps = giftRune.s.turn;
-                    }
-                  });
+                if (r.name === "마지막 선물" && Math.random() * 100 < r.s.prob) {
+                  dinos.forEach(target => { if (target.hp > 0) { target.giftAtk += r.s.atk_f; target.giftSteps = r.s.turn; } });
                 }
-              }
+              });
             }
           }
-          if (tHp <= 0) {
-            tHp = 0;
-            break;
-          }
+          if (tHp <= 0) break;
         }
-        // t 루프 내부 (공룡 공격/타이탄 공격 로직 근처)
+
+        // 로그 및 차트 기록 (기존과 동일)
         if (isLogEnabled && i === 0) {
-          // 로그가 켜져 있고, 첫 번째 반복일 때만 기록
-          detailedLogs.push({
-            시간: t + "초",
-            타이탄HP: Math.floor(tHp).toLocaleString(),
-            생존공룡: aliveCount + "마리",
-            공룡상태: dinos.map((d, idx) => ({
-              번호: idx + 1,
-              남은HP: Math.max(0, d.hp).toFixed(0)
-            }))
-          });
+          detailedLogs.push({ 시간: t + "초", 타이탄HP: Math.floor(tHp).toLocaleString(), 생존공룡: aliveCount + "마리", 공룡상태: dinos.map((d, idx) => ({ 번호: idx + 1, 남은HP: Math.max(0, d.hp).toFixed(0) })) });
         }
         let tickHpSum = 0;
         let safeFullHp = initialFullHp > 0 ? initialFullHp : 1;
-        dinos.forEach(
-          (d) => (tickHpSum += (Math.max(0, d.hp) / safeFullHp) * 100)
-        );
+        dinos.forEach(d => tickHpSum += (Math.max(0, d.hp) / safeFullHp) * 100);
         timeSeriesHp[t] += tickHpSum / maxDino;
         timeSeriesCount[t]++;
-        if (tHp <= 0) {
-          tHp = 0;
-          break;
-        }
       }
       totalTitanHp += Math.max(0, tHp);
       totalTime += sessionTime;
@@ -792,17 +715,14 @@ async function startSimulation() {
     }
     completed = end;
     btn.innerText = `시뮬레이션 중(${completed}/500)...`;
-    if (completed < iterations) {
-      setTimeout(runBatch, 0);
-    } else {
-      finalize();
-    }
+    if (completed < iterations) setTimeout(runBatch, 0); else finalize();
   };
+
   const finalize = () => {
+    // ... (보내주신 기존 finalize 로직 100% 그대로 유지)
     const rep = document.getElementById("battleReport");
     rep.style.display = "block";
-    let validTicks = 0,
-      totalAvgSum = 0;
+    let validTicks = 0, totalAvgSum = 0;
     const chartData = [];
     for (let k = 1; k <= limitSec; k++) {
       if (timeSeriesCount[k] > 0) {
@@ -815,63 +735,33 @@ async function startSimulation() {
       }
     }
     const finalRollingAvg = totalAvgSum / (validTicks || 1);
-    // 2. 기본 정보 출력
-    document.getElementById("repTotalDmg").innerText = Math.floor(
-      totalDmg / iterations
-    ).toLocaleString();
-    document.getElementById("repTitanHp").innerText = Math.max(
-      0,
-      Math.floor(totalTitanHp / iterations)
-    ).toLocaleString();
+    document.getElementById("repTotalDmg").innerText = Math.floor(totalDmg / iterations).toLocaleString();
+    document.getElementById("repTitanHp").innerText = Math.max(0, Math.floor(totalTitanHp / iterations)).toLocaleString();
     const avgSec = totalTime / iterations;
-    document.getElementById("repTime").innerText = `${Math.floor(
-      avgSec / 60
-    )}분 ${Math.floor(avgSec % 60)}초`;
-    document.getElementById("repDead").innerText = `${(
-      totalDead / iterations
-    ).toFixed(1)}마리`;
-    document.getElementById("avgMinHpPer").innerText =
-      "평균 생존 체력: " + finalRollingAvg.toFixed(1) + "%";
-    // 5. 그래프 그리기 함수 호출
-    if (chartData.length > 0) {
-      drawHpChart(chartData);
-    }
-    const simulateBtn = document.querySelector(".btn-simulate");
-    if (simulateBtn) {
-      simulateBtn.disabled = false;
-      simulateBtn.innerText = "시뮬레이션 시작 ⚔️";
-    }
-    if (rep) {
-      rep.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest"
-      });
-    }
-    // finalize 함수 끝부분
+    document.getElementById("repTime").innerText = `${Math.floor(avgSec / 60)}분 ${Math.floor(avgSec % 60)}초`;
+    document.getElementById("repDead").innerText = `${(totalDead / iterations).toFixed(1)}마리`;
+    document.getElementById("avgMinHpPer").innerText = "평균 생존 체력: " + finalRollingAvg.toFixed(1) + "%";
+    if (chartData.length > 0) drawHpChart(chartData);
+    btn.disabled = false;
+    btn.innerText = "시뮬레이션 시작 ⚔️";
+    rep.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    
     if (isLogEnabled && detailedLogs.length > 0) {
-      const reportBox = document.getElementById("battleReport");
-      // 기존 버튼 중복 방지
       const oldBtn = document.getElementById("logDownloadBtn");
       if (oldBtn) oldBtn.remove();
       const logBtn = document.createElement("button");
       logBtn.id = "logDownloadBtn";
       logBtn.innerHTML = "📊 상세 로그(.txt) 다운로드";
       logBtn.className = "btn-simulate";
-      logBtn.style.cssText =
-        "margin-top:15px; background:#455a64; font-size:14px;";
+      logBtn.style.cssText = "margin-top:15px; background:#455a64; font-size:14px;";
       logBtn.onclick = () => {
-        // 텍스트 파일 내용 구성
         let content = "=== 상세 전투 로그 (1회차) ===\n\n";
         detailedLogs.forEach((entry) => {
           content += `[${entry.시간}] 타이탄HP: ${entry.타이탄HP} | 생존: ${entry.생존공룡}\n`;
-          entry.공룡상태.forEach((d) => {
-            content += `  - ${d.번호}번 공룡 HP: ${d.남은HP}\n`;
-          });
+          entry.공룡상태.forEach((d) => { content += `  - ${d.번호}번 공룡 HP: ${d.남은HP}\n`; });
           content += "--------------------------------\n";
         });
-        const blob = new Blob([content], {
-          type: "text/plain"
-        });
+        const blob = new Blob([content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -879,49 +769,91 @@ async function startSimulation() {
         a.click();
         URL.revokeObjectURL(url);
       };
-      reportBox.appendChild(logBtn);
+      rep.appendChild(logBtn);
     }
   };
+
   runBatch();
 }
 
 function drawHpChart(data) {
   const canvas = document.getElementById("hpChart");
-  if (!canvas) return;
+  if (!canvas || data.length < 2) return;
   const ctx = canvas.getContext("2d");
-  // 부모 컨테이너 크기에 맞춤
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width - 20;
-  canvas.height = rect.height - 20;
+  
+  const container = canvas.parentElement;
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+
   const w = canvas.width;
   const h = canvas.height;
+  const limitSec = Number(document.getElementById("timeLimitSelect").value) * 60;
+
+  // 여백 조정: padL을 줄여서 그래프를 왼쪽 숫자에 밀착시킴
+  const padL = 35; // 숫자 들어갈 최소 공간만 확보
+  const padR = 10; // 오른쪽 여백 최소화
+  const padT = h * 0.1;
+  const padB = 25; // 하단 시간 표시 공간
+
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
   ctx.clearRect(0, 0, w, h);
-  // 가이드라인 (50% 점선)
-  ctx.strokeStyle = "rgba(255,255,255,0.1)";
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath();
-  ctx.moveTo(0, h / 2);
-  ctx.lineTo(w, h / 2);
-  ctx.stroke();
+
+  // 폰트 설정
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+
+  // Y축 (%) - 숫자를 그래프 선에 최대한 붙임
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  [0, 50, 100].forEach(p => {
+    const y = padT + chartH - (p * chartH) / 100;
+    // padL - 5 위치에 숫자를 써서 선과 밀착
+    ctx.fillText(p + "%", padL - 5, y);
+    
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padL, y); 
+    ctx.lineTo(padL + chartW, y);
+    ctx.stroke();
+  });
+
+  // X축 (시간)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
   ctx.setLineDash([]);
-  // 선 그래프 그리기
+  const ticks = [
+    { label: "0", pos: 0 },
+    { label: Math.floor(limitSec / 2 / 60) + "분", pos: 0.5 },
+    { label: Math.floor(limitSec / 60) + "분", pos: 1 }
+  ];
+  ticks.forEach(t => {
+    const x = padL + t.pos * chartW;
+    ctx.fillText(t.label, x, padT + chartH + 5);
+  });
+
+  // 선 그래프
   ctx.beginPath();
   ctx.strokeStyle = "#2ecc71";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.lineJoin = "round";
-  const stepX = w / (data.length - 1);
+
+  const stepX = chartW / (data.length - 1);
   data.forEach((val, i) => {
-    const x = i * stepX;
-    const y = h - (val * h) / 100;
+    const x = padL + i * stepX;
+    const y = padT + chartH - (val * chartH) / 100;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
-  // 하단 채우기
-  ctx.lineTo(w, h);
-  ctx.lineTo(0, h);
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, "rgba(46, 204, 113, 0.2)");
+
+  // 그라데이션
+  ctx.lineTo(padL + chartW, padT + chartH);
+  ctx.lineTo(padL, padT + chartH);
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+  grad.addColorStop(0, "rgba(46, 204, 113, 0.15)");
   grad.addColorStop(1, "rgba(46, 204, 113, 0)");
   ctx.fillStyle = grad;
   ctx.fill();
