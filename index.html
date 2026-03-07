@@ -57,23 +57,23 @@
   <div class="warning">
     ※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.
   </div>
-    <div class="card">
-      <h2>내 공룡 정보</h2>
-      <div class="input-grid">
-        <div>
-          <label>기본 공격력</label>
-          <input type="tel" id="baseAtk" value="1" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 1) this.value = 1; calcFinal();" onfocus="this.select()" placeholder="최소치 1">
-        </div>
-        <div>
-          <label>기본 체력</label>
-          <input type="tel" id="baseHp" value="10" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 10) this.value = 10; calcFinal();" onfocus="this.select()" placeholder="최소치 10">
-        </div>
-        <div class="full-width">
-          <label>공룡 수</label>
-          <select id="dinoCount" onchange="calcFinal()"></select>
-        </div>
-      </div>
+<div class="card">
+  <h2>내 공룡 정보</h2>
+  <div class="input-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <div>
+      <label>기본 공격력</label>
+      <input type="tel" id="baseAtk" value="1" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 1) this.value = 1; calcFinal();" onfocus="this.select()" placeholder="최소치 1">
     </div>
+    <div>
+      <label>기본 체력</label>
+      <input type="tel" id="baseHp" value="10" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 10) this.value = 10; calcFinal();" onfocus="this.select()" placeholder="최소치 10">
+    </div>
+    <div class="full-width" style="grid-column: span 2;">
+      <label>공룡 수</label>
+      <select id="dinoCount" onchange="calcFinal()"></select>
+    </div>
+  </div>
+</div>
 
    
     <div class="card">
@@ -165,5 +165,6 @@
 
 
 </html>
+
 
 
