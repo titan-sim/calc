@@ -25,7 +25,7 @@ function runTitanSimulation(cfg) {
     timeLimitMinutes,
     constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0 },
     bonusPercent = { atk: 0, hp: 0 },
-    moveSpeed = 100,
+    moveSpeed = 1,
     distanceTiles = 0,
     continuousBattle = false,
     iterations = 500,

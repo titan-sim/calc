@@ -15,7 +15,7 @@ function defaultMyDinoProfile() {
   return {
     baseAtk: 1,
     baseHp: 10,
-    moveSpeed: 100,
+    moveSpeed: 1,
     vip: 0,
     dinoCount: 5,
     constellation: {
@@ -337,7 +337,7 @@ function initMyDinoPage(profile, options = {}) {
   fBaseHp.value = profile.baseHp;
   markChanged(fBaseHp, profile.baseHp !== 10);
   fMoveSpeed.value = profile.moveSpeed;
-  markChanged(fMoveSpeed, profile.moveSpeed !== 100);
+  markChanged(fMoveSpeed, profile.moveSpeed !== 1);
 
   // 공룡 수: 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 스타일을 쓰기 위해 <select> 대신 직접 구현
   const dinoCountList = document.getElementById("dinoCountList");
@@ -433,7 +433,7 @@ function initMyDinoPage(profile, options = {}) {
   fMoveSpeed.onblur = () => {
     profile.moveSpeed = Math.min(150, Math.max(1, Number(fMoveSpeed.value) || 1));
     fMoveSpeed.value = profile.moveSpeed;
-    markChanged(fMoveSpeed, profile.moveSpeed !== 100);
+    markChanged(fMoveSpeed, profile.moveSpeed !== 1);
     persistAndRefresh();
   };
 
