@@ -1,169 +1,88 @@
 <!DOCTYPE html>
 <html lang="ko">
 
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="naver-site-verification" content="bd53a0080e133411c6579b118c107c8cd673145a" />
-  <meta name="google-site-verification" content="L98MFUbflpT6ium7ciRsL5ztwsoQ40egIudAwjXgR7c" />
-  <title>다이노 뮤턴트 타이탄 시뮬레이터</title>
-  <meta name="description" content="다이노 뮤턴트의 타이탄 보스 결과를 미리 예측할 수 있습니다. 최적의 룬 세팅을 찾아보세요.">
-  <meta name="keywords" content="다이노 뮤턴트, 타이탄, 시뮬레이터, 룬, 룬 세팅, 스탯, 계산">
-
-  <link rel="stylesheet" href="style.css">
+  <title>다이노 뮤턴트 시뮬레이터</title>
+  <meta name="description" content="다이노 뮤턴트의 타이탄/공룡 대전/아레나 결과를 미리 예측할 수 있습니다.">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
-
-
 <body>
- 
+
   <div id="sideMenu" class="side-menu">
     <div class="side-header">
-      <span style="font-weight: bold;">설정</span>
-      <button class="close-btn" onclick="toggleMenu()">✕</button>
+      <span style="font-weight: bold;">메뉴</span>
+      <button class="close-btn" id="closeMenuBtn">✕</button>
     </div>
-    <div class="menu-content" style="padding: 20px 15px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <span style="font-size: 14px;">테마 전환</span>
-        <button onclick="toggleTheme()" id="themeBtn" class="theme-toggle-btn">🌙 다크 모드</button>
-      </div>
+    <div class="menu-content" style="padding: 10px 15px;">
+      <nav class="nav-list">
+        <a class="nav-link" href="#home">홈</a>
+        <a class="nav-link" href="#my-dino">내 공룡</a>
+        <a class="nav-link" href="#titan">타이탄 시뮬레이터</a>
+        <a class="nav-link" href="#dino-battle">공룡 대전</a>
+        <a class="nav-link" href="#arena">아레나</a>
+        <a class="nav-link" href="#dummy">허수아비</a>
+        <a class="nav-link" href="#building">건물</a>
+      </nav>
 
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 14px;">상세 로그 수집</span>
-        <label class="switch">
-          <input type="checkbox" id="logToggle">
-          <span class="slider round"></span>
-        </label>
+      <div style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <span style="font-size: 14px;">테마 전환</span>
+          <button id="themeBtn" class="theme-toggle-btn">🌙 다크 모드</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 14px;">상세 로그 수집</span>
+          <label class="switch">
+            <input type="checkbox" id="logToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
       </div>
     </div>
   </div>
-  <div id="menuOverlay" class="menu-overlay" onclick="toggleMenu()"></div>
+  <div id="menuOverlay" class="menu-overlay"></div>
 
   <header class="app-bar">
     <div class="header-left">
-      <button class="menu-btn" onclick="toggleMenu()"> <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+      <button class="menu-btn" id="menuBtn">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
           <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
         </svg>
       </button>
       <div class="app-title">
         <span class="brand">DINO MUTANT</span>
-        <span class="sub">타이탄 시뮬레이터</span>
+        <span class="sub">시뮬레이터</span>
       </div>
     </div>
   </header>
 
-<div class="container" style="margin-top: 50px;">
-  <div class="warning">
-    ※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.
-  </div>
-    <div class="card">
-      <h2>내 공룡 정보</h2>
-      <div class="input-grid">
-        <div>
-          <label>기본 공격력</label>
-          <input type="tel" id="baseAtk" value="1" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 1) this.value = 1; calcFinal();" onfocus="this.select()" placeholder="최소치 1">
-        </div>
-        <div>
-          <label>기본 체력</label>
-          <input type="tel" id="baseHp" value="10" oninput="this.value = this.value.replace(/[^0-9]/g, ''); calcFinal();" onblur="if(this.value === '' || Number(this.value) < 10) this.value = 10; calcFinal();" onfocus="this.select()" placeholder="최소치 10">
-        </div>
-        <div class="full-width">
-          <label>공룡 수</label>
-          <select id="dinoCount" onchange="calcFinal()"></select>
-        </div>
-      </div>
-    </div>
-
-   
-    <div class="card">
-      <h2>장착된 룬</h2>
-      <div class="slot-wrapper" id="slotContainer"></div>
-      <div id="runePicker">
-        <div class="rune-scroll-container">
-          <div class="rune-grid" id="mainGrid"></div>
-          <div class="divider" style="text-align: center; color: #e74c3c; font-size: 11px; padding: 15px 0;">
-            ── 타이탄에 적합하지 않은 룬입니다 ──
-          </div>
-          <div class="rune-grid" id="unsuitableGrid"></div>
-        </div>
-        <div id="runeDetail" style="border-top: 1px solid var(--border-color); margin-top: 15px; padding-top: 15px;">
-          <div id="detailGrade" style="font-size:11px; font-weight:bold;"></div>
-          <h3 id="detailName" style="margin:5px 0; font-size: 1.1rem;"></h3>
-          <div id="runeWarning" style="color: #ff4444; font-size: 12px; font-weight: bold; margin-bottom: 8px; display: none; background: rgba(255,68,68,0.1); padding: 5px; border-radius: 4px;"></div>
-          <div id="levelArea">
-            <select id="levelSelect"></select>
-            <div class="desc-box" id="detailDesc"></div>
-          </div>
-          <button class="btn-apply" id="applyBtn" onclick="applyRuneToSlot()">슬롯에 장착</button>
-          <button class="btn-apply" id="removeBtn" onclick="removeRuneFromSlot()" style="background:#7f8c8d; margin-top:5px;">장착 해제</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>전투 설정</h2>
-      <div class="input-grid">
-        <div class="full-width">
-          <label>타이탄 레벨 선택</label>
-          <div class="custom-dropdown" id="titanDropdown">
-            <div class="selected-value" onclick="toggleDropdown('titanList')">Lv.1 (ATK 5 / HP 2,500,000)</div>
-            <ul class="dropdown-list" id="titanList"></ul>
-            <input type="hidden" id="titanLevelSelect" value="1">
-          </div>
-        </div>
-
-        <div class="full-width">
-          <label>전투 제한 시간</label>
-          <div class="custom-dropdown" id="timeDropdown">
-            <div class="selected-value" onclick="toggleDropdown('timeList')">90분</div>
-            <ul class="dropdown-list" id="timeList"></ul>
-            <input type="hidden" id="timeLimitSelect" value="90">
-          </div>
-        </div>
-      </div>
-    </div>
-
-  
-    <div class="card">
-      <h2>최종 스탯 정보</h2>
-      <div class="stat-group">
-        <div class="stat-row">최종 공격력: <span class="stat-val" id="resAtk">0</span></div>
-        <div class="stat-row">최종 체력: <span class="stat-val" id="resHp">0</span></div>
-        <div class="stat-row">피해 감소량: <span class="stat-val" id="resRed" onclick="toggleDefenseMode()">0</span></div>
-        <div class="stat-row">흡혈 회복량: <span class="stat-val" id="resVamp" onclick="toggleVampMode()">0</span></div>
-      </div>
-    </div>
-
-  
-    <button class="btn-simulate" onclick="startSimulation()">시뮬레이션 시작 ⚔️</button>
-
-   
-    <div id="battleReport" class="report-box">
-      <div class="report-item">총 입힌 피해량 <span class="report-val" id="repTotalDmg">0</span></div>
-      <div class="report-item">남은 타이탄 체력 <span class="report-val" id="repTitanHp">0</span></div>
-      <div class="report-item">평균 전투 시간 <span class="report-val" id="repTime">0</span></div>
-      <div class="report-item">평균 공룡 사망 수 <span class="report-val" id="repDead">0</span></div>
-
-      <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
-        <div class="report-item" style="margin-bottom:10px;">시간대별 공룡 체력 변화 추이</div>
-
-        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; height: 180px; position: relative;">
-          <canvas id="hpChart"></canvas>
-        </div>
-
-        <div id="avgMinHpPer" style="text-align: center; margin-top: 10px; color: var(--희귀); font-weight: bold; font-size: 1.1em;">
-          평균 생존 체력: 0%
-        </div>
-      </div>
-    </div>
+  <div class="container" style="margin-top: 50px;">
+    <div id="app"></div>
   </div>
 
- <script src="Rune_Data.js"></script>
- <script src="script.js"></script>
+  <script src="js/data/rune-data.js"></script>
+  <script src="js/data/titan-data.js"></script>
+  <script src="js/core/stat-calc.js"></script>
+  <script src="js/core/simulation-titan.js"></script>
+  <script src="js/ui/chart-ui.js"></script>
+  <script src="js/ui/rune-ui.js"></script>
+  <script src="js/ui/settings-ui.js"></script>
+  <script src="js/pages/home.js"></script>
+  <script src="js/pages/my-dino-page.js"></script>
+  <script src="js/pages/titan-page.js"></script>
+  <script src="js/pages/dino-battle-page.js"></script>
+  <script src="js/pages/arena-page.js"></script>
+  <script src="js/pages/dummy-page.js"></script>
+  <script src="js/pages/building-page.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.getElementById("menuBtn").onclick = toggleMenu;
+    document.getElementById("closeMenuBtn").onclick = toggleMenu;
+    document.getElementById("menuOverlay").onclick = toggleMenu;
+  </script>
 </body>
 
-
 </html>
-
-

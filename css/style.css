@@ -1,0 +1,1336 @@
+:root {
+  /* 공통 등급 색상 */
+  --일반: #9e9e9e;
+  --희귀: #4caf50;
+  --에픽: #ff9800;
+  --유니크: #eb5f0e;
+  --전설: #ba0000;
+
+  /* 베이스: 다크 사파이어 / 서브(인터랙티브) 컬러: 골드로 통일 */
+  --primary: #d1a44f;
+  --accent: #d1a44f;
+  --accent-strong: #b98a37;
+  --brand-blue: #3f66c9;
+
+  /* 다크 모드 (기본) */
+  --bg-color: #141b26;
+  --card-bg: #1c2636;
+  --input-bg: #263243;
+  --text-main: #eef1f6;
+  --text-sub: #949cb0;
+  --border-color: rgba(255, 255, 255, 0.10);
+  --slot-border: #303c50;
+  --recessed-bg: rgba(0, 0, 0, 0.2);
+  /* 화면 비율 설정 */
+  --p-base: clamp(6px, 3vw, 24px);
+  --container-max: 600px; 
+  --card-max: 560px;
+  /* 폰트 크기 설정 */
+ --fs-notice: clamp(11px, 0.5vw + 10px, 14px);
+  --m-notice: clamp(4px, 1vh, 12px);
+  --fs-h2: clamp(16px, 1.2vw + 12px, 20px);
+  --fs-label: clamp(12px, 0.5vw + 10px, 14px);
+  --m-bottom: clamp(8px, 2vh, 20px);
+}
+
+/* 라이트 모드 클래스
+   예전엔 배경/카드/입력칸이 다 거의 흰색 한 덩어리라(#f1f3f7/#ffffff/#edf0f5) 층 구분이 안 되고
+   눈부심만 있었음. 페이지 배경을 확실히 더 어둡게 잡아서 카드가 그 위에 "떠 보이게" 하고,
+   테두리/보조 텍스트도 더 진하게 해서 흰 바탕 위에서도 구획이 또렷하게 보이도록 다시 잡음. */
+body.light-mode {
+  --primary: #a8762a;
+  --accent: #a8762a;
+  --accent-strong: #8f6120;
+  --brand-blue: #2c4a92;
+  --bg-color: #e4e9f1;
+  --card-bg: #ffffff;
+  --input-bg: #edf1f7;
+  --text-main: #1a2130;
+  --text-sub: #576079;
+  --border-color: rgba(15, 25, 55, 0.16);
+  --slot-border: #c7cee0;
+  --recessed-bg: rgba(15, 25, 55, 0.06);
+}
+
+/* 사이트 전체(HTML, BODY) 스크롤 바 숨기기 */
+html, body {
+  -ms-overflow-style: none;
+  /* IE, Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
+body {
+  font-family: "Pretendard", sans-serif;
+  background: var(--bg-color);
+  color: var(--text-main);
+  padding: clamp(10px, 3vh, 30px) clamp(4px, 1vw, 10px);
+  display: flex;
+  flex-direction: column;
+  /* 세로 방향으로 쌓이게 */
+  align-items: center;
+  /* 가로축 중앙 정렬 */
+  margin: 0;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+  overflow-x: hidden;
+  /* 가로 스크롤 방지 */
+  -webkit-user-select: none;  /* Safari */
+  -moz-user-select: none;     /* Firefox */
+  -ms-user-select: none;      /* IE/Edge */
+  user-select: none;          /* 표준 */
+}
+
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+input, textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+.container {
+  /* 인라인 스타일 30px 대신 아래와 동일한 변수 사용 */
+  margin-top: var(--m-notice);
+  width: min(100%, 600px);
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--p-base);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+}
+
+/* 페이지 콘텐츠(#app)가 카드 여러 개로 구성될 때 카드 사이 간격을 일괄 적용 */
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* 내 공룡 페이지는 입력 항목이 많아 PC 화면에서 세로로 과하게 길어지므로,
+   넓은 화면에서만 컨테이너 폭을 넓혀 좌우 여백을 활용함 (모바일은 기존 그대로) */
+@media (min-width: 860px) {
+  body[data-page="my-dino"] .container {
+    width: min(100%, 860px);
+  }
+}
+
+.card {
+  container-type: inline-size;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: var(--p-base); 
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
+.button-group,
+.grid-2col {
+  display: flex;
+  flex-wrap: nowrap;
+  /* 가로 배열 유지 */
+  gap: 8px;
+  width: 100%;
+}
+
+.button-group button,
+.grid-2col > div {
+  flex: 1;
+  /* 모든 요소가 동일한 비율로 너비를 나눠 가짐 */
+  min-width: 0;
+  /* flex 아이템이 칸을 뚫고 나가는 현상 방지 */
+}
+
+.warning {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: var(--fs-notice);
+  margin: var(--m-notice) 0;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+/* .card 안에 있는 h2라고 명시하여 우선순위를 높입니다 */
+.card h2 {
+  display: block;
+  width: 100%;
+  font-size: clamp(10px, 4cqw, 20px);
+  font-weight: 500;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: calc(var(--m-notice) + 10px) !important;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  word-break: keep-all;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+
+.custom-dropdown .selected-value {
+  font-weight: 400;
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-top: 18px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+input, select {
+  width: 100%;
+  /* 카드 폭(cqw) 기준으로 PC 화면 값(48px)을 상한선 삼아 그대로 비례 축소됨 */
+  height: clamp(34px, 8cqw, 48px);
+  padding: clamp(8px, 2cqw, 12px) clamp(10px, 2.33cqw, 14px);
+  background: var(--input-bg);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: clamp(11px, 2.5cqw, 15px);
+  color: var(--text-main);
+  box-sizing: border-box;
+  outline: none;
+  transition: background 0.2s, border 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+}
+
+/* +값 / +값% 형태로 표시하는 접두/접미 입력창 (별자리, 둥지·알스킨에서 사용) */
+.affix-input {
+  position: relative;
+}
+
+.affix-input input {
+  padding-left: 26px;
+}
+
+.affix-input.has-suffix input {
+  padding-right: 28px;
+}
+
+.affix-input .affix-prefix,
+.affix-input .affix-suffix {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-sub);
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.affix-input .affix-prefix {
+  left: 14px;
+}
+
+.affix-input .affix-suffix {
+  right: 14px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.slot-wrapper {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0px;
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.slot {
+  aspect-ratio: 1;
+  background-image: url("../assets/rune slot image folder/RuneSlot.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* 레이아웃 설정 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.slot-img {
+  width: 70%; /* 슬롯 이미지보다 작게 설정하여 룬이 중앙에 오게 함 */
+  height: 70%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.slot-plus-img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  pointer-events: none;
+  opacity: 0.85;
+}
+/* 선택된 슬롯에 적용될 스타일 */
+.slot.active {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 65%, transparent));
+  z-index: 5;
+  transition: filter 0.2s ease;
+}
+
+/* 슬롯 내 컨테이너 설정 */
+.slot .rune-img-container {
+  position: relative; /* 배지의 기준점 */
+  overflow: visible !important; 
+}
+
+.slot-lv-tag {
+  position: absolute;
+  top: 5%;
+  right: 5%;
+  
+  /* 배지 크기: 슬롯의 약 35% (기존 28px 대신 비율로) */
+  width: 35%;
+  height: 35%;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  
+  font-size: clamp(9px, 3.2vw, 16px);
+  font-weight: 900;
+  line-height: 1;
+  
+  color: white;
+  text-shadow: 1px 1px 2px #000;
+  
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  
+  /* 숫자가 이미지 정중앙에 오도록 미세 조정 (이미지 모양에 따라 필요시 사용) */
+  padding-top: 1px; 
+}
+
+/* 5레벨 단위 배경 이미지 매핑 */
+.slot-lv-tag.lv-5  { background-image: url("../assets/rune image folder/RuneLevelGrade_0.png"); }
+.slot-lv-tag.lv-10 { background-image: url("../assets/rune image folder/RuneLevelGrade_1.png"); }
+.slot-lv-tag.lv-15 { background-image: url("../assets/rune image folder/RuneLevelGrade_2.png"); }
+.slot-lv-tag.lv-20 { background-image: url("../assets/rune image folder/RuneLevelGrade_3.png"); }
+.slot-lv-tag.lv-25 { background-image: url("../assets/rune image folder/RuneLevelGrade_4.png"); }
+.slot-lv-tag.lv-30 { background-image: url("../assets/rune image folder/RuneLevelGrade_5.png"); }
+.slot-lv-tag.lv-31 { background-image: url("../assets/rune image folder/RuneLevelGrade_6.png"); }
+
+/* 룬 프리셋 버튼 (가로 스크롤, 9개 고정) */
+.preset-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 2px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+  cursor: grab;
+  user-select: none;
+}
+
+.preset-row.dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.preset-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.preset-row::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.preset-btn {
+  flex: 0 0 auto;
+  /* 가로 스크롤 대상이라 폭이 카드 크기와 무관하게 고정돼 있었음 -> 다른 요소처럼 카드 폭 비례로 축소.
+     드래그 스크롤은 마우스 이동량(pageX)과 scrollLeft 차이만 쓰므로 버튼 크기와는 무관해서 영향 없음 */
+  width: clamp(50px, 12.67cqw, 76px);
+  aspect-ratio: 153 / 119;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.preset-btn-name {
+  max-width: 82%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+  pointer-events: none;
+  /* 배지 이미지 아래쪽에 그림자 여백이 있어서 이미지의 실제 중심이 살짝 위쪽에 있음 -> 글자를 그만큼 올려서 맞춤 */
+  margin-top: -3px;
+}
+
+.preset-edit-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.preset-name-input {
+  width: 82%;
+  font-size: 11px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: #fff;
+  padding: 1px 2px;
+}
+
+/* 룬 목록 스크롤 영역 */
+.rune-scroll-container {
+  max-height: 300px;
+  /* 목록의 최대 높이 (이후 스크롤 발생) */
+  overflow-y: auto;
+  /* 세로 스크롤 활성화 */
+  padding-right: 5px;
+  /* 스크롤바 디자인 (선택 사항) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+/* 크롬, 사파리용 스크롤바 숨기기 혹은 디자인 */
+.rune-scroll-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rune-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+#runePicker {
+  display: none;
+  margin-top: 15px;
+  background: var(--input-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 15px;
+}
+
+.rune-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, 2vw, 15px);
+  width: 100%;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  justify-items: center;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.rune-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 5px 0;
+  box-sizing: border-box;
+}
+
+/* 현재 컨텍스트(타이탄 등)에 적합하지 않은 룬: 구분선 아래에 흐리게 표시 */
+.rune-item-dim {
+  opacity: 0.4;
+  filter: grayscale(50%);
+}
+
+.rune-img-container {
+  width: 90%;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 8px;
+  max-width: 75px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  /* [추가] 기존 선과 배경색 강제 제거 */
+  border: none !important;
+  background-color: transparent !important;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.rune-img-container[style*="일반"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Normal.png"); }
+.rune-img-container[style*="희귀"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Rare.png"); }
+.rune-img-container[style*="에픽"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Epic.png"); }
+.rune-img-container[style*="유니크"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Unique.png"); }
+.rune-img-container[style*="전설"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Legendary.png"); }
+
+.rune-img-container img {
+  width: 75% !important; 
+  height: 75% !important;
+  object-fit: contain;
+  display: block;
+}
+
+.rune-label {
+  /* 글자 크기도 화면이 작아지면 미세하게 조정 */
+  font-size: clamp(9px, 2.5vw, 11px);
+  font-weight: bold;
+  color: var(--text-main);
+  text-align: center;
+  width: 100%;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+/* 기존 로직 유지 */
+#unsuitableGrid .rune-img-container {
+  filter: grayscale(0.5) opacity(0.8);
+}
+
+#runeDetail {
+  display: none;
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+/* 모바일 전용 미세 조정 (미디어 쿼리 최소화) */
+@media (max-width: 480px) {
+  .rune-img-container {
+    /* 모바일에서는 테두리 두께를 살짝 줄여 공간 확보 */
+    border-width: 1.5px;
+    border-radius: 8px;
+  }
+}
+
+.desc-box {
+  font-size: 13px;
+  color: var(--text-main);
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  white-space: pre-line;
+}
+
+.btn-apply {
+  width: 100%;
+  padding: 13px;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
+}
+
+.btn-apply:active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.btn-simulate {
+  width: 100%;
+  font-size: clamp(16px, 1.2vw + 12px, 20px);
+  padding: 1em 0;
+  min-height: 3em;
+  background: color-mix(in srgb, var(--accent) 85%, black);
+  color: #1a1206;
+  border: none;
+  border-radius: 8px; /* 8px 혹은 0.5em */
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.btn-simulate:active {
+  transform: scale(0.98);
+  background: var(--accent-strong);
+}
+
+/* .report-box는 .card와 함께 붙어서 카드와 동일한 배경/테두리를 쓰고, 표시 여부만 제어함 */
+.report-box {
+  display: none;
+  line-height: 1.6;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(6px, 1.67cqw, 10px);
+}
+
+.report-tile {
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: clamp(7px, 1.83cqw, 11px) clamp(10px, 2.5cqw, 15px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-value.accent {
+  color: var(--accent);
+}
+
+.report-chart-section {
+  margin-top: 20px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 15px;
+}
+
+.report-chart-label {
+  color: var(--text-main);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.report-chart-box {
+  background: var(--recessed-bg);
+  border-radius: 8px;
+  padding: 10px;
+  height: clamp(150px, 45cqw, 240px);
+  position: relative;
+}
+
+.chart-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.chart-tooltip-time {
+  font-size: 10px;
+  color: var(--text-sub);
+}
+
+.chart-tooltip-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-survival {
+  text-align: center;
+  margin-top: 10px;
+  color: var(--accent);
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.app-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 1000;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.3s;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.app-title .brand {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--brand-blue);
+}
+
+.app-title .sub {
+  font-size: 11px;
+  color: var(--text-main);
+}
+
+/* ===== 설정 목록 행 (아이콘 + 라벨 + 컨트롤) ===== */
+.setting-list {
+  margin-top: 20px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-label);
+  color: var(--text-main);
+}
+
+.setting-control {
+  width: auto;
+  max-width: 140px;
+}
+
+.setting-control input {
+  padding-right: 40px;
+}
+
+/* ===== 타이탄 페이지: 관련 수치 카드 ===== */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(6px, 1.67cqw, 10px);
+}
+
+.metric-tile {
+  /* <button> 기본 스타일 리셋 */
+  appearance: none;
+  font-family: inherit;
+  outline: none;
+
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: clamp(7px, 1.83cqw, 11px) clamp(10px, 2.5cqw, 15px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.metric-tile:active {
+  background: var(--card-bg);
+}
+
+.metric-tile.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.metric-label {
+  font-size: clamp(11px, 2.33cqw, 13px);
+  color: var(--text-sub);
+}
+
+.metric-value {
+  font-size: clamp(15px, 4cqw, 20px);
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: normal;
+}
+
+/* 기본값에서 바뀐 값만 노란색으로 강조(입력칸/드롭다운/관련 수치 타일 공통).
+   input/.selected-value/.metric-value 등 이 규칙보다 뒤에 나오는 동일 특이도 클래스도 있어서
+   소스 순서에 기대지 않도록 !important로 확실히 이기게 함 */
+.value-changed {
+  color: var(--accent) !important;
+}
+
+.metric-detail {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--bg-color);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.metric-detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+
+.metric-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.metric-detail-row:first-of-type {
+  border-top: none;
+}
+
+.metric-detail-empty {
+  font-size: 13px;
+  color: var(--text-sub);
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* ===== 내 공룡 페이지 전용: 공통 스탯 리드아웃 ===== */
+.stat-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+}
+
+.stat-readout-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-readout-label {
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+.stat-readout-value {
+  font-size: clamp(14px, 4.2cqw, 19px);
+  font-weight: 600;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.stat-readout-value.accent {
+  color: var(--accent);
+}
+
+/* 사이드바 애니메이션 및 스타일 */
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 280px;
+  height: 100%;
+  background: var(--card-bg);
+  z-index: 2000;
+  transition: 0.3s ease;
+  padding: 20px;
+  box-sizing: border-box;
+  border-right: 1px solid var(--border-color);
+}
+
+.side-menu.open {
+  left: 0;
+}
+
+.side-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 15px;
+}
+
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 1999;
+}
+
+.theme-toggle-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* 토글 스위치 디자인 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 22px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+/* ON 상태일 때의 배경색을 골드 악센트로 변경 */
+input:checked + .slider {
+  background-color: var(--accent);
+}
+
+/* ON 상태일 때 동그라미(before)가 이동하는 로직 */
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.hp-bar-container {
+  background: #444;
+  border-radius: 10px;
+  height: 20px;
+  width: 100%;
+  margin: 10px 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  background: linear-gradient(90deg, #e74c3c, #2ecc71);
+  height: 100%;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.min-record-text {
+  font-size: 11px;
+  color: var(--text-sub);
+  text-align: right;
+  display: block;
+  margin-top: -5px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-main);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.custom-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.selected-value {
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  /* input/select와 같은 기준으로 카드 폭에 비례해서 줄어듦(PC 값이 상한선) */
+  height: clamp(34px, 8cqw, 48px);
+  padding: clamp(8px, 2cqw, 12px) clamp(10px, 2.33cqw, 14px);
+  line-height: clamp(16px, 3.67cqw, 22px);
+  font-size: clamp(11px, 2.5cqw, 15px);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text-main);
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.selected-value::after {
+  content: "▼";
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-sub);
+}
+
+.dropdown-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 250px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  z-index: 10000;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  -ms-overflow-style: none;
+  /* IE, Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+b .dropdown-list::-webkit-scrollbar {
+  display: none;
+}
+
+.dropdown-list li {
+  padding: clamp(7px, 1.67cqw, 10px);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  font-size: clamp(11px, 2.33cqw, 14px);
+}
+
+.dropdown-list li:hover {
+  background: var(--input-bg);
+  color: var(--primary);
+}
+
+/* VIP 드롭다운: 항목마다 배지 이미지 + 설명 텍스트가 함께 들어감.
+   닫힌 상태 박스는 다른 입력칸/드롭다운과 높이를 맞춰야 해서 세로 패딩을 거의 없애고
+   그만큼 아이콘이 박스 안을 거의 꽉 채우도록 함. 모든 크기는 카드 폭(cqw) 기준으로
+   PC 화면 값을 상한선 삼아 비례 축소되어, 폭이 좁아져도 세로만 뚱뚱해지지 않음 */
+.vip-selected-value {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.67cqw, 10px);
+  text-align: left;
+  padding: clamp(0px, 0.5cqw, 2px) clamp(24px, 5.67cqw, 34px) clamp(0px, 0.5cqw, 2px) clamp(8px, 2cqw, 12px);
+}
+
+.vip-dropdown-list li.vip-option {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.67cqw, 10px);
+  padding: clamp(4px, 1cqw, 6px) clamp(7px, 1.67cqw, 10px);
+}
+
+.vip-option-icon {
+  position: relative;
+  width: clamp(46px, 11.17cqw, 67px);
+  height: clamp(46px, 11.17cqw, 67px);
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* 평소(닫힌 상태)에 보이는 아이콘: 세로 패딩을 거의 없앤 만큼 박스 높이에 거의 꽉 차게 */
+.vip-option-icon.small {
+  width: clamp(30px, 7.33cqw, 44px);
+  height: clamp(30px, 7.33cqw, 44px);
+}
+
+.vip-option-num {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(15px, 3.67cqw, 22px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.vip-option-icon.small .vip-option-num {
+  font-size: clamp(12px, 2.83cqw, 17px);
+}
+
+.vip-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+}
+
+.vip-option-title {
+  font-weight: 700;
+  font-size: clamp(10px, 2.17cqw, 13px);
+  color: var(--text-main);
+}
+
+.vip-option-desc {
+  font-size: clamp(9px, 1.83cqw, 11px);
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+/*피해 감소량, 흡혈량 표시 전환*/
+#resRed,
+#resVamp {
+  position: relative;
+  display: inline-block;
+  padding-right: 18px;
+}
+
+#resRed:active::after,
+#resVamp:active::after {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.chart-container {
+  width: 100%;
+  /* 가로가 좁아지면 세로도 비율에 맞춰 줄어들게 함 */
+  aspect-ratio: 2 / 1; 
+  position: relative;
+  background: #111; /* 배경색 예시 */
+  padding: 0;
+  margin: 10px 0;
+}
+
+#hpChart {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+  cursor: crosshair;
+}
+/* ===== 페이지 내비게이션(드로어 안) ===== */
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.nav-link.active {
+  background: var(--input-bg);
+  font-weight: bold;
+  color: var(--primary);
+}
+
+/* ===== 홈 화면 카드 그리드 ===== */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.home-card {
+  display: block;
+  background: var(--input-bg);
+  border-radius: 12px;
+  padding: 14px;
+  text-decoration: none;
+  color: var(--text-main);
+}
+
+.home-card-title {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.home-card-desc {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.home-card-soon {
+  opacity: 0.55;
+}
+
+/* ===== 내 공룡: 요약바+탭을 한 패널로 통합 =====
+   overflow:hidden을 쓰면 안의 드롭다운 목록(체력/공룡 수 등)이 카드 경계에 잘려서
+   overflow는 안 씀. 대신 라운드 처리가 필요한 요소는 각자 border-radius로 처리. */
+.dino-panel {
+  padding: 0 !important;
+}
+
+.dino-summary-bar {
+  padding: 18px var(--p-base);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 16px 16px 0 0;
+}
+
+.dino-summary-bar .stat-readout {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.dino-summary-bar .stat-readout-item {
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.dino-summary-bar .stat-readout-label {
+  font-size: 10.5px;
+  white-space: normal;
+}
+
+.dino-summary-bar .stat-readout-value {
+  font-size: clamp(11px, 3.2cqw, 15px);
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+/* ===== 내 공룡: 탭 (슬라이딩 밑줄 인디케이터) ===== */
+.dino-tabs {
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dino-tab {
+  flex: 1;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.dino-tab.active {
+  color: var(--primary);
+}
+
+.dino-tab-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--primary);
+  transition: transform 0.25s ease, width 0.25s ease;
+}
+
+.dino-tab-panel {
+  padding: var(--p-base);
+}
+
+/* ===== 내 공룡: 룬 프리셋 칩 ===== */
+.preset-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 0 4px;
+}
+
+.preset-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.preset-chip-add {
+  color: var(--primary);
+  border: 1px dashed var(--primary);
+  background: none;
+}
+
+.preset-chip-remove {
+  opacity: 0.6;
+  font-size: 11px;
+}
