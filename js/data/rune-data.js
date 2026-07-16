@@ -1,4 +1,5 @@
 const RUNES_DATA = {
+      // ===== 일반 (id 오름차순) =====
       "힐": {
         grade: "일반",
         imgId: "RuneSprite_6",
@@ -69,6 +70,34 @@ const RUNES_DATA = {
           return lv;
         })()
       },
+      "승리의 함성": {
+        grade: "일반",
+        imgId: "RuneSprite_22",
+        desc: "적 유닛을 처치 시 유닛의 공격력 {atk_p}% 버프 {turn}턴 지속",
+        levels: (function() {
+          let lv = {};
+          const v = [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0, 5.2, 5.4, 5.6, 5.8, 6.0, 6.2, 6.4, 6.6, 6.8, 7.5];
+          const t = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8];
+          v.forEach((x, i) => lv[i + 1] = {
+            atk_p: x,
+            turn: t[i]
+          });
+          return lv;
+        })()
+      },
+      "자연의 포옹": {
+        grade: "일반",
+        imgId: "RuneSprite_23",
+        desc: "자연 구조물(채집지 제외)이 있는 타일 옆에 있을 경우 유닛의 공격력 {atk_f} 체력 {hp_f} 버프",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) lv[i] = {
+            atk_f: i,
+            hp_f: i * 25
+          };
+          return lv;
+        })()
+      },
       "트리플 임팩트": {
         grade: "일반",
         imgId: "RuneSprite_24",
@@ -124,6 +153,55 @@ const RUNES_DATA = {
           return lv;
         })()
       },
+      "파괴자 1": {
+        grade: "일반",
+        imgId: "RuneSprite_30",
+        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) {
+            let atk_p;
+            if (i <= 5) atk_p = 5.1 + (i - 1) * 3;
+            else if (i <= 10) atk_p = 7.5 + (i - 6) * 3;
+            else if (i <= 15) atk_p = 9.9 + (i - 11) * 3;
+            else if (i <= 20) atk_p = 13.2 + (i - 16) * 3;
+            else if (i <= 25) atk_p = 17.1 + (i - 21) * 6;
+            else if (i <= 30) atk_p = 23.1 + (i - 26) * 6;
+            else atk_p = 30;
+            lv[i] = {
+              atk_p: parseFloat(atk_p.toFixed(1))
+            };
+          }
+          return lv;
+        })()
+      },
+      "강인함 1": {
+        grade: "일반",
+        imgId: "RuneSprite_33",
+        desc: "건축물에게 공격당할 때 피해 {red_f} 감소",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) lv[i] = {
+            red_f: i
+          };
+          return lv;
+        })()
+      },
+      "부족의 축복 1": {
+        grade: "일반",
+        imgId: "RuneSprite_34",
+        desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) lv[i] = {
+            atk_f: i,
+            hp_f: i * 25
+          };
+          return lv;
+        })()
+      },
+
+      // ===== 희귀 (id 오름차순) =====
       "공격력 증가 2": {
         grade: "희귀",
         imgId: "RuneSprite_8",
@@ -203,6 +281,43 @@ const RUNES_DATA = {
           return lv;
         })()
       },
+      "파괴자 2": {
+        grade: "희귀",
+        imgId: "RuneSprite_31",
+        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) {
+            let atk_p;
+            if (i <= 5) atk_p = 11.9 + (i - 1) * 0.7;
+            else if (i <= 10) atk_p = 17.5 + (i - 6) * 0.7;
+            else if (i <= 15) atk_p = 23.1 + (i - 11) * 0.7;
+            else if (i <= 20) atk_p = 30.5 + (i - 16) * 0.7;
+            else if (i <= 25) atk_p = 39.9 + (i - 21) * 1.4;
+            else if (i <= 30) atk_p = 53.9 + (i - 26) * 1.4;
+            else atk_p = 70;
+            lv[i] = {
+              atk_p: parseFloat(atk_p.toFixed(1))
+            };
+          }
+          return lv;
+        })()
+      },
+      "부족의 축복 2": {
+        grade: "희귀",
+        imgId: "RuneSprite_35",
+        desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) lv[i] = {
+            atk_f: 15 + (i - 1),
+            hp_f: 375 + (i - 1) * 25
+          };
+          return lv;
+        })()
+      },
+
+      // ===== 에픽 (id 오름차순) =====
       "치명타 확률": {
         grade: "에픽",
         imgId: "RuneSprite_4",
@@ -298,6 +413,43 @@ const RUNES_DATA = {
           return lv;
         })()
       },
+      "파괴자 3": {
+        grade: "에픽",
+        imgId: "RuneSprite_32",
+        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
+        levels: (function() {
+          let lv = {};
+          for (let i = 1; i <= 31; i++) {
+            let atk_p;
+            if (i <= 5) atk_p = 28.0 + (i - 1) * 0.8;
+            else if (i <= 10) atk_p = 40.0 + (i - 6) * 0.8;
+            else if (i <= 15) atk_p = 52.0 + (i - 11) * 1.6;
+            else if (i <= 20) atk_p = 68.0 + (i - 16) * 2.0;
+            else if (i <= 25) atk_p = 92.0 + (i - 21) * 2.0;
+            else if (i <= 30) atk_p = 124.0 + (i - 26) * 2.0;
+            else atk_p = 160.0;
+            lv[i] = {
+              atk_p: parseFloat(atk_p.toFixed(1))
+            };
+          }
+          return lv;
+        })()
+      },
+      "타이탄 가드": {
+        grade: "에픽",
+        imgId: "RuneSprite_39",
+        desc: "보스에게 공격당할 때 피해 {red_f}만큼 감소",
+        levels: (function() {
+          let lv = {};
+          const v = [30, 33, 36, 39, 42, 50, 53, 56, 59, 62, 70, 73, 76, 79, 82, 90, 93, 96, 99, 102, 110, 113, 116, 119, 122, 130, 135, 140, 145, 150, 160];
+          v.forEach((x, i) => lv[i + 1] = {
+            red_f: x
+          });
+          return lv;
+        })()
+      },
+
+      // ===== 유니크 (id 오름차순) =====
       "흡혈": {
         grade: "유니크",
         imgId: "RuneSprite_3",
@@ -336,188 +488,6 @@ const RUNES_DATA = {
           v.forEach((x, i) => lv[i + 1] = {
             hp_p: x
           });
-          return lv;
-        })()
-      },
-      "보스 슬레이어": {
-        grade: "유니크",
-        imgId: "RuneSprite_38",
-        desc: "보스를 공격할 때 유닛의 공격력 {atk_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          const v = [20, 22, 24, 26, 28, 40, 42, 44, 46, 48, 60, 62, 64, 66, 68, 80, 83, 86, 89, 92, 110, 115, 120, 125, 130, 150, 160, 170, 180, 190, 250];
-          v.forEach((x, i) => lv[i + 1] = {
-            atk_p: x
-          });
-          return lv;
-        })()
-      },
-      "메테오": {
-        grade: "전설",
-        imgId: "RuneSprite_1",
-        desc: "유닛을 공격할 때 {prob}% 확률로 현재 타일에 있는 모든 적에게 공격력의 {burst_p}% 스킬 추가 피해\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          const p = [50, 50, 50, 50, 50, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 60, 60, 60, 60, 60, 65];
-          const v = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 40, 41, 42, 43, 44, 50, 51, 52, 53, 54, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 80];
-          const pas = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 10];
-          p.forEach((x, i) => lv[i + 1] = {
-            prob: x,
-            burst_p: v[i],
-            atk_p: pas[i],
-            hp_p: pas[i]
-          });
-          return lv;
-        })()
-      },
-      "낙뢰": {
-        grade: "전설",
-        imgId: "RuneSprite_2",
-        desc: "유닛을 공격할 때 {prob}% 확률로 전투중인 상대 유닛에게 {burst_p}% 스킬 추가 피해\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          const p = [40, 40, 40, 40, 40, 45, 45, 45, 45, 45, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 60, 65, 65, 65, 65, 65, 65];
-          const v = [40, 40.5, 41, 41.5, 42, 50, 50.5, 51, 51.5, 52, 67.5, 68, 68.5, 69, 69.5, 82.5, 83, 83.5, 84, 84.5, 90, 90.5, 91, 91.5, 92, 100, 100.5, 101, 101.5, 102, 115];
-          const pas = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 10];
-          p.forEach((x, i) => lv[i + 1] = {
-            prob: x,
-            burst_p: v[i],
-            atk_p: pas[i],
-            hp_p: pas[i]
-          });
-          return lv;
-        })()
-      },
-      // 부적합 룬 목록 (데이터 추가됨)
-      "승리의 함성": {
-        grade: "일반",
-        imgId: "RuneSprite_22",
-        desc: "적 유닛을 처치 시 유닛의 공격력 {atk_p}% 버프 {turn}턴 지속",
-        levels: (function() {
-          let lv = {};
-          const v = [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0, 5.2, 5.4, 5.6, 5.8, 6.0, 6.2, 6.4, 6.6, 6.8, 7.5];
-          const t = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8];
-          v.forEach((x, i) => lv[i + 1] = {
-            atk_p: x,
-            turn: t[i]
-          });
-          return lv;
-        })()
-      },
-      "자연의 포옹": {
-        grade: "일반",
-        imgId: "RuneSprite_23",
-        desc: "자연 구조물(채집지 제외)이 있는 타일 옆에 있을 경우 유닛의 공격력 {atk_f} 체력 {hp_f} 버프",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) lv[i] = {
-            atk_f: i,
-            hp_f: i * 25
-          };
-          return lv;
-        })()
-      },
-      "파괴자 1": {
-        grade: "일반",
-        imgId: "RuneSprite_30",
-        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) {
-            let atk_p;
-            if (i <= 5) atk_p = 5.1 + (i - 1) * 3;
-            else if (i <= 10) atk_p = 7.5 + (i - 6) * 3;
-            else if (i <= 15) atk_p = 9.9 + (i - 11) * 3;
-            else if (i <= 20) atk_p = 13.2 + (i - 16) * 3;
-            else if (i <= 25) atk_p = 17.1 + (i - 21) * 6;
-            else if (i <= 30) atk_p = 23.1 + (i - 26) * 6;
-            else atk_p = 30;
-            lv[i] = {
-              atk_p: parseFloat(atk_p.toFixed(1))
-            };
-          }
-          return lv;
-        })()
-      },
-      "강인함 1": {
-        grade: "일반",
-        imgId: "RuneSprite_33",
-        desc: "건축물에게 공격당할 때 피해 {red_f} 감소",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) lv[i] = {
-            red_f: i
-          };
-          return lv;
-        })()
-      },
-      "부족의 축복 1": {
-        grade: "일반",
-        imgId: "RuneSprite_34",
-        desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) lv[i] = {
-            atk_f: i,
-            hp_f: i * 25
-          };
-          return lv;
-        })()
-      },
-      "파괴자 2": {
-        grade: "희귀",
-        imgId: "RuneSprite_31",
-        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) {
-            let atk_p;
-            if (i <= 5) atk_p = 11.9 + (i - 1) * 0.7;
-            else if (i <= 10) atk_p = 17.5 + (i - 6) * 0.7;
-            else if (i <= 15) atk_p = 23.1 + (i - 11) * 0.7;
-            else if (i <= 20) atk_p = 30.5 + (i - 16) * 0.7;
-            else if (i <= 25) atk_p = 39.9 + (i - 21) * 1.4;
-            else if (i <= 30) atk_p = 53.9 + (i - 26) * 1.4;
-            else atk_p = 70;
-            lv[i] = {
-              atk_p: parseFloat(atk_p.toFixed(1))
-            };
-          }
-          return lv;
-        })()
-      },
-      "부족의 축복 2": {
-        grade: "희귀",
-        imgId: "RuneSprite_35",
-        desc: "내 부족이 점령한 타일 위에 있을 때 유닛의 공격력 {atk_f} 체력 {hp_f} 증가",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) lv[i] = {
-            atk_f: 15 + (i - 1),
-            hp_f: 375 + (i - 1) * 25
-          };
-          return lv;
-        })()
-      },
-      "파괴자 3": {
-        grade: "에픽",
-        imgId: "RuneSprite_32",
-        desc: "건축물을 공격할 때 유닛의 공격력 {atk_p}% 증가",
-        levels: (function() {
-          let lv = {};
-          for (let i = 1; i <= 31; i++) {
-            let atk_p;
-            if (i <= 5) atk_p = 28.0 + (i - 1) * 0.8;
-            else if (i <= 10) atk_p = 40.0 + (i - 6) * 0.8;
-            else if (i <= 15) atk_p = 52.0 + (i - 11) * 1.6;
-            else if (i <= 20) atk_p = 68.0 + (i - 16) * 2.0;
-            else if (i <= 25) atk_p = 92.0 + (i - 21) * 2.0;
-            else if (i <= 30) atk_p = 124.0 + (i - 26) * 2.0;
-            else atk_p = 160.0;
-            lv[i] = {
-              atk_p: parseFloat(atk_p.toFixed(1))
-            };
-          }
           return lv;
         })()
       },
@@ -567,5 +537,124 @@ const RUNES_DATA = {
           return lv;
         })()
       },
+      "보스 슬레이어": {
+        grade: "유니크",
+        imgId: "RuneSprite_38",
+        desc: "보스를 공격할 때 유닛의 공격력 {atk_p}% 증가",
+        levels: (function() {
+          let lv = {};
+          const v = [20, 22, 24, 26, 28, 40, 42, 44, 46, 48, 60, 62, 64, 66, 68, 80, 83, 86, 89, 92, 110, 115, 120, 125, 130, 150, 160, 170, 180, 190, 250];
+          v.forEach((x, i) => lv[i + 1] = {
+            atk_p: x
+          });
+          return lv;
+        })()
+      },
+
+      // ===== 전설 (id 오름차순) =====
+      "메테오": {
+        grade: "전설",
+        imgId: "RuneSprite_1",
+        // 21레벨부터 "주변 타일 추가 피해" 설명 한 줄이 더 붙음
+        desc: (level) => {
+          const area = level >= 21 ? "\n*주변 타일에 있는 모든 적에게 {area_burst_p}% 추가 스킬 피해" : "";
+          return `유닛을 공격할 때 {prob}% 확률로 현재 타일에 있는 모든 적에게 공격력의 {burst_p}% 스킬 추가 피해${area}\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가`;
+        },
+        levels: (function() {
+          let lv = {};
+          const p = [50, 50, 50, 50, 50, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 55, 60, 60, 60, 60, 60, 65, 65, 65, 65, 65, 65];
+          const v = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 40, 41, 42, 43, 44, 50, 51, 52, 53, 54, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 80];
+          const pas = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 10];
+          // 21레벨부터: 현재 타일 피해와 별개로 주변 타일의 모든 적에게도 추가 스킬 피해
+          const areaBurst = { 21: 10, 22: 11, 23: 12, 24: 13, 25: 14, 26: 18, 27: 19, 28: 20, 29: 21, 30: 22, 31: 25 };
+          p.forEach((x, i) => {
+            const level = i + 1;
+            lv[level] = {
+              prob: x,
+              burst_p: v[i],
+              atk_p: pas[i],
+              hp_p: pas[i]
+            };
+            if (areaBurst[level] !== undefined) {
+              lv[level].area_burst_p = areaBurst[level];
+            }
+          });
+          return lv;
+        })()
+      },
+      "낙뢰": {
+        grade: "전설",
+        imgId: "RuneSprite_2",
+        // 21레벨부터 "즉사" 설명 한 줄이 더 붙음
+        desc: (level) => {
+          const insta = level >= 21 ? "\n*상대 체력이 {insta_hp}% 미만일 경우 {insta_prob}%확률로 즉사" : "";
+          return `유닛을 공격할 때 {prob}% 확률로 전투중인 상대 유닛에게 {burst_p}% 스킬 추가 피해${insta}\n레전더리 패시브 : 공격력 {atk_p}%, 체력 {hp_p}% 증가`;
+        },
+        levels: (function() {
+          let lv = {};
+          const p = [40, 40, 40, 40, 40, 45, 45, 45, 45, 45, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 60, 65, 65, 65, 65, 65, 65];
+          const v = [60, 61, 62, 63, 64, 75, 76, 77, 78, 79, 100, 101, 102, 103, 104, 124, 125, 126, 127, 128, 135, 136, 137, 138, 139, 150, 151, 152, 153, 154, 170];
+          const pas = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 10];
+          // 21레벨부터: 타이탄 체력이 일정 % 미만이면 확률적으로 즉사시키는 효과 추가
+          const instaHp = { 21: 15, 22: 16, 23: 17, 24: 18, 25: 19, 26: 20, 27: 21, 28: 22, 29: 23, 30: 24, 31: 30 };
+          const instaProb = { 21: 20, 22: 20, 23: 20, 24: 20, 25: 20, 26: 25, 27: 25, 28: 25, 29: 25, 30: 25, 31: 30 };
+          p.forEach((x, i) => {
+            const level = i + 1;
+            lv[level] = {
+              prob: x,
+              burst_p: v[i],
+              atk_p: pas[i],
+              hp_p: pas[i]
+            };
+            if (instaHp[level] !== undefined) {
+              lv[level].insta_hp = instaHp[level];
+              lv[level].insta_prob = instaProb[level];
+            }
+          });
+          return lv;
+        })()
+      },
     };
     //룬 데이터 종료
+
+// 타이탄전에 적합하지 않은 룬 목록 (UI에서 별도 그리드로 분리 표시)
+const UNSUITABLE_RUNE_LIST = [
+  "강인함 1",
+  "강인함 2",
+  "자연의 포옹",
+  "승리의 함성",
+  "부족의 축복 1",
+  "부족의 축복 2",
+  "파괴자 1",
+  "파괴자 2",
+  "파괴자 3",
+  "지진"
+];
+
+// 흡혈량 계산 시 공격력 보너스에서 제외되는 룬 목록 (오버밸런스 방지용)
+const VAMP_EXCLUSION_LIST = [
+  "고독한 분노",
+  "협동 공격",
+  "마지막 선물",
+  "보스 슬레이어"
+];
+
+// 동시 장착 불가능한 룬 쌍(둘 다 들어있으면 안 됨)
+const MUTUALLY_EXCLUSIVE_RUNE_PAIRS = [
+  ["압축된 힘", "매머드의 힘"]
+];
+
+// 저장된 룬 슬롯 배열에서 상호 배타 쌍이 동시에 들어있으면 뒤쪽 슬롯의 룬을 제거해서 정합성을 맞춤
+function sanitizeRuneConflicts(runes) {
+  if (!runes) return runes;
+  const result = runes.map((r) => (r ? { ...r } : null));
+  MUTUALLY_EXCLUSIVE_RUNE_PAIRS.forEach(([a, b]) => {
+    const idxA = result.findIndex((r) => r && r.name === a);
+    const idxB = result.findIndex((r) => r && r.name === b);
+    if (idxA !== -1 && idxB !== -1) {
+      if (idxA < idxB) result[idxB] = null;
+      else result[idxA] = null;
+    }
+  });
+  return result;
+}
