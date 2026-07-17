@@ -27,6 +27,7 @@ function applyStoredTheme() {
 
 function initSettingsDrawer() {
   applyStoredTheme();
+  renderAuthRow();
   document.getElementById("themeBtn").onclick = toggleTheme;
   document.getElementById("logToggle").addEventListener("change", (e) => {
     AppSettings.isLogEnabled = e.target.checked;

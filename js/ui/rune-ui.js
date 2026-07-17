@@ -1,5 +1,5 @@
-// 룬 슬롯 장착/해제 UI. 화면에 고정 id(slotContainer, runePicker 등)가 있다고 가정.
-// 한 번에 한 페이지만 마운트되는 SPA 구조라 id 재사용은 문제 없음.
+// 룬 슬롯 장착/해제 UI. idPrefix로 스코프를 나눠서 한 페이지에 여러 인스턴스를
+// 동시에 마운트할 수 있음(예: 공룡 대전 페이지의 "내 공룡"/"상대 공룡" 동시 표시).
 
 function getImgUrl(id) {
   return id
@@ -38,7 +38,10 @@ function getFormattedDesc(runeName, level) {
   });
 }
 
-function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabel = "적합하지 않은 룬입니다" } = {}) {
+function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [], unsuitableLabel = "적합하지 않은 룬입니다" } = {}) {
+  const id = (name) => idPrefix + name;
+  const $ = (name) => document.getElementById(id(name));
+
   let selectedRunes = [null, null, null, null, null];
   let activeSlotIdx = null;
   let tempName = "";
@@ -52,12 +55,12 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
   }
 
   function renderSlots() {
-    const sc = document.getElementById("slotContainer");
+    const sc = $("slotContainer");
     sc.innerHTML = "";
     for (let i = 0; i < 5; i++) {
       const div = document.createElement("div");
       div.className = "slot";
-      div.id = `slot-${i}`;
+      div.id = id(`slot-${i}`);
       div.onclick = () => openPicker(i);
       sc.appendChild(div);
       renderSlotContent(i);
@@ -65,7 +68,7 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
   }
 
   function renderSlotContent(idx) {
-    const slot = document.getElementById(`slot-${idx}`);
+    const slot = document.getElementById(id(`slot-${idx}`));
     const rune = selectedRunes[idx];
     if (rune && rune.name && RUNES_DATA[rune.name]) {
       const r = RUNES_DATA[rune.name];
@@ -80,9 +83,9 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
   }
 
   function renderRuneGrid() {
-    const mainGrid = document.getElementById("mainGrid");
-    const unsuitableGrid = document.getElementById("unsuitableGrid");
-    const divider = document.getElementById("unsuitableDivider");
+    const mainGrid = $("mainGrid");
+    const unsuitableGrid = $("unsuitableGrid");
+    const divider = $("unsuitableDivider");
     mainGrid.innerHTML = "";
     unsuitableGrid.innerHTML = "";
     const hasUnsuitable = unsuitableList.length > 0;
@@ -106,11 +109,11 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
   // 룬 레벨 선택도 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 모양으로 통일 (사이트 기본 <select> 안 씀)
   function setLevel(lv) {
     currentLevel = Number(lv);
-    document.getElementById("levelSelectedValue").textContent = `Lv.${currentLevel}`;
+    $("levelSelectedValue").textContent = `Lv.${currentLevel}`;
   }
 
   function initLevelSelect() {
-    const list = document.getElementById("levelList");
+    const list = $("levelList");
     list.innerHTML = "";
     for (let i = 1; i <= 31; i++) {
       const li = document.createElement("li");
@@ -124,7 +127,7 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
     }
     setLevel(currentLevel);
 
-    const selectedValue = document.getElementById("levelSelectedValue");
+    const selectedValue = $("levelSelectedValue");
     selectedValue.onclick = () => {
       const isOpen = list.style.display === "block";
       document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
@@ -133,17 +136,18 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
   }
 
   function openPicker(idx) {
-    const picker = document.getElementById("runePicker");
+    const picker = $("runePicker");
     const isSameSlot = activeSlotIdx === idx;
+    const slots = document.querySelectorAll(`[id^="${idPrefix}slot-"]`);
 
     if (isSameSlot && picker.style.display === "block") {
       picker.style.display = "none";
       activeSlotIdx = null;
-      document.querySelectorAll(".slot").forEach((s) => s.classList.remove("active"));
+      slots.forEach((s) => s.classList.remove("active"));
     } else {
       activeSlotIdx = idx;
       picker.style.display = "block";
-      document.querySelectorAll(".slot").forEach((s, i) => s.classList.toggle("active", i === idx));
+      slots.forEach((s, i) => s.classList.toggle("active", i === idx));
 
       const savedRune = selectedRunes[idx];
       if (savedRune && savedRune.name) {
@@ -153,7 +157,7 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
           updateDetail(savedRune.name, savedRune.lv);
         }
       } else {
-        document.getElementById("runeDetail").style.display = "none";
+        $("runeDetail").style.display = "none";
       }
       picker.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
@@ -161,13 +165,13 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
 
   function showDetail(name) {
     tempName = name;
-    document.getElementById("runeWarning").style.display = "none";
+    $("runeWarning").style.display = "none";
     const r = RUNES_DATA[name];
-    const detailView = document.getElementById("runeDetail");
+    const detailView = $("runeDetail");
     detailView.style.display = "block";
-    document.getElementById("detailName").innerText = name;
-    document.getElementById("detailGrade").innerText = r.grade;
-    document.getElementById("detailGrade").style.color = `var(--${r.grade})`;
+    $("detailName").innerText = name;
+    $("detailGrade").innerText = r.grade;
+    $("detailGrade").style.color = `var(--${r.grade})`;
     updateDetail(name, currentLevel);
     detailView.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
@@ -184,13 +188,12 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
         return `<span style="color: ${color}; font-weight: bold;">${value}</span>`;
       });
     }
-    document.getElementById("detailDesc").innerHTML = d;
+    $("detailDesc").innerHTML = d;
   }
 
   function applyRuneToSlot() {
     const lv = currentLevel;
-    const slot = document.getElementById(`slot-${activeSlotIdx}`);
-    const warnEl = document.getElementById("runeWarning");
+    const warnEl = $("runeWarning");
 
     // 상호 배타 룬 쌍 체크. activeSlotIdx(지금 갈아끼우려는 그 슬롯)는 검사 대상에서 제외해야
     // "이미 매머드의 힘이 꽂혀있는 슬롯을 압축된 힘으로 교체" 같은 정상적인 교체가 막히지 않음
@@ -216,7 +219,7 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
     selectedRunes[activeSlotIdx] = { name: tempName, lv: lv };
     renderSlotContent(activeSlotIdx);
 
-    document.getElementById("runePicker").style.display = "none";
+    $("runePicker").style.display = "none";
     warnEl.style.display = "none";
     onChange(getSelectedRunes());
   }
@@ -225,7 +228,7 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
     if (activeSlotIdx === null) return;
     selectedRunes[activeSlotIdx] = null;
     renderSlotContent(activeSlotIdx);
-    document.getElementById("runePicker").style.display = "none";
+    $("runePicker").style.display = "none";
     onChange(getSelectedRunes());
   }
 
@@ -233,8 +236,8 @@ function createRuneUI({ onChange = () => {}, unsuitableList = [], unsuitableLabe
     renderSlots();
     renderRuneGrid();
     initLevelSelect();
-    document.getElementById("applyBtn").onclick = applyRuneToSlot;
-    document.getElementById("removeBtn").onclick = removeRuneFromSlot;
+    $("applyBtn").onclick = applyRuneToSlot;
+    $("removeBtn").onclick = removeRuneFromSlot;
   }
 
   return { mount, getSelectedRunes, setSelectedRunes, renderSlots };

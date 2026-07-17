@@ -1,5 +1,7 @@
-// "내 공룡" 페이지 = 진짜 내 공룡 하나의 현재 상태를 설정하는 곳.
+// "내 공룡" 페이지 = 공룡 하나의 현재 상태를 설정하는 곳.
 // 기본 스탯 / 별자리 / 둥지·알스킨 / 룬 조합 4개 섹션. 룬 조합만 여러 개 프리셋으로 저장 가능.
+// options.storageKey / options.idPrefix를 다르게 주면 한 페이지에 여러 인스턴스를 동시에 띄울 수
+// 있음(예: 공룡 대전 페이지의 "내 공룡"/"상대 공룡"). 기본값은 지금까지와 완전히 동일하게 동작함.
 const MY_DINO_PROFILE_KEY = "dino_my_profile";
 
 const RUNE_PRESET_COUNT = 9;
@@ -29,9 +31,9 @@ function defaultMyDinoProfile() {
   };
 }
 
-function loadMyDinoProfile() {
+function loadMyDinoProfile(storageKey = MY_DINO_PROFILE_KEY) {
   try {
-    const saved = JSON.parse(localStorage.getItem(MY_DINO_PROFILE_KEY));
+    const saved = JSON.parse(localStorage.getItem(storageKey));
     if (!saved) return defaultMyDinoProfile();
     const profile = { ...defaultMyDinoProfile(), ...saved };
     // 별자리 항목이 나중에 추가된 경우 대비: 얕은 병합 대신 필드 단위로 병합
@@ -53,13 +55,18 @@ function loadMyDinoProfile() {
   }
 }
 
-function saveMyDinoProfile(profile) {
-  localStorage.setItem(MY_DINO_PROFILE_KEY, JSON.stringify(profile));
+function saveMyDinoProfile(profile, storageKey = MY_DINO_PROFILE_KEY) {
+  localStorage.setItem(storageKey, JSON.stringify(profile));
+  // 서버 동기화는 "내 공룡"(로그인한 유저 본인의 데이터)에만 해당됨. 공룡 대전의 "상대 공룡"처럼
+  // 다른 storageKey를 쓰는 가상의 비교용 프로필은 동기화 대상이 아니라서 이 기기에만 남음.
+  if (storageKey === MY_DINO_PROFILE_KEY && typeof queueRemoteSync === "function") {
+    queueRemoteSync(profile);
+  }
 }
 
-// 다른 페이지(타이탄 등)가 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환
-function getMyDinoBattleInputs() {
-  const p = loadMyDinoProfile();
+// 다른 페이지(타이탄, 공룡 대전 등)가 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환
+function getMyDinoBattleInputs(storageKey = MY_DINO_PROFILE_KEY) {
+  const p = loadMyDinoProfile(storageKey);
   return {
     baseAtk: p.baseAtk,
     baseHp: p.baseHp,
@@ -173,17 +180,20 @@ function getEffectiveBonusPercent(profile) {
 }
 
 function renderMyDinoPage(container, options = {}) {
-  const profile = loadMyDinoProfile();
+  const idPrefix = options.idPrefix || "";
+  const storageKey = options.storageKey || MY_DINO_PROFILE_KEY;
+  const id = (name) => idPrefix + name;
+  const profile = loadMyDinoProfile(storageKey);
 
   container.innerHTML = `
     <div class="card dino-panel">
       <div class="dino-summary-bar">
         <div class="stat-readout">
-          <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent" id="sumLevel">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value" id="sumAtk">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value" id="sumHp">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value" id="sumCrit">0% / 0%</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value" id="sumCount">0마리</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent" id="${id("sumLevel")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value" id="${id("sumAtk")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value" id="${id("sumHp")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value" id="${id("sumCrit")}">0% / 0%</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value" id="${id("sumCount")}">0마리</div></div>
         </div>
       </div>
 
@@ -192,26 +202,26 @@ function renderMyDinoPage(container, options = {}) {
         <button class="dino-tab" data-tab="constellation">별자리</button>
         <button class="dino-tab" data-tab="bonus">둥지·알스킨</button>
         <button class="dino-tab" data-tab="rune">룬 조합</button>
-        <div class="dino-tab-indicator" id="tabIndicator"></div>
+        <div class="dino-tab-indicator" id="${id("tabIndicator")}"></div>
       </div>
 
       <div class="dino-tab-panel" data-panel="base">
         <div class="input-grid">
           <div class="full-width">
             <label>VIP</label>
-            <div class="custom-dropdown vip-dropdown" id="vipDropdown">
-              <div class="selected-value vip-selected-value" id="vipSelectedValue"></div>
-              <ul class="dropdown-list vip-dropdown-list" id="vipList"></ul>
+            <div class="custom-dropdown vip-dropdown" id="${id("vipDropdown")}">
+              <div class="selected-value vip-selected-value" id="${id("vipSelectedValue")}"></div>
+              <ul class="dropdown-list vip-dropdown-list" id="${id("vipList")}"></ul>
             </div>
           </div>
-          <div><label>체력</label><input type="tel" inputmode="numeric" id="fBaseHp"></div>
-          <div><label>공격력</label><input type="tel" inputmode="numeric" id="fBaseAtk"></div>
-          <div><label>이동속도</label><input type="tel" inputmode="numeric" id="fMoveSpeed"></div>
+          <div><label>체력</label><input type="tel" inputmode="numeric" id="${id("fBaseHp")}"></div>
+          <div><label>공격력</label><input type="tel" inputmode="numeric" id="${id("fBaseAtk")}"></div>
+          <div><label>이동속도</label><input type="tel" inputmode="numeric" id="${id("fMoveSpeed")}"></div>
           <div>
             <label>공룡 수</label>
-            <div class="custom-dropdown" id="dinoCountDropdown">
-              <div class="selected-value" id="dinoCountSelectedValue"></div>
-              <ul class="dropdown-list" id="dinoCountList"></ul>
+            <div class="custom-dropdown" id="${id("dinoCountDropdown")}">
+              <div class="selected-value" id="${id("dinoCountSelectedValue")}"></div>
+              <ul class="dropdown-list" id="${id("dinoCountList")}"></ul>
             </div>
           </div>
         </div>
@@ -221,39 +231,39 @@ function renderMyDinoPage(container, options = {}) {
         <div class="input-grid">
           <div>
             <label>체력</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstHp"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstHp")}"></div>
           </div>
           <div>
             <label>공격력</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstAtk"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstAtk")}"></div>
           </div>
           <div>
             <label>치명타 확률</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="fConstCritRate"><span class="affix-suffix">%</span></div>
+            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritRate")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
             <label>치명타 피해</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="fConstCritDmg"><span class="affix-suffix">%</span></div>
+            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritDmg")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
             <label>건축물 피해 증가</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstBuildingDmg"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBuildingDmg")}"></div>
           </div>
           <div>
             <label>스튜 효과 증가</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="fConstStewEffect"><span class="affix-suffix">%</span></div>
+            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstStewEffect")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
             <label>이동 속도</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstMoveSpeed"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstMoveSpeed")}"></div>
           </div>
           <div>
             <label>보스 피해 감소</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstBossDmgReduction"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgReduction")}"></div>
           </div>
           <div>
             <label>보스 피해 증가</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="fConstBossDmgIncrease"></div>
+            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgIncrease")}"></div>
           </div>
         </div>
       </div>
@@ -262,76 +272,83 @@ function renderMyDinoPage(container, options = {}) {
         <div class="input-grid">
           <div>
             <label>공격력</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="fBonusAtk"><span class="affix-suffix">%</span></div>
+            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusAtk")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
             <label>체력</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="fBonusHp"><span class="affix-suffix">%</span></div>
+            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusHp")}"><span class="affix-suffix">%</span></div>
           </div>
         </div>
       </div>
 
       <div class="dino-tab-panel" data-panel="rune" style="display:none;">
-        <div class="slot-wrapper" id="slotContainer"></div>
-        <div class="preset-row" id="presetRow"></div>
-        <div id="runePicker">
+        <div class="slot-wrapper" id="${id("slotContainer")}"></div>
+        <div class="preset-row" id="${id("presetRow")}"></div>
+        <div id="${id("runePicker")}">
           <div class="rune-scroll-container">
-            <div class="rune-grid" id="mainGrid"></div>
-            <div class="divider" id="unsuitableDivider" style="text-align:center; color:#e74c3c; font-size:11px; padding:15px 0;"></div>
-            <div class="rune-grid" id="unsuitableGrid"></div>
+            <div class="rune-grid" id="${id("mainGrid")}"></div>
+            <div class="divider" id="${id("unsuitableDivider")}" style="text-align:center; color:#e74c3c; font-size:11px; padding:15px 0;"></div>
+            <div class="rune-grid" id="${id("unsuitableGrid")}"></div>
           </div>
-          <div id="runeDetail" style="border-top:1px solid var(--border-color); margin-top:15px; padding-top:15px;">
-            <div id="detailGrade" style="font-size:11px; font-weight:bold;"></div>
-            <h3 id="detailName" style="margin:5px 0; font-size:1.1rem;"></h3>
-            <div id="runeWarning" style="color:#ff4444; font-size:12px; font-weight:bold; margin-bottom:8px; display:none; background:rgba(255,68,68,0.1); padding:5px; border-radius:4px;"></div>
-            <div id="levelArea">
-              <div class="custom-dropdown" id="levelDropdown">
-                <div class="selected-value" id="levelSelectedValue">Lv.1</div>
-                <ul class="dropdown-list" id="levelList"></ul>
+          <div id="${id("runeDetail")}" style="border-top:1px solid var(--border-color); margin-top:15px; padding-top:15px;">
+            <div id="${id("detailGrade")}" style="font-size:11px; font-weight:bold;"></div>
+            <h3 id="${id("detailName")}" style="margin:5px 0; font-size:1.1rem;"></h3>
+            <div id="${id("runeWarning")}" style="color:#ff4444; font-size:12px; font-weight:bold; margin-bottom:8px; display:none; background:rgba(255,68,68,0.1); padding:5px; border-radius:4px;"></div>
+            <div id="${id("levelArea")}">
+              <div class="custom-dropdown" id="${id("levelDropdown")}">
+                <div class="selected-value" id="${id("levelSelectedValue")}">Lv.1</div>
+                <ul class="dropdown-list" id="${id("levelList")}"></ul>
               </div>
-              <div class="desc-box" id="detailDesc"></div>
+              <div class="desc-box" id="${id("detailDesc")}"></div>
             </div>
-            <button class="btn-apply" id="applyBtn">슬롯에 장착</button>
-            <button class="btn-apply" id="removeBtn" style="border-color:var(--border-color); color:var(--text-sub); margin-top:5px;">장착 해제</button>
+            <button class="btn-apply" id="${id("applyBtn")}">슬롯에 장착</button>
+            <button class="btn-apply" id="${id("removeBtn")}" style="border-color:var(--border-color); color:var(--text-sub); margin-top:5px;">장착 해제</button>
           </div>
         </div>
       </div>
     </div>
   `;
 
-  initMyDinoPage(profile, options);
+  initMyDinoPage(profile, { ...options, idPrefix, storageKey }, container);
 }
 
-function initMyDinoPage(profile, options = {}) {
-  // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션)
-  const indicator = document.getElementById("tabIndicator");
+function initMyDinoPage(profile, options = {}, container) {
+  const idPrefix = options.idPrefix || "";
+  const storageKey = options.storageKey || MY_DINO_PROFILE_KEY;
+  const id = (name) => idPrefix + name;
+  const $ = (name) => document.getElementById(id(name));
+  const root = container || document;
+
+  // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션). 인스턴스가 여러 개 떠 있을 수 있어서
+  // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음.
+  const indicator = $("tabIndicator");
   function moveIndicator(btn) {
     indicator.style.width = btn.offsetWidth + "px";
     indicator.style.transform = `translateX(${btn.offsetLeft}px)`;
   }
 
-  document.querySelectorAll(".dino-tab").forEach((tabBtn) => {
+  root.querySelectorAll(".dino-tab").forEach((tabBtn) => {
     tabBtn.onclick = () => {
-      document.querySelectorAll(".dino-tab").forEach((b) => b.classList.remove("active"));
+      root.querySelectorAll(".dino-tab").forEach((b) => b.classList.remove("active"));
       tabBtn.classList.add("active");
       moveIndicator(tabBtn);
       const target = tabBtn.dataset.tab;
-      document.querySelectorAll(".dino-tab-panel").forEach((p) => {
+      root.querySelectorAll(".dino-tab-panel").forEach((p) => {
         p.style.display = p.dataset.panel === target ? "block" : "none";
       });
     };
   });
-  moveIndicator(document.querySelector(".dino-tab.active"));
+  moveIndicator(root.querySelector(".dino-tab.active"));
   // 폰트 로딩이 늦게 끝나거나 화면 폭이 바뀌면(카드 크기에 비례해서 탭 너비도 변함) 처음 잰 위치가 어긋나므로 다시 맞춤
   if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => moveIndicator(document.querySelector(".dino-tab.active")));
+    document.fonts.ready.then(() => moveIndicator(root.querySelector(".dino-tab.active")));
   }
-  window.addEventListener("resize", () => moveIndicator(document.querySelector(".dino-tab.active")));
+  window.addEventListener("resize", () => moveIndicator(root.querySelector(".dino-tab.active")));
 
   // 기본 스탯
-  const fBaseAtk = document.getElementById("fBaseAtk");
-  const fBaseHp = document.getElementById("fBaseHp");
-  const fMoveSpeed = document.getElementById("fMoveSpeed");
+  const fBaseAtk = $("fBaseAtk");
+  const fBaseHp = $("fBaseHp");
+  const fMoveSpeed = $("fMoveSpeed");
   fBaseAtk.value = profile.baseAtk;
   markChanged(fBaseAtk, profile.baseAtk !== 1);
   fBaseHp.value = profile.baseHp;
@@ -340,8 +357,8 @@ function initMyDinoPage(profile, options = {}) {
   markChanged(fMoveSpeed, profile.moveSpeed !== 1);
 
   // 공룡 수: 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 스타일을 쓰기 위해 <select> 대신 직접 구현
-  const dinoCountList = document.getElementById("dinoCountList");
-  const dinoCountSelectedValue = document.getElementById("dinoCountSelectedValue");
+  const dinoCountList = $("dinoCountList");
+  const dinoCountSelectedValue = $("dinoCountSelectedValue");
 
   function setDinoCount(count) {
     profile.dinoCount = count;
@@ -368,9 +385,8 @@ function initMyDinoPage(profile, options = {}) {
   };
 
   // VIP (이미지 배지 + 설명이 들어가는 커스텀 드롭다운. <select>는 항목 안에 이미지를 넣을 수 없어서 직접 구현)
-  const vipDropdown = document.getElementById("vipDropdown");
-  const vipList = document.getElementById("vipList");
-  const vipSelectedValue = document.getElementById("vipSelectedValue");
+  const vipList = $("vipList");
+  const vipSelectedValue = $("vipSelectedValue");
 
   function vipIconMarkup(vip, sizeClass) {
     return `<div class="vip-option-icon ${sizeClass || ""}" style="background-image:url('${getVipIconFile(vip)}')"><span class="vip-option-num">${vip}</span></div>`;
@@ -410,11 +426,15 @@ function initMyDinoPage(profile, options = {}) {
     document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
     vipList.style.display = isOpen ? "none" : "block";
   };
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".custom-dropdown")) {
-      document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    }
-  });
+  // 드롭다운 바깥 클릭 시 전부 닫기: 인스턴스마다 중복 등록되지 않도록 한 번만 붙임
+  if (!window.__dinoDropdownCloseHandlerBound) {
+    window.__dinoDropdownCloseHandlerBound = true;
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".custom-dropdown")) {
+        document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
+      }
+    });
+  }
   fBaseAtk.oninput = () => sanitizeIntInput(fBaseAtk);
   fBaseAtk.onblur = () => {
     profile.baseAtk = Math.max(1, Number(fBaseAtk.value) || 1);
@@ -446,8 +466,8 @@ function initMyDinoPage(profile, options = {}) {
     ["fConstBossDmgIncrease", "bossDmgIncrease"]
   ];
   const DECIMAL_CONST_FIELDS = ["critRate", "critDmg", "stewEffect"];
-  constFields.forEach(([id, key]) => {
-    const el = document.getElementById(id);
+  constFields.forEach(([fieldId, key]) => {
+    const el = $(fieldId);
     el.value = profile.constellation[key];
     markChanged(el, profile.constellation[key] !== 0);
     el.oninput = () => (DECIMAL_CONST_FIELDS.includes(key) ? sanitizeDecimalInput(el) : sanitizeIntInput(el));
@@ -461,8 +481,8 @@ function initMyDinoPage(profile, options = {}) {
   });
 
   // 둥지·알스킨 (합산된 %값 하나씩만 존재)
-  const fBonusAtk = document.getElementById("fBonusAtk");
-  const fBonusHp = document.getElementById("fBonusHp");
+  const fBonusAtk = $("fBonusAtk");
+  const fBonusHp = $("fBonusHp");
   fBonusAtk.value = profile.bonusPercent.atk;
   markChanged(fBonusAtk, profile.bonusPercent.atk !== 0);
   fBonusHp.value = profile.bonusPercent.hp;
@@ -486,6 +506,7 @@ function initMyDinoPage(profile, options = {}) {
   // unsuitableList가 주어지면(타이탄 등 특정 컨텍스트) 해당 룬을 구분선 아래 흐리게 모아서 표시하고,
   // 없으면(내 공룡 페이지 단독 진입) 모든 룬을 구분 없이 보여줌
   const runeUI = createRuneUI({
+    idPrefix,
     unsuitableList: options.unsuitableList || [],
     unsuitableLabel: options.unsuitableLabel,
     onChange: (runes) => {
@@ -498,7 +519,7 @@ function initMyDinoPage(profile, options = {}) {
   runeUI.setSelectedRunes(profile.runes);
   runeUI.renderSlots();
   renderPresetRow();
-  enableDragScroll(document.getElementById("presetRow"));
+  enableDragScroll($("presetRow"));
 
   function selectPreset(idx) {
     if (idx === profile.activePresetIndex) return;
@@ -511,7 +532,7 @@ function initMyDinoPage(profile, options = {}) {
   }
 
   function startRenamePreset(idx) {
-    const nameEl = document.querySelector(`.preset-btn-name[data-idx="${idx}"]`);
+    const nameEl = root.querySelector(`.preset-btn-name[data-idx="${idx}"]`);
     if (!nameEl) return;
     const current = profile.runePresets[idx].name;
     const input = document.createElement("input");
@@ -532,7 +553,7 @@ function initMyDinoPage(profile, options = {}) {
   }
 
   function renderPresetRow() {
-    const row = document.getElementById("presetRow");
+    const row = $("presetRow");
     row.innerHTML = "";
     profile.runePresets.forEach((preset, idx) => {
       const isActive = idx === profile.activePresetIndex;
@@ -554,15 +575,16 @@ function initMyDinoPage(profile, options = {}) {
   }
 
   function persistAndRefresh() {
-    saveMyDinoProfile(profile);
-    updateSummary(profile);
+    saveMyDinoProfile(profile, storageKey);
+    updateSummary(profile, idPrefix);
     if (options.onChange) options.onChange(profile);
   }
 
-  updateSummary(profile);
+  updateSummary(profile, idPrefix);
 }
 
-function updateSummary(profile) {
+function updateSummary(profile, idPrefix = "") {
+  const id = (name) => idPrefix + name;
   const stats = getBattleStats({
     baseAtk: profile.baseAtk,
     baseHp: profile.baseHp,
@@ -571,12 +593,12 @@ function updateSummary(profile) {
     constellation: profile.constellation,
     bonusPercent: getEffectiveBonusPercent(profile)
   });
-  document.getElementById("sumAtk").innerText = Math.floor(stats.fAtk).toLocaleString();
-  document.getElementById("sumHp").innerText = Math.floor(stats.fHp).toLocaleString();
-  document.getElementById("sumCrit").innerText = `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`;
-  document.getElementById("sumCount").innerText = `${profile.dinoCount}마리`;
+  document.getElementById(id("sumAtk")).innerText = Math.floor(stats.fAtk).toLocaleString();
+  document.getElementById(id("sumHp")).innerText = Math.floor(stats.fHp).toLocaleString();
+  document.getElementById(id("sumCrit")).innerText = `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`;
+  document.getElementById(id("sumCount")).innerText = `${profile.dinoCount}마리`;
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
   const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
-  document.getElementById("sumLevel").innerText = level.toLocaleString();
+  document.getElementById(id("sumLevel")).innerText = level.toLocaleString();
 }

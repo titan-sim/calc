@@ -36,17 +36,11 @@
       <button class="close-btn" id="closeMenuBtn">✕</button>
     </div>
     <div class="menu-content" style="padding: 10px 15px;">
-      <nav class="nav-list">
-        <a class="nav-link" href="#home">홈</a>
-        <a class="nav-link" href="#my-dino">내 공룡</a>
-        <a class="nav-link" href="#titan">타이탄 시뮬레이터</a>
-        <a class="nav-link" href="#dino-battle">공룡 대전</a>
-        <a class="nav-link" href="#arena">아레나</a>
-        <a class="nav-link" href="#dummy">허수아비</a>
-        <a class="nav-link" href="#building">건물</a>
-      </nav>
+      <div class="auth-row" id="authRow"></div>
 
-      <div style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
+      <div class="menu-divider"></div>
+
+      <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <span style="font-size: 14px;">테마 전환</span>
           <button id="themeBtn" class="theme-toggle-btn">🌙 다크 모드</button>
@@ -59,9 +53,23 @@
           </label>
         </div>
       </div>
+
+      <div class="menu-divider"></div>
+
+      <nav class="nav-list">
+        <a class="nav-link" href="#home">홈</a>
+        <a class="nav-link" href="#my-dino">내 공룡</a>
+        <a class="nav-link" href="#titan">타이탄 시뮬레이터</a>
+        <a class="nav-link" href="#dino-battle">공룡 대전</a>
+        <a class="nav-link" href="#arena">아레나</a>
+        <a class="nav-link" href="#dummy">허수아비</a>
+        <a class="nav-link" href="#building">건물</a>
+      </nav>
     </div>
   </div>
   <div id="menuOverlay" class="menu-overlay"></div>
+
+  <div id="authModalRoot"></div>
 
   <header class="app-bar">
     <div class="header-left">
@@ -81,12 +89,18 @@
     <div id="app"></div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/core/supabase-config.js"></script>
+  <script src="js/core/data-sync.js"></script>
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
   <script src="js/core/stat-calc.js"></script>
   <script src="js/core/simulation-titan.js"></script>
+  <script src="js/core/simulation-dino-battle.js"></script>
   <script src="js/ui/chart-ui.js"></script>
   <script src="js/ui/rune-ui.js"></script>
+  <script src="js/ui/auth-modal.js"></script>
+  <script src="js/ui/auth-ui.js"></script>
   <script src="js/ui/settings-ui.js"></script>
   <script src="js/pages/home.js"></script>
   <script src="js/pages/my-dino-page.js"></script>
