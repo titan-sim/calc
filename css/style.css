@@ -78,7 +78,7 @@ body {
   /* 가로축 중앙 정렬 */
   margin: 0;
   min-height: 100vh;
-  transition: background 0.3s, color 0.3s;
+  transition: background 0.5s, color 0.5s;
   overflow-x: hidden;
   /* 가로 스크롤 방지 */
   -webkit-user-select: none;  /* Safari */
@@ -186,6 +186,26 @@ input, textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 14px;
+}
+
+/* 내 공룡 탭 패널 전용 여백 조정(타이탄 페이지의 .input-grid는 위에 h2가 있어서 건드리지 않음).
+   패널 자체가 이미 위쪽 padding(--p-base)을 갖고 있어서, 각 패널의 첫 행 label까지 추가로
+   margin-top을 주면 다른 여백보다 이중으로 커짐 -> 첫 행만 0으로. */
+.dino-tab-panel .input-grid > div:first-child label {
+  margin-top: 0;
+}
+
+/* 첫 자식이 VIP처럼 한 줄을 통째로 차지(.full-width)하는 게 "아니라" 별자리/둥지·알스킨처럼
+   처음부터 두 칸이 나란히 첫 행을 이루는 경우엔, 옆 칸(둘째 자식)도 같은 첫 행이라 0으로 맞춤 */
+.dino-tab-panel .input-grid > div:first-child:not(.full-width) + div label {
+  margin-top: 0;
+}
+
+/* 기본 스탯 패널의 VIP(첫 행) 바로 다음 행(체력/공격력)은 전역 label 여백이 과해서 스코프 축소.
+   별자리/둥지·알스킨 패널의 2·3번째 행은 원래 여백을 그대로 둬야 다른 행과 정렬이 맞음. */
+.dino-tab-panel[data-panel="base"] .input-grid > div:nth-child(2) label,
+.dino-tab-panel[data-panel="base"] .input-grid > div:nth-child(3) label {
+  margin-top: 6px;
 }
 
 .custom-dropdown .selected-value {
@@ -319,7 +339,7 @@ input:focus, select:focus {
   justify-content: center;
   z-index: 10;
   
-  font-size: clamp(9px, 3.2vw, 16px);
+  font-size: clamp(9px, 3.2cqw, 16px);
   font-weight: 900;
   line-height: 1;
   
@@ -889,6 +909,8 @@ input:focus, select:focus {
   padding: 20px;
   box-sizing: border-box;
   border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
 .side-menu.open {
@@ -901,6 +923,98 @@ input:focus, select:focus {
   align-items: center;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 15px;
+  flex-shrink: 0;
+}
+
+/* 정체성(닉네임)+주 내비게이션은 위, 설정류(테마/로그)는 항상 맨 아래로 고정 -
+   흔히 쓰는 앱 사이드바 구성(계정 → 메뉴 → 설정) */
+.menu-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 10px;
+}
+
+.menu-bottom {
+  margin-top: auto;
+}
+
+.menu-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+/* 다크/라이트 모드 전환: 안으로 살짝 파인 알약 트랙에 "다크모드"/"라이트모드"를 양쪽에 항상
+   써두고, 트랙보다 2배 넓은 그라데이션 이미지(가운데만 노란 "봉우리", 양 끝은 투명한 모양) 하나를
+   배경으로 깔아서 background-position만 슬라이드시킴. 이 봉우리가 오른쪽 끝 -> 트랙 한가운데 ->
+   왼쪽 끝으로 전환 내내 끊김 없이 쭉 이어서 이동하는 것처럼 보임(테두리 있는 도형이 움직이는 게
+   아니라 경계 없는 빛 덩어리가 흘러가는 느낌). 글자는 opacity로 따로 켜고 끔. */
+.theme-slider {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: var(--input-bg);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18);
+  padding: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.theme-slider-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    to right,
+    rgb(from var(--accent) r g b / 0) 0%,
+    rgb(from var(--accent) r g b / 0) 25%,
+    var(--accent) 50%,
+    rgb(from var(--accent) r g b / 0) 75%,
+    rgb(from var(--accent) r g b / 0) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 0; /* 기본(다크모드): 봉우리가 트랙 오른쪽 끝에 딱 붙어 있음 */
+  transition: background-position 1.15s ease;
+  pointer-events: none;
+}
+
+.theme-slider.is-light .theme-slider-glow {
+  background-position: 100% 0; /* 라이트모드: 봉우리가 트랙 왼쪽 끝으로 이동 */
+}
+
+.theme-slider-label {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--text-main);
+  transition: opacity 0.15s ease;
+}
+
+.theme-slider-label-light {
+  opacity: 0;
+}
+
+.theme-slider.is-light .theme-slider-label-dark {
+  opacity: 0;
+}
+
+.theme-slider.is-light .theme-slider-label-light {
+  opacity: 1;
 }
 
 .menu-overlay {
@@ -912,16 +1026,6 @@ input:focus, select:focus {
   background: rgba(0, 0, 0, 0.5);
   display: none;
   z-index: 1999;
-}
-
-.theme-toggle-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  color: var(--text-main);
-  cursor: pointer;
-  font-size: 13px;
 }
 
 .menu-divider {
@@ -941,17 +1045,69 @@ input:focus, select:focus {
   cursor: pointer;
 }
 
+/* 로그인 상태 표시줄: 아바타+닉네임+액션을 각자 테두리 박스로 나누지 않고 한 줄로 흐르게 구성 */
+#authRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.auth-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.auth-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1a1206;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
 .auth-username {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--input-bg);
-  border: 1px solid var(--border-color);
+  min-width: 0;
   color: var(--text-main);
   font-weight: 700;
   font-size: 14px;
-  text-align: center;
-  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.auth-text-btn {
+  flex-shrink: 0;
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auth-text-btn:hover {
+  background: var(--input-bg);
+  color: var(--text-main);
 }
 
 /* ===== 로그인/회원가입/비밀번호 찾기 모달 ===== */
@@ -1016,12 +1172,71 @@ input:focus, select:focus {
   margin-top: 6px;
 }
 
+.friend-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-search-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-search-btn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: color-mix(in srgb, var(--accent) 85%, black);
+  color: #1a1206;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .auth-nickname-hint-good {
   color: #2ecc71;
 }
 
 .auth-nickname-hint-bad {
   color: #ff4444;
+}
+
+/* ===== 친구 목록 행 ===== */
+.friend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.friend-row:first-child {
+  border-top: none;
+}
+
+.friend-row-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.friend-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.friend-row-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .auth-submit-btn {
@@ -1072,9 +1287,11 @@ input:focus, select:focus {
   display: inline-block;
   width: 44px;
   height: 22px;
+  margin: 0; /* 전역 label { margin-top:18px; margin-bottom:6px } 상속 차단 - .switch도 label이라 안 막으면 밀림 */
 }
 
 .switch input {
+  position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
@@ -1341,6 +1558,17 @@ b .dropdown-list::-webkit-scrollbar {
   color: var(--primary);
 }
 
+.nav-link-soon {
+  opacity: 0.55;
+}
+
+.nav-soon-tag {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-sub);
+  margin-left: 6px;
+}
+
 /* ===== 홈 화면 카드 그리드 ===== */
 .home-grid {
   display: grid;
@@ -1481,6 +1709,48 @@ b .dropdown-list::-webkit-scrollbar {
    모바일(기본): 가운데 전투 화면만 보이고, 내 공룡/상대 공룡 설정은 화면 밖에 숨겨뒀다가
    좌우 가장자리의 탭(peek 버튼)을 누르면 슬라이드 패널로 들어옴.
    데스크톱(1100px 이상): 컨테이너 폭을 넓혀서 좌-내공룡 / 중앙-전투 / 우-상대공룡 3단 그리드로 항상 다 보이게 함. */
+
+/* 타일 설정 카드: 제목을 위에 두고, 그 아래 항목들은 라벨+컨트롤이 붙은 작은 덩어리(chip)로
+   만들어서 폭이 남으면 한 줄에 여러 개, 좁으면 자동 줄바꿈되게 함(항목이 4개로 늘어나도 안정적) */
+.battle-tile-card {
+  padding: 12px 16px;
+}
+
+.battle-tile-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin: 0 0 10px;
+}
+
+.battle-tile-card .setting-list {
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+
+.battle-tile-card .setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: none;
+  padding: 0;
+}
+
+.battle-tile-card .setting-control {
+  width: 96px;
+  max-width: 96px;
+}
+
+/* 이 카드 안 드롭다운은 다른 페이지의 큰 입력칸용 높이를 그대로 쓰기엔 과해서 한 줄짜리로 축소 */
+.battle-tile-card .selected-value {
+  height: 30px;
+  padding: 0 26px 0 10px;
+  line-height: 30px;
+  font-size: 12px;
+}
+
 @media (min-width: 1100px) {
   body[data-page="dino-battle"] .container {
     width: min(100%, 1240px);
@@ -1591,8 +1861,40 @@ b .dropdown-list::-webkit-scrollbar {
   }
 }
 
-.battle-arena-card {
+.battle-mode-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.battle-mode-tab {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.battle-mode-tab.active {
+  background: color-mix(in srgb, var(--accent) 85%, black);
+  border-color: transparent;
+  color: #1a1206;
+}
+
+.battle-arena-card,
+.battle-quickcalc-card {
   container-type: inline-size;
+}
+
+.quickcalc-desc {
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin: 0 0 14px;
 }
 
 .battle-arena {
@@ -1600,7 +1902,8 @@ b .dropdown-list::-webkit-scrollbar {
   align-items: center;
   justify-content: space-between;
   gap: clamp(8px, 4cqw, 24px);
-  padding: clamp(12px, 4cqw, 28px) 0;
+  padding: clamp(24px, 10cqw, 64px) 0;
+  min-height: clamp(160px, 46cqw, 320px);
 }
 
 .battle-fighter {
@@ -1739,23 +2042,68 @@ b .dropdown-list::-webkit-scrollbar {
   filter: saturate(0.5);
 }
 
-.stack-count {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  z-index: 4;
-  display: none;
+/* 스택(대표 공룡) + 대기 중인 나머지 공룡들의 미니 체력바를 나란히 배치. 항상 무대 바깥쪽으로 붙도록
+   내 쪽은 바가 오른쪽(무대 중앙 방향)이 아니라 왼쪽에, 상대 쪽은 반대로 둠.
+   타일 배치 설정에 따라 점선 테두리로 "같은 타일(전부 하나로 묶임)"인지 "다른 타일(전투 공룡과
+   대기 공룡이 분리됨)"인지 시각적으로 보여줌(순수 표시용, 실제 분리 여부는 엔진 쪽에서 처리). */
+.battle-stack-row {
+  display: flex;
   align-items: center;
+  gap: 6px;
+}
+
+.battle-stack-row.tile-same {
+  padding: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-main) 3%, transparent);
+}
+
+.battle-stack-row.tile-separate {
+  gap: 14px;
+}
+
+/* .battle-stack는 내부 공룡 원들이 position:absolute; top:0; left:0으로 자기 자신(패딩 없는
+   0,0 기준)에 딱 맞춰 앉아있어서, 여기에 직접 padding을 주면 그 아이들도 패딩 안쪽으로 같이
+   밀려 들어가 테두리와 어긋나 보임. 그래서 장식용 점선 테두리는 별도의 감싸는 .tile-box에
+   주고, .battle-stack 자체는 손대지 않음(대기 체력바 쪽은 절대위치 자식이 없어서 그대로 둬도 됨) */
+.battle-stack-row.tile-separate .tile-box,
+.battle-stack-row.tile-separate .reserve-bars {
+  padding: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-main) 3%, transparent);
+}
+
+.my-stack-row {
+  flex-direction: row-reverse;
+}
+
+/* 스택(.battle-stack)과 정확히 같은 높이로 고정해서 대기 마릿수와 무관하게 박스 크기/위치가
+   항상 일정하게 유지되도록 함(다른 타일 모드에서 점선 박스가 들쭉날쭉해 보이던 문제 해결).
+   최대 12마리(공룡 수 상한 13 - 앞장 1)까지도 스크롤 없이 다 들어가도록 바를 얇게 잡음. */
+.reserve-bars {
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--card-bg);
+  gap: 1px;
+  height: clamp(56px, 20cqw, 96px);
+  overflow: hidden;
+}
+
+.reserve-bar {
+  width: clamp(20px, 8cqw, 34px);
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--input-bg);
   border: 1px solid var(--border-color);
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--text-main);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.reserve-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
 }
 
 .battle-avatar.front-defeated {
@@ -1784,15 +2132,27 @@ b .dropdown-list::-webkit-scrollbar {
   transform: translateX(-50%);
   font-size: 15px;
   font-weight: 800;
-  color: var(--text-main);
+  color: #ffffff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   pointer-events: none;
   animation: battle-dmg-float 0.7s ease-out forwards;
   white-space: nowrap;
 }
 
-.battle-dmg-popup.crit {
-  color: var(--accent);
+/* 평타: 흰색(기본) / 평타 크리티컬: 흰색 + 빨간 테두리 */
+.battle-dmg-popup.crit:not(.skill) {
+  color: #ffffff;
+  -webkit-text-stroke: 1px #ff4444;
+  font-size: 19px;
+}
+
+/* 스킬 대미지: 빨간색 / 스킬 크리티컬: 보라색 */
+.battle-dmg-popup.skill {
+  color: #ff4444;
+}
+
+.battle-dmg-popup.skill.crit {
+  color: #b768f5;
   font-size: 19px;
 }
 
@@ -1819,4 +2179,37 @@ b .dropdown-list::-webkit-scrollbar {
   font-weight: 800;
   color: var(--accent);
   margin: 4px 0 14px;
+}
+
+.battle-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.battle-controls .btn-simulate {
+  flex: 1;
+}
+
+.battle-speed-dropdown {
+  flex-shrink: 0;
+  width: 76px;
+}
+
+.battle-restart-btn {
+  flex-shrink: 0;
+  width: 3em;
+  min-height: 3em;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.battle-restart-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

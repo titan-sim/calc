@@ -5,6 +5,7 @@ const ROUTES = {
   "#dino-battle": renderDinoBattlePage,
   "#arena": renderArenaPage,
   "#my-dino": renderMyDinoPage,
+  "#friends": renderFriendsPage,
   "#dummy": renderDummyPage,
   "#building": renderBuildingPage
 };

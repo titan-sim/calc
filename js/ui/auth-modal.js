@@ -4,6 +4,10 @@
 
 let nicknameCheckTimer = null;
 
+// 한글/영문/숫자/밑줄만 허용 - 투명 문자, 전각 문자, 유사 문자(키릴 등)로 상대를 속이는 걸 원천 차단
+const NICKNAME_PATTERN = /^[가-힣a-zA-Z0-9_]{2,12}$/;
+const NICKNAME_RULE_MSG = "닉네임은 한글/영문/숫자/밑줄만 사용해 2~12자로 입력해주세요.";
+
 function buildAuthModalDom() {
   const root = document.getElementById("authModalRoot");
   if (!root || root.dataset.built) return;
@@ -174,6 +178,11 @@ function scheduleNicknameCheck() {
   hint.innerText = "";
   hint.className = "auth-nickname-hint";
   if (!nickname) return;
+  if (!NICKNAME_PATTERN.test(nickname)) {
+    hint.innerText = NICKNAME_RULE_MSG;
+    hint.classList.add("auth-nickname-hint-bad");
+    return;
+  }
   nicknameCheckTimer = setTimeout(async () => {
     const { data, error } = await supabaseClient
       .from("profiles")
@@ -227,6 +236,10 @@ async function handleSignupSubmit() {
 
   if (!nickname || !email || !password || !passwordConfirm) {
     showAuthError("모든 항목을 입력해주세요.");
+    return;
+  }
+  if (!NICKNAME_PATTERN.test(nickname)) {
+    showAuthError(NICKNAME_RULE_MSG);
     return;
   }
   if (password.length < 6) {

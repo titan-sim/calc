@@ -11,9 +11,9 @@ function renderHome(container) {
           <div class="home-card-title">타이탄 시뮬레이터</div>
           <div class="home-card-desc">보스 전투 결과 예측</div>
         </a>
-        <a class="home-card home-card-soon" href="#dino-battle">
+        <a class="home-card" href="#dino-battle">
           <div class="home-card-title">공룡 대전</div>
-          <div class="home-card-desc">공룡간 전투 결과 예측 (준비 중)</div>
+          <div class="home-card-desc">공룡간 전투 결과 예측</div>
         </a>
         <a class="home-card home-card-soon" href="#arena">
           <div class="home-card-title">아레나</div>

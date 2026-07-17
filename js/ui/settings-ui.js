@@ -10,25 +10,26 @@ function toggleMenu() {
   overlay.style.display = isOpen ? "block" : "none";
 }
 
-function toggleTheme() {
-  const isLight = document.body.classList.toggle("light-mode");
-  const themeBtn = document.getElementById("themeBtn");
-  themeBtn.innerText = isLight ? "☀️ 라이트 모드" : "🌙 다크 모드";
+function applyThemeState(isLight) {
+  document.body.classList.toggle("light-mode", isLight);
+  const slider = document.getElementById("themeSlider");
+  if (slider) slider.classList.toggle("is-light", isLight);
   localStorage.setItem("dino_theme", isLight ? "light" : "dark");
 }
 
+function toggleTheme() {
+  const isCurrentlyLight = document.getElementById("themeSlider").classList.contains("is-light");
+  applyThemeState(!isCurrentlyLight);
+}
+
 function applyStoredTheme() {
-  if (localStorage.getItem("dino_theme") === "light") {
-    document.body.classList.add("light-mode");
-    const themeBtn = document.getElementById("themeBtn");
-    if (themeBtn) themeBtn.innerText = "☀️ 라이트 모드";
-  }
+  applyThemeState(localStorage.getItem("dino_theme") === "light");
 }
 
 function initSettingsDrawer() {
   applyStoredTheme();
   renderAuthRow();
-  document.getElementById("themeBtn").onclick = toggleTheme;
+  document.getElementById("themeSlider").onclick = toggleTheme;
   document.getElementById("logToggle").addEventListener("change", (e) => {
     AppSettings.isLogEnabled = e.target.checked;
     console.log("상세 로그 수집:", AppSettings.isLogEnabled);

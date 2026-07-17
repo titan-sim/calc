@@ -35,24 +35,8 @@
       <span style="font-weight: bold;">메뉴</span>
       <button class="close-btn" id="closeMenuBtn">✕</button>
     </div>
-    <div class="menu-content" style="padding: 10px 15px;">
+    <div class="menu-content">
       <div class="auth-row" id="authRow"></div>
-
-      <div class="menu-divider"></div>
-
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <span style="font-size: 14px;">테마 전환</span>
-          <button id="themeBtn" class="theme-toggle-btn">🌙 다크 모드</button>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 14px;">상세 로그 수집</span>
-          <label class="switch">
-            <input type="checkbox" id="logToggle">
-            <span class="slider round"></span>
-          </label>
-        </div>
-      </div>
 
       <div class="menu-divider"></div>
 
@@ -61,10 +45,28 @@
         <a class="nav-link" href="#my-dino">내 공룡</a>
         <a class="nav-link" href="#titan">타이탄 시뮬레이터</a>
         <a class="nav-link" href="#dino-battle">공룡 대전</a>
-        <a class="nav-link" href="#arena">아레나</a>
-        <a class="nav-link" href="#dummy">허수아비</a>
-        <a class="nav-link" href="#building">건물</a>
+        <a class="nav-link nav-link-soon" href="#arena">아레나<span class="nav-soon-tag">준비 중</span></a>
+        <a class="nav-link nav-link-soon" href="#dummy">허수아비<span class="nav-soon-tag">준비 중</span></a>
+        <a class="nav-link nav-link-soon" href="#building">건물<span class="nav-soon-tag">준비 중</span></a>
       </nav>
+
+      <div class="menu-bottom">
+        <div class="menu-divider"></div>
+        <div class="menu-setting-row">
+          <button type="button" class="theme-slider" id="themeSlider">
+            <span class="theme-slider-glow"></span>
+            <span class="theme-slider-label theme-slider-label-dark">다크모드</span>
+            <span class="theme-slider-label theme-slider-label-light">라이트모드</span>
+          </button>
+        </div>
+        <div class="menu-setting-row">
+          <span style="font-size: 14px;">상세 로그 수집</span>
+          <label class="switch">
+            <input type="checkbox" id="logToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
     </div>
   </div>
   <div id="menuOverlay" class="menu-overlay"></div>
@@ -104,6 +106,7 @@
   <script src="js/ui/settings-ui.js"></script>
   <script src="js/pages/home.js"></script>
   <script src="js/pages/my-dino-page.js"></script>
+  <script src="js/pages/friends-page.js"></script>
   <script src="js/pages/titan-page.js"></script>
   <script src="js/pages/dino-battle-page.js"></script>
   <script src="js/pages/arena-page.js"></script>

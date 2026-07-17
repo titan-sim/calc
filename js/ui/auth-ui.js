@@ -18,10 +18,21 @@ async function renderAuthRow() {
 
   if (user && user.username) {
     row.innerHTML = `
-      <div class="auth-username">${user.username}</div>
-      <button id="logoutBtn" class="login-btn" style="margin-top:8px;">로그아웃</button>
+      <div class="auth-identity">
+        <div class="auth-avatar">${user.username.slice(0, 1)}</div>
+        <div class="auth-username" title="${user.username}">${user.username}</div>
+      </div>
+      <div class="auth-actions">
+        <button id="authFriendsBtn" class="auth-text-btn">친구</button>
+        <button id="logoutBtn" class="auth-text-btn">로그아웃</button>
+      </div>
     `;
     document.getElementById("logoutBtn").onclick = handleLogout;
+    document.getElementById("authFriendsBtn").onclick = () => {
+      const sideMenu = document.getElementById("sideMenu");
+      if (sideMenu && sideMenu.classList.contains("open")) toggleMenu();
+      location.hash = "#friends";
+    };
   } else {
     row.innerHTML = `<button id="loginBtn" class="login-btn">로그인</button>`;
     document.getElementById("loginBtn").onclick = () => {
