@@ -291,13 +291,11 @@ function renderFriendStatBreakdown(container, profile) {
   }
 
   if (profile.runePresets !== undefined) {
-    const presetsHtml = (profile.runePresets || [])
-      .map((p, i) => `<div class="friend-preset-item">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`)
-      .join("");
     sections.push(`
       <div class="friend-stat-section">
-        <div class="friend-stat-section-title">프리셋</div>
-        <div class="friend-preset-list">${presetsHtml || '<span class="friend-stat-hidden-text">저장된 프리셋이 없습니다.</span>'}</div>
+        <div class="friend-stat-section-title">프리셋<span class="friend-stat-section-hint">눌러서 룬 구성 보기</span></div>
+        <div class="friend-preset-list" id="friendPresetList"></div>
+        <div class="readonly-slot-row friend-stat-slot-row friend-preset-detail-slots" id="friendPresetDetailSlots"></div>
       </div>
     `);
   } else {
@@ -305,6 +303,47 @@ function renderFriendStatBreakdown(container, profile) {
   }
 
   container.innerHTML = sections.join("");
+
+  // "프리셋" 섹션이 있으면(공개돼있으면) 눌러서 다른 프리셋의 룬 구성을 미리볼 수 있게 함(순수
+  // 조회용 - 아무것도 저장/전송하지 않고 이 모달 안에서만 어떤 프리셋을 보고 있는지 바뀜)
+  if (profile.runePresets !== undefined) {
+    mountFriendPresetViewer(container, profile);
+  }
+}
+
+function friendRuneSlotsHtml(runes) {
+  return (runes && runes.length ? runes : [null, null, null, null, null])
+    .map((rune) => {
+      if (rune && rune.name && RUNES_DATA[rune.name]) {
+        const r = RUNES_DATA[rune.name];
+        const lvClass = getLvClass(rune.lv);
+        return `<div class="slot slot-readonly"><img src="${getImgUrl(r.imgId)}" class="slot-img"><div class="slot-lv-tag ${lvClass}">${rune.lv}</div></div>`;
+      }
+      return `<div class="slot slot-readonly"><img src="./assets/rune slot image folder/RuneSprite_0.png" class="slot-plus-img"></div>`;
+    })
+    .join("");
+}
+
+function mountFriendPresetViewer(container, profile) {
+  const listEl = container.querySelector("#friendPresetList");
+  const slotsEl = container.querySelector("#friendPresetDetailSlots");
+  let selectedIdx = Number.isInteger(profile.activePresetIndex) ? profile.activePresetIndex : 0;
+
+  function render() {
+    const presets = profile.runePresets || [];
+    listEl.innerHTML = presets.length
+      ? presets.map((p, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`).join("")
+      : '<span class="friend-stat-hidden-text">저장된 프리셋이 없습니다.</span>';
+    listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
+      el.onclick = () => {
+        selectedIdx = Number(el.dataset.idx);
+        render();
+      };
+    });
+    const selected = presets[selectedIdx];
+    slotsEl.innerHTML = friendRuneSlotsHtml(selected ? selected.runes : null);
+  }
+  render();
 }
 
 function friendStatHiddenSection(label) {

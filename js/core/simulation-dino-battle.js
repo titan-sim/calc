@@ -35,9 +35,12 @@ function levelOf(inputs) {
   return inputs.baseAtk + Math.floor(inputs.baseHp / 10) + inputs.moveSpeed;
 }
 
-function buildDinoSideRunes(selectedRunes) {
+// unsuitableList: 이 계산 컨텍스트(공룡 대전/아레나 등)에서 부적합한 룬 목록 - 장착은 막지 않되
+// 수치에 반영 안 함(호출부마다 기준이 달라서 파라미터로 받음, 공룡 대전은 DINO_BATTLE_UNSUITABLE_
+// RUNE_LIST, 아레나는 js/pages/arena-page.js가 쓰는 ARENA_UNSUITABLE_RUNE_LIST)
+function buildDinoSideRunes(selectedRunes, unsuitableList) {
   return (selectedRunes || [])
-    .filter((r) => r !== null && !DINO_BATTLE_UNSUITABLE_RUNE_LIST.includes(r.name))
+    .filter((r) => r !== null && !unsuitableList.includes(r.name))
     .map((r) => ({ ...r, s: RUNES_DATA[r.name].levels[r.lv] }));
 }
 
@@ -94,7 +97,7 @@ function makeDinoSide(inputs, key, tileCfg) {
     baseHp: inputs.baseHp,
     constellation: inputs.constellation,
     bonusPercent: inputs.bonusPercent,
-    runes: buildDinoSideRunes(inputs.selectedRunes),
+    runes: buildDinoSideRunes(inputs.selectedRunes, DINO_BATTLE_UNSUITABLE_RUNE_LIST),
     count: inputs.count
   };
   side.vampBaseAtk = computeVampBaseAtk(side.baseAtk, side.runes, side.constellation, side.bonusPercent);
@@ -207,10 +210,14 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
         if (shieldRune) dmg *= (1 - shieldRune.s.red_p / 100);
         defender.shieldSteps--;
       }
-      defenderSide.runes.forEach((r) => {
-        if (r.name.includes("단단한 피부")) dmg -= r.s.red_f;
-        if (r.name.includes("피해 저항") && rand() * 100 < r.s.prob) dmg -= r.s.red_f;
-      });
+      // 단단한 피부/피해 저항은 "평타"만 감소시킴 - 트리플 임팩트/낙뢰/메테오 같은 스킬로 인한
+      // 추가 피해에는 적용되지 않음(사용자 확인). 보호막은 스킬 포함 전부 감소.
+      if (label === "평타") {
+        defenderSide.runes.forEach((r) => {
+          if (r.name.includes("단단한 피부")) dmg -= r.s.red_f;
+          if (r.name.includes("피해 저항") && rand() * 100 < r.s.prob) dmg -= r.s.red_f;
+        });
+      }
       dmg = Math.max(0, dmg);
       defender.hp = Math.max(0, defender.hp - dmg);
       event.hits.push({ label, dmg, isCrit, targetSide: defenderKey, hpAfter: defender.hp });
@@ -255,21 +262,22 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
       // 앞장(defender)만 맞음. 21레벨부터 붙는 area_burst_p(주변 타일 추가 피해)는 아직 이 엔진에는
       // 해당 개념이 없어서(향후 육각타일맵에서 구현 예정) 지금은 쓰지 않음.
       if (r.name === "메테오" && rand() * 100 < r.s.prob) {
-        const c = rollCrit(attackerVals);
         if (sameTile) {
-          const dmgRaw = withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals);
+          // 광역기라 여러 마리가 한 번에 맞지만, 크리티컬은 맞는 공룡마다 독립적으로 판정됨(한
+          // 마리가 크리 떴다고 나머지도 전부 크리 대미지를 받으면 안 됨). 스킬 피해라 단단한
+          // 피부/피해 저항 같은 감소 룬도 적용 안 함(평타에만 적용되는 룬).
           const targets = [];
           defenderSide.dinos.forEach((d, idx) => {
             if (d.hp <= 0) return;
-            let dmg = dmgRaw;
-            defenderSide.runes.forEach((rr) => { if (rr.name.includes("단단한 피부")) dmg -= rr.s.red_f; });
-            dmg = Math.max(0, dmg);
+            const c = rollCrit(attackerVals);
+            const dmg = Math.max(0, withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
             const before = d.hp;
             d.hp = Math.max(0, d.hp - dmg);
-            targets.push({ index: idx, before, after: d.hp, isFront: d === defender });
+            targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: c });
           });
-          event.aoe = { label: "메테오(광역)", isCrit: c, targets };
+          event.aoe = { label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets };
         } else {
+          const c = rollCrit(attackerVals);
           hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "메테오");
         }
       }
@@ -419,17 +427,21 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
     let dealt = 0;
 
-    function hitDefender(rawDmg) {
+    // isSkill: 트리플 임팩트/낙뢰/메테오 등 스킬 피해는 단단한 피부/피해 저항의 감소를 받지 않음
+    // (해당 룬은 평타만 감소시킴 - 사용자 확인)
+    function hitDefender(rawDmg, isSkill) {
       let dmg = rawDmg;
       if (defender.shieldSteps > 0) {
         const shieldRune = defenderSide.runes.find((r) => r.name === "보호막");
         if (shieldRune) dmg *= (1 - shieldRune.s.red_p / 100);
         defender.shieldSteps--;
       }
-      defenderSide.runes.forEach((r) => {
-        if (r.name.includes("단단한 피부")) dmg -= r.s.red_f;
-        if (r.name.includes("피해 저항") && Math.random() * 100 < r.s.prob) dmg -= r.s.red_f;
-      });
+      if (!isSkill) {
+        defenderSide.runes.forEach((r) => {
+          if (r.name.includes("단단한 피부")) dmg -= r.s.red_f;
+          if (r.name.includes("피해 저항") && Math.random() * 100 < r.s.prob) dmg -= r.s.red_f;
+        });
+      }
       dmg = Math.max(0, dmg);
       defender.hp = Math.max(0, defender.hp - dmg);
       dealt += dmg;
@@ -453,11 +465,11 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
       if (defender.hp <= 0) return;
       if (r.name === "트리플 임팩트" && attacker.attackCount % 3 === 0) {
         const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
       }
       if (r.name === "낙뢰" && Math.random() * 100 < r.s.prob) {
         const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
         if (r.s.insta_hp !== undefined && defender.hp > 0) {
           const hpPct = (defender.hp / defender.maxHp) * 100;
           if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) defender.hp = 0;
@@ -465,7 +477,7 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
       }
       if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
         const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
       }
       if (r.name === "흡혈" && Math.random() * 100 < r.s.prob) {
         attacker.hp = Math.min(attacker.maxHp, attacker.hp + (attackerSide.vampBaseAtk * r.s.rec_p) / 100);

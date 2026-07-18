@@ -2,7 +2,7 @@ const HOME_TILES = [
   { href: "#my-dino", title: "내 공룡", desc: "룬 세팅 프리셋 관리", ready: true },
   { href: "#titan", title: "타이탄 시뮬레이터", desc: "보스 전투 결과 예측", ready: true },
   { href: "#dino-battle", title: "공룡 대전", desc: "공룡간 전투 결과 예측", ready: true },
-  { href: "#arena", title: "아레나", desc: "5:5 진영전 예측", ready: false },
+  { href: "#arena", title: "아레나", desc: "5:5 진영전 예측", ready: true },
   { href: "#dummy", title: "허수아비", desc: "허수아비 대상 딜 측정", ready: false },
   { href: "#building", title: "건물", desc: "건물 공략 결과 예측", ready: false }
 ];

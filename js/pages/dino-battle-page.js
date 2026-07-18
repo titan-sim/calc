@@ -689,7 +689,13 @@ function renderOppPanel() {
       container.innerHTML = `<div class="card friend-session-waiting"><div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div></div>`;
     }
   } else if (friendSnapshotProfile) {
-    renderReadOnlyDinoSummary(container, friendSnapshotProfile, { tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)` });
+    // 스냅샷은 실시간 동기화가 없는 정적 사본이라, 관찰자가 로컬에서만 다른 프리셋을 미리 볼 수
+    // 있게 허용함(친구의 실제 데이터는 전혀 안 바뀜 - allowPresetSwitch 참고)
+    renderReadOnlyDinoSummary(container, friendSnapshotProfile, {
+      tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)`,
+      allowPresetSwitch: true,
+      onPresetSwitch: () => resetBattleDisplay()
+    });
   } else {
     renderMyDinoPage(container, {
       idPrefix: "oppB_",

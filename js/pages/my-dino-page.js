@@ -191,6 +191,19 @@ function renderMyDinoPage(container, options = {}) {
   const id = (name) => idPrefix + name;
   const profile = loadMyDinoProfile(storageKey);
 
+  // splitCritStat: 아레나처럼 "공룡 수"가 의미 없는 컨텍스트에서, 그 자리를 비우는 대신 치확/치피를
+  // 각각 별도 항목으로 나눠서 5칸을 그대로 채움(기본값은 기존 그대로 "치확 / 치피" 한 칸 + 공룡 수)
+  const splitCrit = !!options.splitCritStat;
+  const critItemsHtml = splitCrit
+    ? `<div class="stat-readout-item"><div class="stat-readout-label">치명타 확률</div><div class="stat-readout-value" id="${id("sumCritRate")}">0%</div></div>
+       <div class="stat-readout-item"><div class="stat-readout-label">치명타 피해</div><div class="stat-readout-value" id="${id("sumCritDmg")}">0%</div></div>`
+    : `<div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value" id="${id("sumCrit")}">0% / 0%</div></div>
+       <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value" id="${id("sumCount")}">0마리</div></div>`;
+
+  // extraTab: 컨텍스트별로 탭을 하나 추가할 수 있는 훅(예: 아레나 배치) - { id, label, render(panelEl) }.
+  // 이 파일은 어떤 페이지가 뭘 넣는지 몰라도 되게, 탭 전환/패널 표시만 일반적으로 처리함
+  const extraTab = options.extraTab || null;
+
   container.innerHTML = `
     <div class="card dino-panel">
       <div class="dino-summary-bar">
@@ -198,8 +211,7 @@ function renderMyDinoPage(container, options = {}) {
           <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent" id="${id("sumLevel")}">0</div></div>
           <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value" id="${id("sumAtk")}">0</div></div>
           <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value" id="${id("sumHp")}">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value" id="${id("sumCrit")}">0% / 0%</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value" id="${id("sumCount")}">0마리</div></div>
+          ${critItemsHtml}
         </div>
       </div>
 
@@ -208,6 +220,7 @@ function renderMyDinoPage(container, options = {}) {
         <button class="dino-tab" data-tab="constellation">별자리</button>
         <button class="dino-tab" data-tab="bonus">둥지·알스킨</button>
         <button class="dino-tab" data-tab="rune">룬 조합</button>
+        ${extraTab ? `<button class="dino-tab" data-tab="${extraTab.id}">${extraTab.label}</button>` : ""}
         <div class="dino-tab-indicator" id="${id("tabIndicator")}"></div>
       </div>
 
@@ -312,6 +325,7 @@ function renderMyDinoPage(container, options = {}) {
           </div>
         </div>
       </div>
+      ${extraTab ? `<div class="dino-tab-panel" data-panel="${extraTab.id}" style="display:none;" id="${id("extraTabPanel")}"></div>` : ""}
     </div>
   `;
 
@@ -328,7 +342,11 @@ function initMyDinoPage(profile, options = {}, container) {
   // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션). 인스턴스가 여러 개 떠 있을 수 있어서
   // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음.
   const indicator = $("tabIndicator");
+  // btn이 null일 수 있음 - 이 패널이 나중에 읽기 전용 카드(renderReadOnlyDinoSummary)로 통째로
+  // 교체된 뒤에도(예: 아레나에서 "설정 불러오기"), 여기서 등록한 resize 리스너는 그대로 남아있어서
+  // 다음 리사이즈 때 이미 사라진 탭을 찾으려다 null이 나올 수 있음
   function moveIndicator(btn) {
+    if (!btn) return;
     indicator.style.width = btn.offsetWidth + "px";
     indicator.style.transform = `translateX(${btn.offsetLeft}px)`;
   }
@@ -342,6 +360,10 @@ function initMyDinoPage(profile, options = {}, container) {
       root.querySelectorAll(".dino-tab-panel").forEach((p) => {
         p.style.display = p.dataset.panel === target ? "block" : "none";
       });
+      // 룬 조합 탭은 프리셋 데이터를 이 탭 바깥(예: 아레나 배치 탭의 슬롯 편집 팝업)에서도 같은
+      // storageKey로 직접 수정할 수 있어서, 탭에 진입할 때마다 저장소에서 다시 읽어와야 그 변경이
+      // 여기 화면에도 즉시 반영됨(탭 전환은 단순 display 토글이라 마운트 시점 클로저가 그대로 남음)
+      if (target === "rune") refreshRuneTabFromStorage();
     };
   });
   moveIndicator(root.querySelector(".dino-tab.active"));
@@ -582,14 +604,30 @@ function initMyDinoPage(profile, options = {}, container) {
 
   function persistAndRefresh() {
     saveMyDinoProfile(profile, storageKey);
-    updateSummary(profile, idPrefix);
+    updateSummary(profile, idPrefix, options.splitCritStat);
     if (options.onChange) options.onChange(profile);
   }
 
-  updateSummary(profile, idPrefix);
+  function refreshRuneTabFromStorage() {
+    const fresh = loadMyDinoProfile(storageKey);
+    profile.runePresets = fresh.runePresets;
+    profile.activePresetIndex = fresh.activePresetIndex;
+    profile.runes = profile.runePresets[profile.activePresetIndex].runes.map((r) => (r ? { ...r } : null));
+    runeUI.setSelectedRunes(profile.runes);
+    runeUI.renderSlots();
+    renderPresetRow();
+  }
+
+  updateSummary(profile, idPrefix, options.splitCritStat);
+
+  // extraTab(예: 아레나 배치)이 있으면 그 탭 패널에 컨텍스트가 제공한 렌더러를 한 번 실행
+  if (options.extraTab) {
+    const panelEl = $("extraTabPanel");
+    if (panelEl) options.extraTab.render(panelEl);
+  }
 }
 
-function updateSummary(profile, idPrefix = "") {
+function updateSummary(profile, idPrefix = "", splitCrit = false) {
   const id = (name) => idPrefix + name;
   const stats = getBattleStats({
     baseAtk: profile.baseAtk,
@@ -601,8 +639,13 @@ function updateSummary(profile, idPrefix = "") {
   });
   document.getElementById(id("sumAtk")).innerText = Math.floor(stats.fAtk).toLocaleString();
   document.getElementById(id("sumHp")).innerText = Math.floor(stats.fHp).toLocaleString();
-  document.getElementById(id("sumCrit")).innerText = `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`;
-  document.getElementById(id("sumCount")).innerText = `${profile.dinoCount}마리`;
+  if (splitCrit) {
+    document.getElementById(id("sumCritRate")).innerText = `${stats.cRate.toFixed(2)}%`;
+    document.getElementById(id("sumCritDmg")).innerText = `${stats.cDmg.toFixed(2)}%`;
+  } else {
+    document.getElementById(id("sumCrit")).innerText = `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`;
+    document.getElementById(id("sumCount")).innerText = `${profile.dinoCount}마리`;
+  }
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
   const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
@@ -615,17 +658,25 @@ function updateSummary(profile, idPrefix = "") {
 // 그려주는 게 더 단순하고 안전함. 실시간 세션과 "친구 설정 불러오기" 스냅샷 양쪽에서 재사용됨.
 function renderReadOnlyDinoSummary(container, profile, options = {}) {
   const tagText = options.tagText || "🔒 읽기 전용";
+  // profile.runes가 없는 데이터(예: 아레나가 넘기는 스냅샷/실시간 프로필은 top-level runes 없이
+  // runePresets만 있을 수 있음)를 대비해 활성 프리셋에서 유도 - getBattleStats가 undefined를
+  // forEach하다가 죽는 걸 막음
+  const effectiveRunes = profile.runes && profile.runes.length
+    ? profile.runes
+    : (Array.isArray(profile.runePresets) && profile.runePresets[profile.activePresetIndex || 0]
+        ? profile.runePresets[profile.activePresetIndex || 0].runes
+        : [null, null, null, null, null]);
   const stats = getBattleStats({
     baseAtk: profile.baseAtk,
     baseHp: profile.baseHp,
     count: profile.dinoCount,
-    selectedRunes: profile.runes,
+    selectedRunes: effectiveRunes,
     constellation: profile.constellation,
     bonusPercent: getEffectiveBonusPercent(profile)
   });
   const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
 
-  const slotsHtml = (profile.runes && profile.runes.length ? profile.runes : [null, null, null, null, null])
+  const slotsHtml = effectiveRunes
     .map((rune) => {
       if (rune && rune.name && RUNES_DATA[rune.name]) {
         const r = RUNES_DATA[rune.name];
@@ -636,6 +687,17 @@ function renderReadOnlyDinoSummary(container, profile, options = {}) {
     })
     .join("");
 
+  const critItemsHtml = options.splitCritStat
+    ? `<div class="stat-readout-item"><div class="stat-readout-label">치명타 확률</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}%</div></div>
+       <div class="stat-readout-item"><div class="stat-readout-label">치명타 피해</div><div class="stat-readout-value">${stats.cDmg.toFixed(2)}%</div></div>`
+    : `<div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%</div></div>
+       <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value">${profile.dinoCount}마리</div></div>`;
+
+  // allowPresetSwitch: 정적 스냅샷일 때만 의미가 있음(실시간 세션은 친구가 바꾸면 다시 통째로
+  // 덮어써지므로 로컬 선택이 무의미) - 관찰자가 로컬에서 다른 프리셋을 미리 볼 수만 있고, 실제
+  // profile 자체가 이 화면 밖으로 나가는 게 아니라서 원본(친구) 데이터는 전혀 바뀌지 않음
+  const allowPresetSwitch = !!options.allowPresetSwitch && Array.isArray(profile.runePresets) && profile.runePresets.length > 0;
+
   container.innerHTML = `
     <div class="card dino-panel dino-panel-readonly">
       <div class="dino-panel-readonly-tag">${tagText}</div>
@@ -644,11 +706,35 @@ function renderReadOnlyDinoSummary(container, profile, options = {}) {
           <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent">${level.toLocaleString()}</div></div>
           <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value">${Math.floor(stats.fAtk).toLocaleString()}</div></div>
           <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value">${Math.floor(stats.fHp).toLocaleString()}</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value">${profile.dinoCount}마리</div></div>
+          ${critItemsHtml}
         </div>
       </div>
-      <div class="readonly-slot-row">${slotsHtml}</div>
+      ${options.hideRuneRow ? "" : `<div class="readonly-slot-row">${slotsHtml}</div>`}
+      ${allowPresetSwitch ? `
+        <div class="readonly-preset-switcher">
+          <div class="readonly-preset-switcher-label">프리셋 선택 (관찰용 - 실제 상대 설정은 바뀌지 않음)</div>
+          <div class="friend-preset-list" id="readonlyPresetList"></div>
+        </div>
+      ` : ""}
     </div>
   `;
+
+  if (allowPresetSwitch) {
+    const listEl = document.getElementById("readonlyPresetList");
+    listEl.innerHTML = profile.runePresets
+      .map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${p.name}</div>`)
+      .join("");
+    listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
+      el.onclick = () => {
+        const idx = Number(el.dataset.idx);
+        if (idx === profile.activePresetIndex) return;
+        // 스냅샷 profile 객체 자체를 로컬로만 갱신(호출부가 들고 있는 참조가 그대로 이 객체라
+        // getOppBattleInputs 등 전투 계산에도 자연스럽게 반영됨 - 서버로는 아무것도 안 나감)
+        profile.activePresetIndex = idx;
+        profile.runes = profile.runePresets[idx].runes.map((r) => (r ? { ...r } : null));
+        renderReadOnlyDinoSummary(container, profile, options);
+        if (options.onPresetSwitch) options.onPresetSwitch(profile);
+      };
+    });
+  }
 }
