@@ -18,7 +18,7 @@ async function renderAuthRow() {
 
   if (user && user.username) {
     row.innerHTML = `
-      <div class="auth-identity">
+      <div class="auth-identity" id="authIdentityBtn" title="프로필로 이동">
         <div class="auth-avatar">${user.username.slice(0, 1)}</div>
         <div class="auth-username" title="${user.username}">${user.username}</div>
       </div>
@@ -33,6 +33,11 @@ async function renderAuthRow() {
       if (sideMenu && sideMenu.classList.contains("open")) toggleMenu();
       location.hash = "#friends";
     };
+    document.getElementById("authIdentityBtn").onclick = () => {
+      const sideMenu = document.getElementById("sideMenu");
+      if (sideMenu && sideMenu.classList.contains("open")) toggleMenu();
+      location.hash = "#profile";
+    };
   } else {
     row.innerHTML = `<button id="loginBtn" class="login-btn">로그인</button>`;
     document.getElementById("loginBtn").onclick = () => {
@@ -45,6 +50,32 @@ async function renderAuthRow() {
 
 async function handleLogout() {
   await supabaseClient.auth.signOut();
+}
+
+// 회원 탈퇴: auth.users 행을 지우는 RPC를 호출함. profiles/user_data/friend_requests는
+// 전부 auth.users를 참조하는 on delete cascade 외래키라 서버에서 자동으로 같이 삭제됨.
+async function handleDeleteAccount() {
+  const sure = confirm("정말 탈퇴하시겠습니까? 저장된 룬 조합 등 계정 데이터가 모두 삭제되며 되돌릴 수 없습니다.");
+  if (!sure) return;
+
+  const btn = document.getElementById("deleteAccountBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "탈퇴 처리 중...";
+  }
+
+  const { error } = await supabaseClient.rpc("delete_own_account");
+  if (error) {
+    alert("탈퇴 처리 중 오류가 발생했습니다: " + error.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "회원 탈퇴";
+    }
+    return;
+  }
+
+  await supabaseClient.auth.signOut();
+  location.hash = "#home";
 }
 
 // 로그인/로그아웃/토큰 갱신 등 세션 상태가 바뀔 때마다 자동으로 화면을 다시 그림.

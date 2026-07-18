@@ -7,6 +7,7 @@
 const DINO_BATTLE_OPPONENT_KEY = "dino_battle_opponent_profile";
 const DINO_BATTLE_TILE_KEY = "dino_battle_tile_settings";
 const DINO_BATTLE_SPEED_KEY = "dino_battle_speed_ms";
+const QUICK_CALC_TRIALS = 10000;
 const BATTLE_SPEED_OPTIONS = [
   { ms: 650, label: "느림" },
   { ms: 350, label: "보통" },
@@ -84,66 +85,69 @@ function renderDinoBattlePage(container) {
       <div class="battle-arena-wrap">
         <button class="battle-peek-btn my-peek" id="myPeekBtn" title="내 공룡 설정">▶</button>
 
-        <div class="battle-mode-tabs">
-          <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick">빠른 계산</button>
-          <button class="battle-mode-tab active" data-mode="live" id="modeTabLive">실전 대전</button>
-        </div>
-
-        <div class="card battle-quickcalc-card" id="quickModeCard" style="display:none;">
-          <p class="quickcalc-desc">대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 500번 죽을 때까지 반복합니다. 평균 교환비와 킬당 평균 데미지를 계산합니다.</p>
-          <button class="btn-simulate" id="quickCalcBtn">500회 계산하기</button>
-          <div class="report-grid" id="quickCalcResult" style="display:none;">
-            <div class="report-tile"><div class="metric-label">교환 결과 (500번 중)</div><div class="metric-value accent" id="qcRatio">-</div></div>
-            <div class="report-tile"><div class="metric-label">내 공룡 킬당 평균 피해</div><div class="metric-value" id="qcMyDmg">-</div></div>
-            <div class="report-tile"><div class="metric-label">상대 공룡 킬당 평균 피해</div><div class="metric-value" id="qcOppDmg">-</div></div>
+        <div class="card battle-main-card" id="battleMainCard">
+          <div class="battle-mode-tabs mode-live" id="battleModeTabs">
+            <span class="battle-mode-indicator"></span>
+            <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>빠른 계산</span></button>
+            <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>실전 대전</span></button>
           </div>
-        </div>
 
-        <div class="card battle-arena-card" id="liveModeCard">
-          <div class="battle-arena" id="battleArena">
-            <div class="battle-fighter" id="myFighter">
-              <div class="battle-name">내 공룡</div>
-              <div class="battle-hp-bar"><div class="battle-hp-fill my-hp-fill" id="myHpFill"></div></div>
-              <div class="battle-hp-label" id="myHpLabel">0 / 0</div>
-              <div class="battle-stack-row my-stack-row">
-                <div class="tile-box">
-                  <div class="battle-stack">
-                    <div class="stack-dino behind-2 my-avatar" id="myBehind2"></div>
-                    <div class="stack-dino behind-1 my-avatar" id="myBehind1"></div>
-                    <div class="stack-dino front battle-avatar my-avatar" id="myAvatar"></div>
-                  </div>
-                </div>
-                <div class="reserve-bars" id="myReserveBars"></div>
-              </div>
-            </div>
-
-            <div class="battle-vs">VS</div>
-
-            <div class="battle-fighter" id="oppFighter">
-              <div class="battle-name">상대 공룡</div>
-              <div class="battle-hp-bar"><div class="battle-hp-fill opp-hp-fill" id="oppHpFill"></div></div>
-              <div class="battle-hp-label" id="oppHpLabel">0 / 0</div>
-              <div class="battle-stack-row opp-stack-row">
-                <div class="tile-box">
-                  <div class="battle-stack">
-                    <div class="stack-dino behind-2 opp-avatar" id="oppBehind2"></div>
-                    <div class="stack-dino behind-1 opp-avatar" id="oppBehind1"></div>
-                    <div class="stack-dino front battle-avatar opp-avatar" id="oppAvatar"></div>
-                  </div>
-                </div>
-                <div class="reserve-bars" id="oppReserveBars"></div>
-              </div>
+          <div class="battle-mode-panel" id="quickModeCard" style="display:none;">
+            <p class="quickcalc-desc">대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 ${QUICK_CALC_TRIALS.toLocaleString()}번 죽을 때까지 반복합니다. 사망 횟수 비율과 킬당 평균 데미지를 계산합니다.</p>
+            <button class="btn-simulate" id="quickCalcBtn">${QUICK_CALC_TRIALS.toLocaleString()}회 계산하기</button>
+            <div class="report-grid" id="quickCalcResult" style="display:none;">
+              <div class="report-tile"><div class="metric-label">전투 결과 (${QUICK_CALC_TRIALS.toLocaleString()}번 중)</div><div class="metric-value accent" id="qcRatio">-</div><div class="metric-sub" id="qcRatioNorm"></div></div>
+              <div class="report-tile"><div class="metric-label">내 공룡 킬당 평균 피해</div><div class="metric-value" id="qcMyDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">상대 공룡 킬당 평균 피해</div><div class="metric-value" id="qcOppDmg">-</div></div>
             </div>
           </div>
 
-          <div class="battle-result" id="battleResult" style="display:none;"></div>
-          <div class="battle-controls">
-            <div class="custom-dropdown battle-speed-dropdown" id="battleSpeedDropdown">
-              <div class="selected-value" id="battleSpeedSelectedValue">보통</div>
-              <ul class="dropdown-list" id="battleSpeedList"></ul>
+          <div class="battle-mode-panel" id="liveModeCard">
+            <div class="battle-arena" id="battleArena">
+              <div class="battle-fighter" id="myFighter">
+                <div class="battle-name">내 공룡</div>
+                <div class="battle-hp-bar"><div class="battle-hp-fill my-hp-fill" id="myHpFill"></div></div>
+                <div class="battle-hp-label" id="myHpLabel">0 / 0</div>
+                <div class="battle-stack-row my-stack-row">
+                  <div class="tile-box">
+                    <div class="battle-stack">
+                      <div class="stack-dino behind-2 my-avatar" id="myBehind2"></div>
+                      <div class="stack-dino behind-1 my-avatar" id="myBehind1"></div>
+                      <div class="stack-dino front battle-avatar my-avatar" id="myAvatar"></div>
+                    </div>
+                  </div>
+                  <div class="reserve-bars" id="myReserveBars"></div>
+                </div>
+              </div>
+
+              <div class="battle-vs"><span>VS</span></div>
+
+              <div class="battle-fighter" id="oppFighter">
+                <div class="battle-name">상대 공룡</div>
+                <div class="battle-hp-bar"><div class="battle-hp-fill opp-hp-fill" id="oppHpFill"></div></div>
+                <div class="battle-hp-label" id="oppHpLabel">0 / 0</div>
+                <div class="battle-stack-row opp-stack-row">
+                  <div class="tile-box">
+                    <div class="battle-stack">
+                      <div class="stack-dino behind-2 opp-avatar" id="oppBehind2"></div>
+                      <div class="stack-dino behind-1 opp-avatar" id="oppBehind1"></div>
+                      <div class="stack-dino front battle-avatar opp-avatar" id="oppAvatar"></div>
+                    </div>
+                  </div>
+                  <div class="reserve-bars" id="oppReserveBars"></div>
+                </div>
+              </div>
             </div>
-            <button class="btn-simulate" id="battleStartBtn">전투 시작</button>
-            <button class="battle-restart-btn" id="battleRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+
+            <div class="battle-result" id="battleResult" style="display:none;"></div>
+            <div class="battle-controls">
+              <div class="custom-dropdown battle-speed-dropdown" id="battleSpeedDropdown">
+                <div class="selected-value" id="battleSpeedSelectedValue">보통</div>
+                <ul class="dropdown-list" id="battleSpeedList"></ul>
+              </div>
+              <button class="btn-simulate" id="battleStartBtn">전투 시작</button>
+              <button class="battle-restart-btn" id="battleRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+            </div>
           </div>
         </div>
 
@@ -215,6 +219,7 @@ function initDinoBattlePage() {
 }
 
 function initModeTabs() {
+  const tabsEl = document.getElementById("battleModeTabs");
   const quickTab = document.getElementById("modeTabQuick");
   const liveTab = document.getElementById("modeTabLive");
   const quickCard = document.getElementById("quickModeCard");
@@ -225,13 +230,26 @@ function initModeTabs() {
     liveTab.classList.remove("active");
     quickCard.style.display = "block";
     liveCard.style.display = "none";
+    tabsEl.classList.remove("mode-live");
+    tabsEl.classList.add("mode-quick");
   };
   liveTab.onclick = () => {
     liveTab.classList.add("active");
     quickTab.classList.remove("active");
     liveCard.style.display = "block";
     quickCard.style.display = "none";
+    tabsEl.classList.remove("mode-quick");
+    tabsEl.classList.add("mode-live");
   };
+}
+
+// 죽음(약한 쪽)이 아니라 생존(강한 쪽)이 1이 되도록, "적게 죽은 쪽"을 1로 고정하고 "많이 죽은
+// 쪽"이 그 몇 배인지 보여주는 교환비 (내 219사망 : 상대 281사망 -> "1 : 1.28". 즉 내가 더 강함)
+function formatNormalizedRatio(myDeaths, oppDeaths) {
+  const minD = Math.min(myDeaths, oppDeaths);
+  if (minD === 0) return "";
+  const fmt = (n) => (Math.round(n * 100) / 100).toString();
+  return `${fmt(myDeaths / minD)} : ${fmt(oppDeaths / minD)}`;
 }
 
 function startQuickCalc() {
@@ -240,22 +258,30 @@ function startQuickCalc() {
   btn.disabled = true;
   btn.innerText = "계산 중...";
 
-  // 500번 반복이지만 애니메이션 없이 동기 계산이라 순식간에 끝남 - setTimeout으로 한 틱 양보해서
+  // 애니메이션 없이 동기 계산이라 순식간에 끝남 - setTimeout으로 한 틱 양보해서
   // "계산 중..." 텍스트가 먼저 그려지게만 함
   setTimeout(() => {
     const result = runDinoQuickCalc({
       my: getSideInputs(MY_DINO_PROFILE_KEY),
       opp: getSideInputs(DINO_BATTLE_OPPONENT_KEY),
-      tileSettings
+      tileSettings,
+      totalDeaths: QUICK_CALC_TRIALS
     });
 
-    document.getElementById("qcRatio").innerText = `${result.myKills} : ${result.oppKills}`;
+    // result.myKills = 내가 상대를 죽인 횟수(= 상대 사망 수), result.oppKills = 상대가 나를
+    // 죽인 횟수(= 내 사망 수). "내 : 상대" 순서로 보여주려면 서로 바꿔서 읽어야 함.
+    const myDeaths = result.oppKills;
+    const oppDeaths = result.myKills;
+
+    document.getElementById("qcRatio").innerText = `사망횟수 ${myDeaths} : ${oppDeaths}`;
+    const normRatio = formatNormalizedRatio(myDeaths, oppDeaths);
+    document.getElementById("qcRatioNorm").innerText = normRatio ? `교환비 ${normRatio}` : "";
     document.getElementById("qcMyDmg").innerText = Math.round(result.avgMyDmgPerKill).toLocaleString();
     document.getElementById("qcOppDmg").innerText = Math.round(result.avgOppDmgPerKill).toLocaleString();
     document.getElementById("quickCalcResult").style.display = "grid";
 
     btn.disabled = false;
-    btn.innerText = "500회 계산하기";
+    btn.innerText = `${QUICK_CALC_TRIALS.toLocaleString()}회 계산하기`;
   }, 10);
 }
 
@@ -455,13 +481,26 @@ function spawnHealPopup(fighterElId, amount, cause, delayMs, popupIndex = 0) {
   }, delayMs);
 }
 
+let lungeShakeTimeout = null;
+
 function playLungeAndShake(attackerSide, defenderSide) {
   const attackerAvatar = document.getElementById(`${attackerSide}Avatar`);
   const defenderAvatar = document.getElementById(`${defenderSide}Avatar`);
   const lungeClass = attackerSide === "my" ? "lunge-right" : "lunge-left";
+
+  // "빠름" 속도(턴 간격 150ms)는 애니메이션 정리 시간(350ms)보다 짧아서, 이전 턴의 정리 타이머가
+  // 새로 시작된 애니메이션을 중간에 끊어버리는 게 겹쳐서 경련처럼 보였음. 매번 이전 타이머를
+  // 취소하고, 양쪽 공룡의 관련 클래스를 전부 지운 뒤 강제로 리플로우시켜서 애니메이션이 항상
+  // 처음부터 깔끔하게 다시 시작되도록 함(겹치는 타이머가 하나도 안 남게).
+  clearTimeout(lungeShakeTimeout);
+  [attackerAvatar, defenderAvatar].forEach((el) => {
+    el.classList.remove("lunge-right", "lunge-left", "hit-shake");
+  });
+  void attackerAvatar.offsetWidth;
+
   attackerAvatar.classList.add(lungeClass);
   defenderAvatar.classList.add("hit-shake");
-  setTimeout(() => {
+  lungeShakeTimeout = setTimeout(() => {
     attackerAvatar.classList.remove(lungeClass);
     defenderAvatar.classList.remove("hit-shake");
   }, 350);

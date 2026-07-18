@@ -6,6 +6,8 @@ const ROUTES = {
   "#arena": renderArenaPage,
   "#my-dino": renderMyDinoPage,
   "#friends": renderFriendsPage,
+  "#profile": renderProfilePage,
+  "#privacy": renderPrivacyPage,
   "#dummy": renderDummyPage,
   "#building": renderBuildingPage
 };
