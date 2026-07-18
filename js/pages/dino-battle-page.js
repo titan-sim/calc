@@ -24,8 +24,23 @@ let currentBattleResult = null;
 let currentBattleIndex = 0;
 
 function defaultTileSettings() {
-  return { natureAdjacent: false, tribeControl: "none", myTileArrangement: "same", oppTileArrangement: "same" };
+  return {
+    natureAdjacent: false,
+    tribeControl: "none",
+    myTileArrangement: "same",
+    oppTileArrangement: "same",
+    myAtkTowerLevel: null,
+    myHpTowerLevel: null,
+    oppAtkTowerLevel: null,
+    oppHpTowerLevel: null
+  };
 }
+
+// 버프 타워 드롭다운 공용 옵션: "없음"(미설치) + Lv0~Lv14(설치 레벨, 각 레벨의 %가 몇인지 바로 보이게 표기)
+const BUFF_TOWER_OPTIONS = [
+  { value: null, label: "없음" },
+  ...BUFF_TOWER_PERCENTS.map((pct, lv) => ({ value: lv, label: `Lv.${lv} (+${pct}%)` }))
+];
 
 function loadTileSettings() {
   try {
@@ -44,30 +59,75 @@ function renderDinoBattlePage(container) {
   container.innerHTML = `
     <div class="card battle-tile-card">
       <h2 class="battle-tile-heading">타일 설정</h2>
-      <div class="setting-list">
-        <div class="setting-row">
-          <div class="setting-label">자연 구조물과 인접 (자연의 포옹)</div>
-          <label class="switch"><input type="checkbox" id="tileNatureToggle"><span class="slider round"></span></label>
-        </div>
-        <div class="setting-row">
-          <div class="setting-label">부족 점령 상태 (부족의 축복)</div>
-          <div class="custom-dropdown setting-control" id="tileTribeDropdown">
-            <div class="selected-value" id="tileTribeSelectedValue">없음</div>
-            <ul class="dropdown-list" id="tileTribeList"></ul>
+
+      <div class="tile-group">
+        <div class="tile-group-label">환경</div>
+        <div class="setting-list">
+          <div class="setting-row">
+            <div class="setting-label">자연 구조물과 인접 (자연의 포옹)</div>
+            <label class="switch"><input type="checkbox" id="tileNatureToggle"><span class="slider round"></span></label>
+          </div>
+          <div class="setting-row">
+            <div class="setting-label">부족 점령 상태 (부족의 축복)</div>
+            <div class="custom-dropdown setting-control" id="tileTribeDropdown">
+              <div class="selected-value" id="tileTribeSelectedValue">없음</div>
+              <ul class="dropdown-list" id="tileTribeList"></ul>
+            </div>
           </div>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">내 공룡 배치</div>
-          <div class="custom-dropdown setting-control" id="myTileArrangementDropdown">
-            <div class="selected-value" id="myTileArrangementSelectedValue">한 타일</div>
-            <ul class="dropdown-list" id="myTileArrangementList"></ul>
+      </div>
+
+      <div class="tile-group">
+        <div class="tile-group-label">진영별 설정</div>
+        <div class="tile-side-grid">
+          <div class="tile-side-col">
+            <div class="tile-side-col-label my-side-label">내 공룡</div>
+            <div class="tile-side-field">
+              <label>배치</label>
+              <div class="custom-dropdown" id="myTileArrangementDropdown">
+                <div class="selected-value" id="myTileArrangementSelectedValue">한 타일</div>
+                <ul class="dropdown-list" id="myTileArrangementList"></ul>
+              </div>
+            </div>
+            <div class="tile-side-field">
+              <label>공격력 버프 타워</label>
+              <div class="custom-dropdown" id="myAtkTowerDropdown">
+                <div class="selected-value" id="myAtkTowerSelectedValue">없음</div>
+                <ul class="dropdown-list" id="myAtkTowerList"></ul>
+              </div>
+            </div>
+            <div class="tile-side-field">
+              <label>체력 버프 타워</label>
+              <div class="custom-dropdown" id="myHpTowerDropdown">
+                <div class="selected-value" id="myHpTowerSelectedValue">없음</div>
+                <ul class="dropdown-list" id="myHpTowerList"></ul>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-label">상대 공룡 배치</div>
-          <div class="custom-dropdown setting-control" id="oppTileArrangementDropdown">
-            <div class="selected-value" id="oppTileArrangementSelectedValue">한 타일</div>
-            <ul class="dropdown-list" id="oppTileArrangementList"></ul>
+
+          <div class="tile-side-col">
+            <div class="tile-side-col-label opp-side-label">상대 공룡</div>
+            <div class="tile-side-field">
+              <label>배치</label>
+              <div class="custom-dropdown" id="oppTileArrangementDropdown">
+                <div class="selected-value" id="oppTileArrangementSelectedValue">한 타일</div>
+                <ul class="dropdown-list" id="oppTileArrangementList"></ul>
+              </div>
+            </div>
+            <div class="tile-side-field">
+              <label>공격력 버프 타워</label>
+              <div class="custom-dropdown" id="oppAtkTowerDropdown">
+                <div class="selected-value" id="oppAtkTowerSelectedValue">없음</div>
+                <ul class="dropdown-list" id="oppAtkTowerList"></ul>
+              </div>
+            </div>
+            <div class="tile-side-field">
+              <label>체력 버프 타워</label>
+              <div class="custom-dropdown" id="oppHpTowerDropdown">
+                <div class="selected-value" id="oppHpTowerSelectedValue">없음</div>
+                <ul class="dropdown-list" id="oppHpTowerList"></ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -350,6 +410,40 @@ function initTileSettings() {
 
   initArrangementDropdown("my", settings);
   initArrangementDropdown("opp", settings);
+
+  initBuffTowerDropdown("my", "Atk", settings);
+  initBuffTowerDropdown("my", "Hp", settings);
+  initBuffTowerDropdown("opp", "Atk", settings);
+  initBuffTowerDropdown("opp", "Hp", settings);
+}
+
+// sideKey: "my" | "opp", statKey: "Atk" | "Hp" - 진영별 공격력/체력 버프 타워 레벨 설정.
+// settingsField는 tileSettings의 myAtkTowerLevel/myHpTowerLevel/oppAtkTowerLevel/oppHpTowerLevel
+function initBuffTowerDropdown(sideKey, statKey, settings) {
+  const settingsField = `${sideKey}${statKey}TowerLevel`;
+  const idPrefix = `${sideKey}${statKey}Tower`;
+  const list = document.getElementById(`${idPrefix}List`);
+  const selectedValue = document.getElementById(`${idPrefix}SelectedValue`);
+  const labelFor = (v) => BUFF_TOWER_OPTIONS.find((o) => o.value === v).label;
+  selectedValue.textContent = labelFor(settings[settingsField]);
+
+  BUFF_TOWER_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = () => {
+      settings[settingsField] = opt.value;
+      selectedValue.textContent = opt.label;
+      list.style.display = "none";
+      saveTileSettings(settings);
+      resetBattleDisplay();
+    };
+    list.appendChild(li);
+  });
+  selectedValue.onclick = () => {
+    const isOpen = list.style.display === "block";
+    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
+    list.style.display = isOpen ? "none" : "block";
+  };
 }
 
 const ARRANGEMENT_LABELS = { same: "한 타일", separate: "다른 타일" };
@@ -447,6 +541,7 @@ function resetBattleDisplay() {
   const startBtn = document.getElementById("battleStartBtn");
   startBtn.disabled = false;
   startBtn.innerText = "전투 시작";
+  startBtn.classList.remove("is-pressed");
 }
 
 // 같은 타겟에게 한 턴에 여러 팝업이 뜰 때 겹치지 않도록 인덱스 기준으로 좌우/상하로 살짝 흩어줌
@@ -570,19 +665,26 @@ function finishBattleDisplay(result) {
   else resultEl.innerText = "패배...";
 
   battlePhase = "finished";
-  document.getElementById("battleStartBtn").innerText = "다시 시작";
+  const startBtn = document.getElementById("battleStartBtn");
+  startBtn.innerText = "다시 시작";
+  startBtn.classList.remove("is-pressed"); // 재생이 멈춘 상태라 눌린 채로 두지 않음
 }
 
-// "전투 시작" 버튼 하나가 battlePhase에 따라 시작/일시정지/재개/다시시작을 전부 겸함
+// "전투 시작" 버튼 하나가 battlePhase에 따라 시작/일시정지/재개/다시시작을 전부 겸함.
+// 눌린 것처럼(is-pressed) 보이는 건 실제로 재생 중(playing)일 때뿐 - 일시정지/다시시작처럼
+// 재생이 멈춰 있으면 다시 눌러도 되는 버튼이라는 뜻으로 원래대로 떠 있어야 함
 function onBattleButtonClick() {
+  const startBtn = document.getElementById("battleStartBtn");
   if (battlePhase === "playing") {
     battlePhase = "paused";
-    document.getElementById("battleStartBtn").innerText = "재개";
+    startBtn.innerText = "재개";
+    startBtn.classList.remove("is-pressed");
     return;
   }
   if (battlePhase === "paused") {
     battlePhase = "playing";
-    document.getElementById("battleStartBtn").innerText = "일시정지";
+    startBtn.innerText = "일시정지";
+    startBtn.classList.add("is-pressed");
     runBattleStep(battleToken);
     return;
   }
@@ -616,7 +718,9 @@ function startBattle() {
   currentBattleIndex = 0;
   battlePhase = "playing";
 
-  document.getElementById("battleStartBtn").innerText = "일시정지";
+  const startBtn = document.getElementById("battleStartBtn");
+  startBtn.innerText = "일시정지";
+  startBtn.classList.add("is-pressed");
   document.getElementById("battleResult").style.display = "none";
   updateRestartButtonState();
 

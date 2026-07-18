@@ -11,6 +11,11 @@
 // - 타이탄전에 부적합한 룬(보스/건축물 전용)과는 다른 기준으로 DINO_BATTLE_UNSUITABLE_RUNE_LIST에
 //   있는 룬은 아예 효과가 없는 것으로 계산함(장착은 막지 않되 수치에 반영 안 함).
 
+// 공격력/체력 버프 타워: Lv0~Lv14, 레벨이 오를수록 2%에서 15%까지 증가(전 구간이 1%p 단위는
+// 아니고 초반 0.5%p 구간이 있음 - 사용자 확인값). tileCfg에 진영별로 레벨(정수, 미설치는 null)이
+// 들어오고, 아래 배열의 인덱스가 곧 레벨.
+const BUFF_TOWER_PERCENTS = [2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
 // 레벨 = 기본 공격력 + (기본 체력/10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준).
 // js/pages/my-dino-page.js의 updateSummary()에 쓰이는 계산식과 동일(요약 카드에 보이는 "레벨" 수치)
 function levelOf(inputs) {
@@ -40,6 +45,11 @@ function computeSideCombatValues(side, aliveCount, tileCfg) {
   let hpF = side.constellation.hp || 0, hpP = side.bonusPercent.hp || 0;
   let cRate = 3 + (side.constellation.critRate || 0);
   let cDmg = 105 + (side.constellation.critDmg || 0);
+
+  const atkTowerLv = tileCfg[`${side.key}AtkTowerLevel`];
+  if (atkTowerLv !== null && atkTowerLv !== undefined) atkP += BUFF_TOWER_PERCENTS[atkTowerLv];
+  const hpTowerLv = tileCfg[`${side.key}HpTowerLevel`];
+  if (hpTowerLv !== null && hpTowerLv !== undefined) hpP += BUFF_TOWER_PERCENTS[hpTowerLv];
 
   side.runes.forEach((r) => {
     if (r.name === "마지막 선물") return; // 상시 스탯 아님(사망 시 임시 버프로 별도 처리)

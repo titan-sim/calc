@@ -606,7 +606,7 @@ input:focus, select:focus {
   font-size: clamp(16px, 1.2vw + 12px, 20px);
   padding: 1em 0;
   min-height: 3em;
-  background: color-mix(in srgb, var(--accent) 85%, black);
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: #1a1206;
   border: none;
   border-radius: 8px; /* 8px 혹은 0.5em */
@@ -617,11 +617,21 @@ input:focus, select:focus {
   justify-content: center;
   gap: 8px;
   line-height: 1;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 .btn-simulate:active {
   transform: scale(0.98);
-  background: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-strong) 85%, black);
+}
+
+/* 전투가 진행 중일 때(전투 시작 버튼을 누른 뒤) 버튼이 계속 눌려있는 상태처럼 보이도록 함.
+   ":active"는 마우스를 누르고 있는 그 순간만 적용되는 데 반해, 이건 battlePhase가 idle을
+   벗어나 있는 동안 JS로 계속 유지되는 상태 */
+.btn-simulate.is-pressed {
+  background: color-mix(in srgb, var(--accent-strong) 88%, black);
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(1px);
 }
 
 /* .report-box는 .card와 함께 붙어서 카드와 동일한 배경/테두리를 쓰고, 표시 여부만 제어함 */
@@ -1174,12 +1184,19 @@ input:focus, select:focus {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1a1206;
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: transform 0.15s ease;
+}
+
+.login-btn:active {
+  transform: scale(0.98);
+  background: color-mix(in srgb, var(--accent-strong) 85%, black);
 }
 
 /* 로그인 상태 표시줄: 아바타+닉네임+액션을 각자 테두리 박스로 나누지 않고 한 줄로 흐르게 구성 */
@@ -2020,6 +2037,75 @@ b .dropdown-list::-webkit-scrollbar {
   padding: 0 26px 0 10px;
   line-height: 30px;
   font-size: 12px;
+}
+
+/* 항목이 늘어날수록(버프 타워 추가 등) 한 덩어리로 뭉쳐 보이지 않도록 "환경"/"진영별 설정"으로
+   묶고, 그룹 사이는 얇은 구분선으로 나눔 */
+.tile-group + .tile-group {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tile-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+/* 진영별 설정(배치/버프 타워)은 내 공룡·상대 공룡을 좌우로 나란히 둬서 대칭 비교가 쉽게 함 */
+.tile-side-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+}
+
+.tile-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tile-side-col-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tile-side-col-label::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.tile-side-col-label.my-side-label::before {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.tile-side-col-label.opp-side-label::before {
+  background: #e0473f;
+  box-shadow: 0 0 6px rgba(224, 71, 63, 0.6);
+}
+
+.tile-side-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tile-side-field label {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-sub);
 }
 
 @media (min-width: 1100px) {
