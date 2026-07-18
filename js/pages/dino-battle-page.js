@@ -211,7 +211,8 @@ function initDinoBattlePage() {
 
   document.getElementById("battleStartBtn").onclick = onBattleButtonClick;
   document.getElementById("battleRestartBtn").onclick = () => {
-    if (battlePhase !== "idle") startBattle();
+    // 처음 상태로 되돌리기만 하고 자동 재생하지는 않음 - "전투 시작"을 다시 눌러야 플레이됨
+    if (battlePhase !== "idle") resetBattleDisplay();
   };
   document.getElementById("quickCalcBtn").onclick = startQuickCalc;
   initModeTabs();

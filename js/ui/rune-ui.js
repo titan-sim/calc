@@ -236,6 +236,10 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     renderSlots();
     renderRuneGrid();
     initLevelSelect();
+    // 슬롯을 하나 눌러 activeSlotIdx가 정해지기 전까지는 목록/상세 둘 다 숨김(어떤 슬롯을
+    // 채우는 중인지도 모른 채 목록부터 뜨는 걸 방지)
+    $("runePicker").style.display = "none";
+    $("runeDetail").style.display = "none";
     $("applyBtn").onclick = applyRuneToSlot;
     $("removeBtn").onclick = removeRuneFromSlot;
   }
