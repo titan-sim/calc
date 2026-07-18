@@ -13,6 +13,7 @@ let notifyMyId = null;
 let notifyMyNickname = null;
 let currentSession = null; // { channel, myId, myNickname, friendId, friendNickname, status, friendProfile, sharedTile, friendSide }
 const sessionListeners = new Set();
+const friendRequestListeners = new Set();
 
 // 브라우저 절전/장시간 백그라운드 등으로 Realtime 소켓이 조용히 끊긴 채로 남아있으면(새로고침 전엔
 // 초대 알림이 하나도 안 오는 문제) 탭이 다시 보이거나 네트워크가 돌아올 때 알림 채널을 강제로 다시
@@ -46,6 +47,19 @@ function onFriendSessionChange(callback) {
   return () => sessionListeners.delete(callback);
 }
 
+// friends-page.js가 "지금 친구 요청 목록을 보고 있다"는 동안만 구독해서, 새 요청이 오면
+// 새로고침 없이 바로 목록을 다시 불러올 수 있게 함
+function onFriendRequestNotification(callback) {
+  friendRequestListeners.add(callback);
+  return () => friendRequestListeners.delete(callback);
+}
+
+function notifyFriendRequestListeners(payload) {
+  friendRequestListeners.forEach((cb) => {
+    try { cb(payload); } catch (e) { console.error("friend-request listener 오류:", e); }
+  });
+}
+
 function getActiveSession() {
   return currentSession;
 }
@@ -70,6 +84,10 @@ function initFriendNotifications(myId, myNickname) {
       showInviteBanner(myId, myNickname, payload.fromId, payload.fromNickname);
     } else if (payload.type === "invite-declined") {
       hideInviteWaitingIfFrom(payload.fromId);
+    } else if (payload.type === "friend-request") {
+      // 지금 친구 페이지를 보고 있으면 목록을 바로 다시 불러오고, 어디에 있든 토스트로 알림
+      showToast(`${payload.fromNickname}님이 친구 요청을 보냈습니다`, "#friends");
+      notifyFriendRequestListeners(payload);
     }
   });
   notifyChannel.subscribe((status) => {
@@ -90,6 +108,26 @@ function teardownFriendNotifications() {
     notifyChannel = null;
   }
   leaveFriendSession();
+}
+
+// ===== 토스트(친구 요청처럼 수락/거절 없이 그냥 알려주기만 하면 되는 알림, 몇 초 뒤 자동으로 사라짐) =====
+
+let toastTimer = null;
+
+function showToast(message, hash) {
+  const toast = document.getElementById("friendToast");
+  if (!toast) return;
+  toast.innerHTML = `<span>${message}</span>`;
+  toast.style.cursor = hash ? "pointer" : "default";
+  toast.onclick = hash ? () => { location.hash = hash; hideToast(); } : null;
+  toast.style.display = "flex";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 4000);
+}
+
+function hideToast() {
+  const toast = document.getElementById("friendToast");
+  if (toast) toast.style.display = "none";
 }
 
 // ===== 초대 배너(index.html의 #friendInviteBanner를 직접 그림 - 페이지 이동과 무관하게 항상 뜸) =====

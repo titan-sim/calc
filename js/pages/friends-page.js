@@ -1,6 +1,8 @@
 // 친구 추가/요청/목록 페이지. 로그인 상태에서만 의미가 있어서, 비로그인 상태면 안내만 보여줌.
-// 실제 "친구와 함께 공룡 대전"은 다음 단계(Realtime 실시간 세션)에서 dino-battle-page.js에 붙임 -
-// 이 페이지는 친구 관계(친구 요청 보내기/받기/수락/끊기)까지만 담당함.
+// 실제 "친구와 함께 공룡 대전"(js/core/friend-session.js)의 초대/세션 관리는 이 페이지가 아니라
+// 그쪽에서 전역으로 담당함 - 이 페이지는 친구 관계(친구 요청 보내기/받기/수락/끊기)까지만 담당함.
+
+let unsubscribeFriendRequestNotif = null;
 
 async function renderFriendsPage(container) {
   const { data: { session } } = await supabaseClient.auth.getSession();
@@ -79,6 +81,12 @@ function initFriendsPage(myId) {
     document.getElementById("friendStatOverlay").style.display = "none";
   };
 
+  // 친구 페이지를 보고 있는 동안 새 요청이 오면 새로고침 없이 바로 목록을 다시 불러옴
+  if (unsubscribeFriendRequestNotif) unsubscribeFriendRequestNotif();
+  unsubscribeFriendRequestNotif = onFriendRequestNotification(() => {
+    if (document.getElementById("friendsPanelReceived")) loadFriendsData(myId);
+  });
+
   loadFriendsData(myId);
 }
 
@@ -147,7 +155,21 @@ async function sendFriendRequest(myId) {
   hint.innerText = `${target.nickname}님에게 요청을 보냈습니다.`;
   hint.classList.add("auth-nickname-hint-good");
   input.value = "";
+  notifyFriendRequestSent(target.id, myId);
   loadFriendsData(myId);
+}
+
+// 상대의 개인 알림 채널(js/core/friend-session.js가 로그인 상태면 항상 구독 중)로 요청 왔다는
+// 걸 실시간으로 쏴줌 - 새로고침 없이 바로 알림/목록 갱신이 되게 하기 위함
+async function notifyFriendRequestSent(targetId, myId) {
+  const me = await getCurrentUser();
+  const myNickname = me && me.username ? me.username : "친구";
+  const ch = supabaseClient.channel(`user-notify:${targetId}`, { config: { broadcast: { self: false } } });
+  ch.subscribe((status) => {
+    if (status !== "SUBSCRIBED") return;
+    ch.send({ type: "broadcast", event: "msg", payload: { type: "friend-request", fromNickname: myNickname } })
+      .finally(() => supabaseClient.removeChannel(ch));
+  });
 }
 
 async function loadFriendsData(myId) {

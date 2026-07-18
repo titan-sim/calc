@@ -1366,6 +1366,27 @@ input:focus, select:focus {
   color: #1a1206;
 }
 
+/* 친구 요청 등 "그냥 알림"용 짧게 떴다 사라지는 토스트. 수락/거절이 필요한
+   .friend-invite-banner(상단 고정)와 달리 화면 하단에 살짝 떴다가 자동으로 사라짐 */
+.friend-toast {
+  display: none;
+  align-items: center;
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2200;
+  max-width: min(90vw, 360px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .auth-modal-header {
   display: flex;
   justify-content: space-between;
