@@ -128,3 +128,72 @@ end;
 $$;
 revoke all on function public.delete_own_account() from public;
 grant execute on function public.delete_own_account() to authenticated;
+
+-- ===== 친구 기능 2단계 =====
+
+-- ===== 친구 기능 3단계(스탯 공개 범위) =====
+
+-- 본인의 공룡 스탯을 친구에게 얼마나 보여줄지 설정. NULL(한 번도 안 건드림)이면 전체 공개가 기본값
+-- (친구 요청 자체가 상호 수락을 거친 관계라, 서로 빌드를 볼 수 있는 게 이 기능의 존재 이유에 가깝다고
+-- 판단 - 원치 않으면 프로필에서 끄면 됨). 형태: { enabled, showBase, showConstellation, showRunes, showPresets }
+do $$ begin
+  alter table public.user_data add column stat_visibility jsonb;
+exception when duplicate_column then null;
+end $$;
+
+-- 친구와 함께 공룡 대전 세션을 시작할 때(혹은 친구 목록에서 훑어볼 때), 상대방의 공룡 설정을
+-- 불러오는 용도. user_data 테이블 자체의 RLS는 본인만 읽을 수 있게 막아뒀는데(titan_config까지
+-- 같이 노출되면 안 되니까), 그걸 풀어주는 대신 이 RPC로 dino_profile만 딱 집어서 조건부로 내어줌.
+-- 친구가 아니거나 공개를 꺼뒀으면 에러 대신 조용히 null을 반환함.
+--
+-- p_purpose: 'view'(친구 목록에서 그냥 훑어보기 - stat_visibility의 카테고리별 설정을 적용해 일부
+--   필드를 가릴 수 있음) | 'battle'(공룡 대전 "친구 설정 불러오기"로 실제 전투 계산에 씀 - 일부
+--   카테고리만 있으면 스탯 계산 자체가 깨지므로 enabled 여부만 보고 켜져 있으면 항상 전체 반환)
+drop function if exists public.get_friend_dino_profile(uuid);
+create or replace function public.get_friend_dino_profile(p_friend_id uuid, p_purpose text default 'view')
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_profile jsonb;
+  v_vis jsonb;
+begin
+  select ud.dino_profile, ud.stat_visibility into v_profile, v_vis
+  from public.user_data ud
+  where ud.user_id = p_friend_id
+    and exists (
+      select 1 from public.friend_requests fr
+      where fr.status = 'accepted'
+        and ((fr.from_user = auth.uid() and fr.to_user = p_friend_id)
+          or (fr.to_user = auth.uid() and fr.from_user = p_friend_id))
+    );
+
+  if v_profile is null then
+    return null;
+  end if;
+  if v_vis is not null and coalesce((v_vis->>'enabled')::boolean, true) is false then
+    return null;
+  end if;
+
+  if p_purpose = 'battle' then
+    return v_profile;
+  end if;
+
+  if v_vis is not null then
+    if coalesce((v_vis->>'showBase')::boolean, true) is false then
+      v_profile := v_profile - 'baseAtk' - 'baseHp' - 'moveSpeed' - 'dinoCount' - 'vip' - 'bonusPercent';
+    end if;
+    if coalesce((v_vis->>'showConstellation')::boolean, true) is false then
+      v_profile := v_profile - 'constellation';
+    end if;
+    if coalesce((v_vis->>'showRunes')::boolean, true) is false then
+      v_profile := v_profile - 'runes';
+    end if;
+    if coalesce((v_vis->>'showPresets')::boolean, true) is false then
+      v_profile := v_profile - 'runePresets' - 'activePresetIndex';
+    end if;
+  end if;
+
+  return v_profile;
+end;
+$$;
+revoke all on function public.get_friend_dino_profile(uuid, text) from public;
+grant execute on function public.get_friend_dino_profile(uuid, text) to authenticated;

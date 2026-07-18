@@ -1088,6 +1088,29 @@ input:focus, select:focus {
   cursor: not-allowed;
 }
 
+.stat-visibility-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 4px;
+}
+
+.stat-visibility-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.stat-visibility-item input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: none;
+}
+
 .menu-setting-row {
   display: flex;
   justify-content: space-between;
@@ -1293,6 +1316,56 @@ input:focus, select:focus {
   display: block;
 }
 
+/* ===== 친구 초대 배너 (친구 기능 3단계) =====
+   어느 페이지에 있든, 심지어 다른 모달이 열려 있어도 위에 뜨도록 z-index를 가장 높게 잡음.
+   화면 상단 고정 바 형태 - 토스트처럼 사라지지 않고 수락/거절할 때까지 유지됨. */
+.friend-invite-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2200;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+
+.friend-invite-text {
+  color: #1a1206;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.friend-invite-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.friend-invite-actions button {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.friend-invite-accept {
+  background: #1a1206;
+  color: var(--accent);
+}
+
+.friend-invite-decline {
+  background: rgba(26, 18, 6, 0.15);
+  color: #1a1206;
+}
+
 .auth-modal-header {
   display: flex;
   justify-content: space-between;
@@ -1342,11 +1415,17 @@ input:focus, select:focus {
   padding: 0 16px;
   border-radius: 8px;
   border: none;
-  background: color-mix(in srgb, var(--accent) 85%, black);
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: #1a1206;
   font-weight: 800;
   font-size: 13px;
   cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.friend-search-btn:active {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--accent-strong) 85%, black);
 }
 
 .auth-nickname-hint-good {
@@ -1396,6 +1475,40 @@ input:focus, select:focus {
 
 .auth-submit-btn {
   margin-top: 6px;
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.auth-consent-row input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-top: 2px;
+  background: none;
+  flex-shrink: 0;
+}
+
+.auth-consent-row span {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-consent-row a {
+  color: var(--accent);
 }
 
 .auth-modal-links {
@@ -1925,6 +2038,28 @@ b .dropdown-list::-webkit-scrollbar {
   line-height: 1.2;
 }
 
+/* 친구와 함께(3단계): 상대 쪽 읽기 전용 요약 카드. 편집 폼과 구분되도록 점선 테두리 + 잠금 태그 */
+.dino-panel-readonly {
+  border: 1px dashed var(--border-color);
+}
+
+.dino-panel-readonly-tag {
+  padding: 10px var(--p-base) 0;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.readonly-slot-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  padding: 10px var(--p-base) 16px;
+}
+
+.slot-readonly {
+  cursor: default;
+}
+
 /* ===== 내 공룡: 탭 (슬라이딩 밑줄 인디케이터) ===== */
 .dino-tabs {
   display: flex;
@@ -2124,8 +2259,20 @@ b .dropdown-list::-webkit-scrollbar {
   min-width: 0;
 }
 
+/* 데스크톱 3단 레이아웃에서 "내 공룡"/"상대 공룡" 패널이 같은 높이에서 시작하도록, 두 패널 다
+   같은 모양의 헤더 행(제목 + 필요하면 버튼)을 항상 둠 - 예전엔 이 헤더가 모바일 슬라이드 패널
+   에서만 보이고 데스크톱에서는 아예 없어서, 친구 초대/설정 불러오기 버튼이 상대 쪽에만 추가로
+   붙는 순간 두 패널의 시작 높이가 어긋나 보였음 */
 .battle-panel-header {
-  display: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  font-weight: bold;
 }
 
 .battle-panel-close {
@@ -2156,15 +2303,6 @@ b .dropdown-list::-webkit-scrollbar {
   }
   .battle-side-panel.open {
     transform: translateX(0);
-  }
-  .battle-panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-    font-weight: bold;
   }
   .battle-panel-close {
     display: flex;
@@ -2676,6 +2814,17 @@ b .dropdown-list::-webkit-scrollbar {
   width: 76px;
 }
 
+/* 속도 드롭다운은 전투 카드 맨 아래쪽(.battle-controls)에 있는데, 카드에 overflow:hidden이
+   걸려있어서(위쪽 골드 글로우가 둥근 모서리 밖으로 안 새어나가게 하려고) 목록이 아래로 펼쳐지면
+   카드 경계에 잘려서 "느림"만 보이고 나머지가 안 보였음 - 위로 펼치도록 방향을 뒤집음 */
+.battle-speed-dropdown .dropdown-list {
+  top: auto;
+  bottom: 100%;
+  border-top: 1px solid var(--border-color);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
 .battle-restart-btn {
   flex-shrink: 0;
   width: 3em;
@@ -2692,4 +2841,176 @@ b .dropdown-list::-webkit-scrollbar {
 .battle-restart-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ===== 친구와 함께(친구 기능 3단계) ===== */
+
+/* 패널 헤더 행(.battle-panel-header) 안에 제목과 나란히 들어감 - 상대 쪽만 있어도 내 쪽과 헤더
+   행 높이가 맞도록 한 줄짜리 작은 버튼으로 둠(예전엔 헤더 아래 별도의 큰 버튼 줄이었음) */
+.opp-panel-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.friend-toolbar-btn {
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.friend-toolbar-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.friend-leave-btn {
+  border-color: #e0473f;
+  color: #e0473f;
+}
+
+.friend-session-waiting {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 28px var(--p-base);
+}
+
+.friend-session-waiting .friend-toolbar-btn {
+  margin-top: 12px;
+  max-width: 160px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 세션 중 "상대 공룡" 쪽 배치/버프타워 드롭다운 잠금(상대가 직접 정하는 값이라 여기선 편집 불가) */
+.dropdown-locked {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* ===== 친구 선택 팝업(초대/설정 불러오기 공용) ===== */
+.friend-picker-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+.friend-picker-modal {
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.friend-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.friend-picker-item {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border-color);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.friend-picker-item:first-child {
+  border-top: none;
+}
+
+.friend-picker-item:hover {
+  color: var(--accent);
+}
+
+.friend-picker-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+/* ===== 친구 스탯 확인(카테고리별 부분 공개 대응) ===== */
+.friend-stat-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.friend-stat-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.friend-stat-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+
+.friend-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.friend-stat-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.friend-stat-grid span {
+  color: var(--text-sub);
+}
+
+.friend-stat-grid b {
+  color: var(--text-main);
+}
+
+.friend-stat-slot-row {
+  padding: 0;
+  max-width: 220px;
+}
+
+.friend-stat-hidden-text {
+  font-size: 13px;
+  color: var(--text-sub);
+  font-style: italic;
+}
+
+.friend-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.friend-preset-item {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  font-size: 12px;
+  color: var(--text-main);
 }

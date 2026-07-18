@@ -57,7 +57,11 @@ function buildAuthModalDom() {
           <label>비밀번호 확인</label>
           <input type="password" id="signupPasswordConfirm" autocomplete="new-password">
         </div>
-        <button class="btn-simulate auth-submit-btn" id="signupSubmitBtn">가입하기</button>
+        <label class="auth-consent-row">
+          <input type="checkbox" id="signupConsent">
+          <span>[필수] 개인정보 수집 및 이용에 동의합니다. (<a href="#privacy" target="_blank" rel="noopener">전문 보기</a>)</span>
+        </label>
+        <button class="btn-simulate auth-submit-btn" id="signupSubmitBtn" disabled>가입하기</button>
         <div class="auth-modal-links">
           <a href="#" id="backToLoginFromSignup">이미 계정이 있으신가요? 로그인</a>
         </div>
@@ -88,6 +92,9 @@ function buildAuthModalDom() {
   document.getElementById("forgotSubmitBtn").onclick = handleForgotSubmit;
 
   document.getElementById("signupNickname").addEventListener("input", scheduleNicknameCheck);
+  document.getElementById("signupConsent").addEventListener("change", (e) => {
+    document.getElementById("signupSubmitBtn").disabled = !e.target.checked;
+  });
 
   document.addEventListener("keydown", (e) => {
     const panel = document.getElementById("authModalPanel");
@@ -119,7 +126,7 @@ function setAuthMode(mode) {
   document.getElementById("authFieldsSignup").style.display = mode === "signup" ? "block" : "none";
   document.getElementById("authFieldsForgot").style.display = mode === "forgot" ? "block" : "none";
 
-  document.querySelectorAll("#authFieldsSignup .auth-field, #authFieldsSignup button, #authFieldsSignup .auth-modal-links")
+  document.querySelectorAll("#authFieldsSignup .auth-field, #authFieldsSignup .auth-consent-row, #authFieldsSignup button, #authFieldsSignup .auth-modal-links")
     .forEach((el) => (el.style.display = ""));
   document.querySelectorAll("#authFieldsForgot .auth-field, #authFieldsForgot button")
     .forEach((el) => (el.style.display = ""));
@@ -127,6 +134,8 @@ function setAuthMode(mode) {
   document.getElementById("signupNicknameHint").innerText = "";
   document.getElementById("loginNickname").value = "";
   document.getElementById("loginPassword").value = "";
+  document.getElementById("signupConsent").checked = false;
+  document.getElementById("signupSubmitBtn").disabled = true;
 
   clearAuthError();
   clearAuthSuccess();
@@ -149,7 +158,7 @@ function clearAuthError() {
 // 폼 필드를 숨기고 안내 문구만 보여줌(이메일 인증 대기, 재설정 메일 발송 완료 등)
 function showAuthSuccessAndHideFields(containerId, msg) {
   clearAuthError();
-  document.querySelectorAll(`#${containerId} .auth-field, #${containerId} button`)
+  document.querySelectorAll(`#${containerId} .auth-field, #${containerId} .auth-consent-row, #${containerId} button`)
     .forEach((el) => (el.style.display = "none"));
   const el = document.getElementById("authModalSuccess");
   el.innerText = msg;
@@ -238,6 +247,10 @@ async function handleSignupSubmit() {
     showAuthError("모든 항목을 입력해주세요.");
     return;
   }
+  if (!document.getElementById("signupConsent").checked) {
+    showAuthError("개인정보 수집 및 이용에 동의해주세요.");
+    return;
+  }
   if (!NICKNAME_PATTERN.test(nickname)) {
     showAuthError(NICKNAME_RULE_MSG);
     return;
@@ -265,10 +278,11 @@ async function handleSignupSubmit() {
 
     // nickname은 auth 메타데이터로 같이 보냄 -> DB 트리거(on_auth_user_created)가 profiles 행을 자동 생성함.
     // (이메일 인증이 켜져 있으면 가입 직후엔 세션이 없어서 클라이언트에서 직접 profiles insert가 안 되기 때문)
+    // privacy_policy_agreed_at: 개인정보처리방침 동의 시각도 같이 기록(분쟁 시 "언제 동의했는지" 근거용)
     const { data, error } = await supabaseClient.auth.signUp({
       email,
       password,
-      options: { data: { nickname } }
+      options: { data: { nickname, privacy_policy_agreed_at: new Date().toISOString() } }
     });
 
     if (error) {

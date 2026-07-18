@@ -7,7 +7,7 @@
 const DINO_BATTLE_OPPONENT_KEY = "dino_battle_opponent_profile";
 const DINO_BATTLE_TILE_KEY = "dino_battle_tile_settings";
 const DINO_BATTLE_SPEED_KEY = "dino_battle_speed_ms";
-const QUICK_CALC_TRIALS = 10000;
+const QUICK_CALC_TRIALS = 100000;
 const BATTLE_SPEED_OPTIONS = [
   { ms: 650, label: "느림" },
   { ms: 350, label: "보통" },
@@ -22,6 +22,19 @@ let battleToken = 0;
 let battlePhase = "idle";
 let currentBattleResult = null;
 let currentBattleIndex = 0;
+
+// 친구 기능 3단계(친구와 함께 실시간 공동 연구) 관련 페이지 상태.
+// myUserId/myNickname: 로그인 상태일 때만 채워짐(비로그인이면 초대/불러오기 버튼 자체를 안 보여줌).
+// friendSnapshotProfile: "친구 설정 불러오기"로 가져온 정적 스냅샷(실시간 세션과 무관, 한 번만 로딩).
+// unsubscribeFriendSession: 페이지를 다시 그릴 때(라우터 재진입) 이전 구독을 정리하기 위한 핸들.
+let myUserId = null;
+let myNickname = null;
+let friendSnapshotProfile = null;
+let friendSnapshotNickname = null;
+let unsubscribeFriendSession = null;
+
+const TRIBE_LABELS = { none: "없음", mine: "내 부족", opponent: "상대 부족" };
+const ARRANGEMENT_LABELS = { same: "한 타일", separate: "다른 타일" };
 
 function defaultTileSettings() {
   return {
@@ -136,7 +149,7 @@ function renderDinoBattlePage(container) {
     <div class="battle-layout" id="battleLayout">
       <div class="battle-side-panel my-side" id="mySidePanel">
         <div class="battle-panel-header">
-          <span>내 공룡</span>
+          <span id="myPanelTitleText">내 공룡</span>
           <button class="close-btn battle-panel-close" id="myPanelClose">✕</button>
         </div>
         <div id="myDinoBattleSection"></div>
@@ -153,12 +166,13 @@ function renderDinoBattlePage(container) {
           </div>
 
           <div class="battle-mode-panel" id="quickModeCard" style="display:none;">
-            <p class="quickcalc-desc">대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 ${QUICK_CALC_TRIALS.toLocaleString()}번 죽을 때까지 반복합니다. 사망 횟수 비율과 킬당 평균 데미지를 계산합니다.</p>
+            <p class="quickcalc-desc">대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 ${QUICK_CALC_TRIALS.toLocaleString()}번 죽을 때까지 반복합니다. 사망 횟수 비율과 평균 대미지(평타·크리티컬·스킬·죽을 준비 반격까지 전부 포함)를 계산합니다.</p>
             <button class="btn-simulate" id="quickCalcBtn">${QUICK_CALC_TRIALS.toLocaleString()}회 계산하기</button>
             <div class="report-grid" id="quickCalcResult" style="display:none;">
               <div class="report-tile"><div class="metric-label">전투 결과 (${QUICK_CALC_TRIALS.toLocaleString()}번 중)</div><div class="metric-value accent" id="qcRatio">-</div><div class="metric-sub" id="qcRatioNorm"></div></div>
-              <div class="report-tile"><div class="metric-label">내 공룡 킬당 평균 피해</div><div class="metric-value" id="qcMyDmg">-</div></div>
-              <div class="report-tile"><div class="metric-label">상대 공룡 킬당 평균 피해</div><div class="metric-value" id="qcOppDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">내 공룡 평균 대미지</div><div class="metric-value" id="qcMyDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">상대 공룡의 평균 대미지</div><div class="metric-value" id="qcOppDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">상대 전멸에 필요한 공룡 수</div><div class="metric-value" id="qcNeededCount">-</div><div class="metric-sub" id="qcNeededCountBase"></div></div>
             </div>
           </div>
 
@@ -216,13 +230,24 @@ function renderDinoBattlePage(container) {
 
       <div class="battle-side-panel opp-side" id="oppSidePanel">
         <div class="battle-panel-header">
-          <span>상대 공룡</span>
+          <span id="oppPanelTitleText">상대 공룡</span>
+          <div class="opp-panel-toolbar" id="oppPanelToolbar"></div>
           <button class="close-btn battle-panel-close" id="oppPanelClose">✕</button>
         </div>
         <div id="oppDinoBattleSection"></div>
       </div>
     </div>
     <div class="battle-panel-overlay" id="battlePanelOverlay"></div>
+
+    <div class="friend-picker-overlay" id="friendPickerOverlay" style="display:none;">
+      <div class="friend-picker-modal">
+        <div class="friend-picker-header">
+          <span id="friendPickerTitle">친구 선택</span>
+          <button class="close-btn" id="friendPickerClose">✕</button>
+        </div>
+        <div id="friendPickerList"></div>
+      </div>
+    </div>
   `;
 
   initDinoBattlePage();
@@ -234,18 +259,36 @@ function initDinoBattlePage() {
     storageKey: MY_DINO_PROFILE_KEY,
     unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
     unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
-    onChange: () => resetBattleDisplay()
+    onChange: (profile) => {
+      resetBattleDisplay();
+      if (isFriendSessionActive()) sendMyProfileUpdate(profile);
+    }
   });
-  renderMyDinoPage(document.getElementById("oppDinoBattleSection"), {
-    idPrefix: "oppB_",
-    storageKey: DINO_BATTLE_OPPONENT_KEY,
-    unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
-    onChange: () => resetBattleDisplay()
-  });
+  // "상대 공룡" 자리는 지금 모드(일반 편집 / 스냅샷 / 실시간 세션 진행 중 재진입)에 맞게 그림
+  renderOppPanel();
 
   initTileSettings();
   initSpeedDropdown();
+  updateFriendLabels();
+
+  document.getElementById("friendPickerClose").onclick = () => {
+    document.getElementById("friendPickerOverlay").style.display = "none";
+  };
+
+  // 로그인 상태면 친구 초대/불러오기 버튼을 쓸 수 있게 내 uid/닉네임을 채움
+  getCurrentUser().then((user) => {
+    if (user && user.username) {
+      myUserId = user.id;
+      myNickname = user.username;
+      renderOppPanelToolbar();
+    }
+  });
+
+  // 페이지를 다시 그릴 때마다(다른 탭 갔다 옴) 예전 구독을 정리하고 새로 구독. 세션 자체는
+  // friend-session.js 쪽 모듈 스코프에 남아있어서 페이지를 오가도 끊기지 않음
+  if (unsubscribeFriendSession) unsubscribeFriendSession();
+  unsubscribeFriendSession = onFriendSessionChange(handleFriendSessionEvent);
+  if (getActiveSession()) applyOppTileLock(true);
 
   // 모바일 PIP 슬라이드 패널 열기/닫기
   const mySidePanel = document.getElementById("mySidePanel");
@@ -314,7 +357,9 @@ function formatNormalizedRatio(myDeaths, oppDeaths) {
 }
 
 function startQuickCalc() {
-  const tileSettings = loadTileSettings();
+  // 10,000회 통계 평균이라 시드로 고정할 이유가 없음(시드는 실전 대전 전용) - 타일 설정만
+  // 세션 중이면 공유값으로 맞춰서 계산
+  const tileSettings = getEffectiveTileSettings();
   const btn = document.getElementById("quickCalcBtn");
   btn.disabled = true;
   btn.innerText = "계산 중...";
@@ -322,9 +367,10 @@ function startQuickCalc() {
   // 애니메이션 없이 동기 계산이라 순식간에 끝남 - setTimeout으로 한 틱 양보해서
   // "계산 중..." 텍스트가 먼저 그려지게만 함
   setTimeout(() => {
+    const oppInputs = getOppBattleInputs();
     const result = runDinoQuickCalc({
       my: getSideInputs(MY_DINO_PROFILE_KEY),
-      opp: getSideInputs(DINO_BATTLE_OPPONENT_KEY),
+      opp: oppInputs,
       tileSettings,
       totalDeaths: QUICK_CALC_TRIALS
     });
@@ -337,8 +383,19 @@ function startQuickCalc() {
     document.getElementById("qcRatio").innerText = `사망횟수 ${myDeaths} : ${oppDeaths}`;
     const normRatio = formatNormalizedRatio(myDeaths, oppDeaths);
     document.getElementById("qcRatioNorm").innerText = normRatio ? `교환비 ${normRatio}` : "";
-    document.getElementById("qcMyDmg").innerText = Math.round(result.avgMyDmgPerKill).toLocaleString();
-    document.getElementById("qcOppDmg").innerText = Math.round(result.avgOppDmgPerKill).toLocaleString();
+    document.getElementById("qcMyDmg").innerText = Math.round(result.avgMyDmgPerHit).toLocaleString();
+    document.getElementById("qcOppDmg").innerText = Math.round(result.avgOppDmgPerHit).toLocaleString();
+
+    // "실전 대전"에서 VIP 최대치를 넘는 나쁜 교환비가 나오면 몇 마리를 못 채워서 결과를 못 보고
+    // 끝나기 쉬움 - 실제 전투 로직은 안 건드리고, 이미 나온 사망비를 근거로 산수로만 계산
+    // (상대 N마리를 전멸시키는 데 내가 최소 몇 마리 필요한지)
+    let neededText;
+    if (oppDeaths === 0) neededText = "상관없음(전멸 불가)";
+    else if (myDeaths === 0) neededText = "1마리";
+    else neededText = `${Math.ceil((myDeaths * oppInputs.count) / oppDeaths).toLocaleString()}마리`;
+    document.getElementById("qcNeededCount").innerText = neededText;
+    document.getElementById("qcNeededCountBase").innerText = `상대 ${oppInputs.count}마리 기준`;
+
     document.getElementById("quickCalcResult").style.display = "grid";
 
     btn.disabled = false;
@@ -382,10 +439,12 @@ function initTileSettings() {
   natureToggle.onchange = () => {
     settings.natureAdjacent = natureToggle.checked;
     saveTileSettings(settings);
+    // 자연 구조물과 인접/부족 점령 상태는 "환경" 설정이라 세션 중이면 상대에게도 그대로 적용됨
+    // (같은 방에 있다는 개념 - 나만 켜지는 게 아니라 상대 화면에도 즉시 반영되어야 함)
+    if (isFriendSessionActive()) sendMyTileUpdate({ natureAdjacent: settings.natureAdjacent });
     resetBattleDisplay();
   };
 
-  const TRIBE_LABELS = { none: "없음", mine: "내 부족", opponent: "상대 부족" };
   const tribeList = document.getElementById("tileTribeList");
   const tribeSelectedValue = document.getElementById("tileTribeSelectedValue");
   tribeSelectedValue.textContent = TRIBE_LABELS[settings.tribeControl];
@@ -398,6 +457,10 @@ function initTileSettings() {
       tribeSelectedValue.textContent = TRIBE_LABELS[key];
       tribeList.style.display = "none";
       saveTileSettings(settings);
+      if (isFriendSessionActive()) {
+        const session = getActiveSession();
+        sendMyTileUpdate({ tribeControlUserId: computeTribeControlUserId(key, session.myId, session.friendId) });
+      }
       resetBattleDisplay();
     };
     tribeList.appendChild(li);
@@ -415,6 +478,14 @@ function initTileSettings() {
   initBuffTowerDropdown("my", "Hp", settings);
   initBuffTowerDropdown("opp", "Atk", settings);
   initBuffTowerDropdown("opp", "Hp", settings);
+
+  // 세션이 이미 진행 중인 상태로 이 페이지에 다시 들어온 경우(다른 탭 갔다 옴), 상대 쪽
+  // 배치/버프타워 드롭다운을 곧바로 잠그고 상대가 보낸 값으로 채움
+  if (isFriendSessionActive()) {
+    applyOppTileLock(true);
+    refreshOppTileDisplayFromSession();
+    refreshSharedTileDisplayFromSession();
+  }
 }
 
 // sideKey: "my" | "opp", statKey: "Atk" | "Hp" - 진영별 공격력/체력 버프 타워 레벨 설정.
@@ -435,6 +506,11 @@ function initBuffTowerDropdown(sideKey, statKey, settings) {
       selectedValue.textContent = opt.label;
       list.style.display = "none";
       saveTileSettings(settings);
+      // 상대 쪽 버프 타워는 세션 중엔 잠겨서(applyOppTileLock) 애초에 이 li를 못 누르니, 여기선
+      // "내" 쪽 변경만 신경 쓰면 됨
+      if (sideKey === "my" && isFriendSessionActive()) {
+        sendMyTileUpdate({ [statKey === "Atk" ? "atkTowerLevel" : "hpTowerLevel"]: opt.value });
+      }
       resetBattleDisplay();
     };
     list.appendChild(li);
@@ -445,8 +521,6 @@ function initBuffTowerDropdown(sideKey, statKey, settings) {
     list.style.display = isOpen ? "none" : "block";
   };
 }
-
-const ARRANGEMENT_LABELS = { same: "한 타일", separate: "다른 타일" };
 
 // sideKey: "my" | "opp" - 내 공룡/상대 공룡 각자 독립적으로 "대기 공룡을 같은 타일에 모을지,
 // 다른 타일에 따로 둘지" 설정. settingsField는 tileSettings의 myTileArrangement/oppTileArrangement
@@ -466,6 +540,7 @@ function initArrangementDropdown(sideKey, settings) {
       list.style.display = "none";
       saveTileSettings(settings);
       applyTileArrangementClass(sideKey, key);
+      if (sideKey === "my" && isFriendSessionActive()) sendMyTileUpdate({ arrangement: key });
       resetBattleDisplay();
     };
     list.appendChild(li);
@@ -487,6 +562,266 @@ function applyTileArrangementClass(sideKey, arrangement) {
 
 function getSideInputs(storageKey) {
   return getMyDinoBattleInputs(storageKey);
+}
+
+// ===== 친구 기능 3단계: 친구와 함께 실시간 공동 연구 =====
+
+function isFriendSessionActive() {
+  const session = getActiveSession();
+  return !!(session && session.status === "active");
+}
+
+// "부족 점령 상태"는 값 자체가 보는 사람 기준 상대적 이름(mine/opponent)이라 그대로 전파하면 뜻이
+// 뒤집힘 - uid로 절대 지정해서 주고받고, 각자 로컬에서 mine/opponent로 번역함
+function computeTribeControlUserId(tribeControl, myId, friendId) {
+  if (tribeControl === "mine") return myId;
+  if (tribeControl === "opponent") return friendId;
+  return null;
+}
+
+function computeTribeControlFromUserId(tribeControlUserId, myId, friendId) {
+  if (tribeControlUserId === myId) return "mine";
+  if (tribeControlUserId === friendId) return "opponent";
+  return "none";
+}
+
+// 실제 전투 계산에 쓸 상대 쪽 입력값: 실시간 세션 중이면 상대가 보낸 프로필, 스냅샷을 불러온
+// 상태면 그 스냅샷, 둘 다 아니면 지금까지처럼 로컬에 저장된 "상대 공룡" 프로필
+function getOppBattleInputs() {
+  const session = getActiveSession();
+  if (session && session.status === "active" && session.friendProfile) {
+    return dinoProfileToBattleInputs(session.friendProfile);
+  }
+  if (friendSnapshotProfile) {
+    return dinoProfileToBattleInputs(friendSnapshotProfile);
+  }
+  return getSideInputs(DINO_BATTLE_OPPONENT_KEY);
+}
+
+// 실제 전투 계산에 쓸 타일 설정: 로컬에 저장된 내 쪽 값 위에, 세션 중이면 공유값(자연의 포옹/부족
+// 점령)과 상대 쪽 값(배치/버프타워)을 덮어씌움 - "같은 방에 들어와있다"는 요구사항 그대로 반영
+function getEffectiveTileSettings() {
+  const local = loadTileSettings();
+  const session = getActiveSession();
+  if (!session || session.status !== "active") return local;
+  return {
+    ...local,
+    natureAdjacent: session.sharedTile.natureAdjacent,
+    tribeControl: computeTribeControlFromUserId(session.sharedTile.tribeControlUserId, session.myId, session.friendId),
+    oppTileArrangement: session.friendSide.arrangement,
+    oppAtkTowerLevel: session.friendSide.atkTowerLevel,
+    oppHpTowerLevel: session.friendSide.hpTowerLevel
+  };
+}
+
+// 세션 중엔 "상대 공룡" 쪽 배치/버프타워는 상대가 직접 정하는 값이라 여기선 편집 불가로 잠금
+function applyOppTileLock(locked) {
+  ["oppTileArrangementDropdown", "oppAtkTowerDropdown", "oppHpTowerDropdown"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("dropdown-locked", locked);
+  });
+}
+
+function refreshOppTileDisplayFromSession() {
+  const session = getActiveSession();
+  if (!session || session.status !== "active") return;
+  const arrangementLabel = ARRANGEMENT_LABELS[session.friendSide.arrangement] || ARRANGEMENT_LABELS.same;
+  const atkLabel = (BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.atkTowerLevel) || BUFF_TOWER_OPTIONS[0]).label;
+  const hpLabel = (BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.hpTowerLevel) || BUFF_TOWER_OPTIONS[0]).label;
+  document.getElementById("oppTileArrangementSelectedValue").textContent = arrangementLabel;
+  document.getElementById("oppAtkTowerSelectedValue").textContent = atkLabel;
+  document.getElementById("oppHpTowerSelectedValue").textContent = hpLabel;
+  applyTileArrangementClass("opp", session.friendSide.arrangement);
+}
+
+// 자연의 포옹/부족 점령 상태는 공유값이라, 상대가 바꾸면 내 화면의 토글/드롭다운 표시도 그대로 맞춤
+// (localStorage에는 안 남김 - 세션이 끝나면 내가 마지막으로 직접 설정했던 값으로 돌아가야 하므로)
+function refreshSharedTileDisplayFromSession() {
+  const session = getActiveSession();
+  if (!session || session.status !== "active") return;
+  const natureToggle = document.getElementById("tileNatureToggle");
+  if (natureToggle) natureToggle.checked = session.sharedTile.natureAdjacent;
+  const tribeControl = computeTribeControlFromUserId(session.sharedTile.tribeControlUserId, session.myId, session.friendId);
+  const tribeSelectedValue = document.getElementById("tileTribeSelectedValue");
+  if (tribeSelectedValue) tribeSelectedValue.textContent = TRIBE_LABELS[tribeControl];
+}
+
+// "내 공룡"/"상대 공룡" 라벨(타일 설정 카드의 좌우 라벨, 전투 카드의 좌우 파이터 이름, 좌우 설정
+// 패널의 헤더 타이틀)을 실시간 세션 중이거나 "친구 설정 불러오기" 스냅샷을 쓰는 중이면 실제
+// 닉네임으로 바꿈(스냅샷은 실시간이 아니라 "내" 쪽은 그대로 두고 상대 쪽만 닉네임으로 바꿈)
+function updateFriendLabels() {
+  const session = getActiveSession();
+  const active = session && session.status === "active";
+  const myLabel = active ? session.myNickname : "내 공룡";
+  const oppLabel = active ? session.friendNickname : (friendSnapshotProfile ? friendSnapshotNickname : "상대 공룡");
+  const targets = [
+    [".tile-side-col-label.my-side-label", myLabel],
+    [".tile-side-col-label.opp-side-label", oppLabel],
+    ["#myFighter .battle-name", myLabel],
+    ["#oppFighter .battle-name", oppLabel],
+    ["#myPanelTitleText", myLabel],
+    ["#oppPanelTitleText", oppLabel]
+  ];
+  targets.forEach(([selector, label]) => {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = label;
+  });
+}
+
+// "상대 공룡" 자리를 지금 모드(일반 편집 / 스냅샷 / 실시간 세션)에 맞게 다시 그림
+function renderOppPanel() {
+  const container = document.getElementById("oppDinoBattleSection");
+  if (!container) return;
+  const session = getActiveSession();
+
+  if (session && session.status === "inviting") {
+    container.innerHTML = `
+      <div class="card friend-session-waiting">
+        <div>${session.friendNickname}님에게 초대를 보냈습니다.<br>응답을 기다리는 중...</div>
+        <button class="friend-toolbar-btn" id="cancelInviteBtn">초대 취소</button>
+      </div>
+    `;
+    document.getElementById("cancelInviteBtn").onclick = () => leaveFriendSession();
+  } else if (session && session.status === "active") {
+    if (session.friendProfile) {
+      renderReadOnlyDinoSummary(container, session.friendProfile, { tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` });
+    } else {
+      container.innerHTML = `<div class="card friend-session-waiting"><div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div></div>`;
+    }
+  } else if (friendSnapshotProfile) {
+    renderReadOnlyDinoSummary(container, friendSnapshotProfile, { tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)` });
+  } else {
+    renderMyDinoPage(container, {
+      idPrefix: "oppB_",
+      storageKey: DINO_BATTLE_OPPONENT_KEY,
+      unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
+      unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+      onChange: () => resetBattleDisplay()
+    });
+  }
+
+  renderOppPanelToolbar();
+}
+
+function renderOppPanelToolbar() {
+  const toolbar = document.getElementById("oppPanelToolbar");
+  if (!toolbar) return;
+  const session = getActiveSession();
+
+  if (session && (session.status === "active" || session.status === "inviting")) {
+    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="leaveFriendSessionBtn">세션 나가기</button>`;
+    document.getElementById("leaveFriendSessionBtn").onclick = () => leaveFriendSession();
+  } else if (friendSnapshotProfile) {
+    toolbar.innerHTML = `<button class="friend-toolbar-btn" id="clearSnapshotBtn">직접 설정으로 전환</button>`;
+    document.getElementById("clearSnapshotBtn").onclick = () => {
+      friendSnapshotProfile = null;
+      friendSnapshotNickname = null;
+      renderOppPanel();
+      updateFriendLabels();
+      resetBattleDisplay();
+    };
+  } else if (myUserId) {
+    toolbar.innerHTML = `
+      <button class="friend-toolbar-btn" id="inviteFriendBtn">친구 초대</button>
+      <button class="friend-toolbar-btn" id="loadFriendBtn">설정 불러오기</button>
+    `;
+    document.getElementById("inviteFriendBtn").onclick = () => openFriendPicker("invite");
+    document.getElementById("loadFriendBtn").onclick = () => openFriendPicker("snapshot");
+  } else {
+    toolbar.innerHTML = "";
+  }
+}
+
+async function openFriendPicker(mode) {
+  const overlay = document.getElementById("friendPickerOverlay");
+  const title = document.getElementById("friendPickerTitle");
+  const list = document.getElementById("friendPickerList");
+  title.textContent = mode === "invite" ? "누구를 초대할까요?" : "누구의 설정을 불러올까요?";
+  list.innerHTML = `<div class="friend-picker-empty">불러오는 중...</div>`;
+  overlay.style.display = "flex";
+
+  const friends = await getAcceptedFriends(myUserId);
+  if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
+
+  if (friends.length === 0) {
+    list.innerHTML = `<div class="friend-picker-empty">친구가 없습니다. 먼저 친구를 추가해주세요.</div>`;
+    return;
+  }
+  list.innerHTML = friends
+    .map((f) => `<div class="friend-picker-item" data-id="${f.id}" data-nickname="${f.nickname}">${f.nickname}</div>`)
+    .join("");
+  list.querySelectorAll(".friend-picker-item").forEach((item) => {
+    item.onclick = () => {
+      overlay.style.display = "none";
+      const friendId = item.dataset.id;
+      const friendNickname = item.dataset.nickname;
+      if (mode === "invite") {
+        sendInviteToFriend(myUserId, myNickname, friendId, friendNickname);
+        renderOppPanel();
+        updateFriendLabels();
+      } else {
+        loadFriendSnapshot(friendId, friendNickname);
+      }
+    };
+  });
+}
+
+async function loadFriendSnapshot(friendId, friendNickname) {
+  // purpose:'battle' - 일부 카테고리만 공개된 상태면 전투 계산이 깨지므로, 공개 자체(enabled)가
+  // 꺼져 있을 때만 null이 오고 켜져 있으면 항상 전체 프로필이 옴(카테고리별 설정과 무관)
+  const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "battle" });
+  if (error || !data) {
+    alert("설정을 불러오지 못했습니다. 친구가 스탯 공개를 꺼두었거나 친구 관계가 아닐 수 있습니다.");
+    return;
+  }
+  friendSnapshotProfile = data;
+  friendSnapshotNickname = friendNickname;
+  renderOppPanel();
+  updateFriendLabels();
+  resetBattleDisplay();
+}
+
+// friend-session.js의 onFriendSessionChange 구독 콜백. 페이지를 벗어난 뒤(다른 탭 이동)에도
+// friend-session.js 쪽 구독 자체는 계속 살아있을 수 있어서, 이 페이지의 DOM이 이미 사라졌으면
+// 조용히 무시함(그래야 존재하지 않는 엘리먼트를 건드리다 에러가 나는 걸 막을 수 있음)
+function handleFriendSessionEvent(event) {
+  if (!document.getElementById("battleMainCard")) return;
+
+  if (event.type === "joined" || event.type === "friend-joined") {
+    renderOppPanel();
+    updateFriendLabels();
+    applyOppTileLock(true);
+    refreshSharedTileDisplayFromSession();
+    refreshOppTileDisplayFromSession();
+    // 상대가 (나보다 늦게, 혹은 먼저) 들어왔을 이 시점에 내 타일 설정도 전파 - 어느 쪽이 먼저
+    // 들어오든 서로 초기 상태를 받게 하기 위한 이중 전송(friend-session.js의 profile 동기화와 동일한 패턴)
+    const session = getActiveSession();
+    if (session) {
+      const settings = loadTileSettings();
+      sendMyTileUpdate({
+        natureAdjacent: settings.natureAdjacent,
+        tribeControlUserId: computeTribeControlUserId(settings.tribeControl, session.myId, session.friendId),
+        arrangement: settings.myTileArrangement,
+        atkTowerLevel: settings.myAtkTowerLevel,
+        hpTowerLevel: settings.myHpTowerLevel
+      });
+    }
+    resetBattleDisplay();
+  } else if (event.type === "friend-profile") {
+    renderOppPanel();
+    resetBattleDisplay();
+  } else if (event.type === "friend-tile") {
+    refreshSharedTileDisplayFromSession();
+    refreshOppTileDisplayFromSession();
+    resetBattleDisplay();
+  } else if (event.type === "battle-start") {
+    if (battlePhase === "idle" || battlePhase === "finished") startBattle(event.seed);
+  } else if (event.type === "friend-left" || event.type === "left" || event.type === "declined") {
+    renderOppPanel();
+    updateFriendLabels();
+    applyOppTileLock(false);
+    resetBattleDisplay();
+  }
 }
 
 function updateStackDisplay(sideKey, aliveCount) {
@@ -519,7 +854,7 @@ function resetBattleDisplay() {
   updateRestartButtonState();
 
   const myInputs = getSideInputs(MY_DINO_PROFILE_KEY);
-  const oppInputs = getSideInputs(DINO_BATTLE_OPPONENT_KEY);
+  const oppInputs = getOppBattleInputs();
   const myStats = getBattleStats(myInputs);
   const oppStats = getBattleStats(oppInputs);
 
@@ -643,6 +978,12 @@ function renderBattleEvent(ev) {
     ev.deaths.forEach((d) => playDeathFlash(d.side));
   }
 
+  // 평타 100회 교환 동시사망(무한 교착 방지 규칙) - 양쪽 다 표시
+  if (ev.mutualKill) {
+    spawnHealPopup("myFighter", 0, "100회 교환 - 동시 사망", nextDelay.my, popupIndex.my);
+    spawnHealPopup("oppFighter", 0, "100회 교환 - 동시 사망", nextDelay.opp, popupIndex.opp);
+  }
+
   document.getElementById("myHpFill").style.width = `${Math.max(0, (ev.myFrontHp / ev.myFrontMaxHp) * 100)}%`;
   document.getElementById("oppHpFill").style.width = `${Math.max(0, (ev.oppFrontHp / ev.oppFrontMaxHp) * 100)}%`;
   document.getElementById("myHpLabel").innerText = `${Math.max(0, Math.round(ev.myFrontHp)).toLocaleString()} / ${Math.floor(ev.myFrontMaxHp).toLocaleString()}`;
@@ -705,15 +1046,25 @@ function runBattleStep(token) {
   setTimeout(() => runBattleStep(token), getBattleSpeedMs());
 }
 
-function startBattle() {
+// externalSeed가 주어지면(친구 세션에서 상대가 "전투 시작"을 눌러 전파된 시드) 그 시드로 로컬
+// 재생만 함 - 새 시드를 만들어 다시 보내지 않음(그러면 무한루프). 내가 직접 누른 거면 새 시드를
+// 만들어서 세션 중일 때만 상대에게도 전파함(로컬 "실전 대전"은 지금까지처럼 매번 다른 결과)
+function startBattle(externalSeed) {
   battleToken++;
   const token = battleToken;
 
-  const tileSettings = loadTileSettings();
+  let seed = externalSeed;
+  if (seed === undefined && isFriendSessionActive()) {
+    seed = Math.floor(Math.random() * 2 ** 31);
+    sendBattleStart(seed);
+  }
+
+  const tileSettings = getEffectiveTileSettings();
   currentBattleResult = runDinoBattleSimulation({
     my: getSideInputs(MY_DINO_PROFILE_KEY),
-    opp: getSideInputs(DINO_BATTLE_OPPONENT_KEY),
-    tileSettings
+    opp: getOppBattleInputs(),
+    tileSettings,
+    seed
   });
   currentBattleIndex = 0;
   battlePhase = "playing";

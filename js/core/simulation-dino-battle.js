@@ -16,6 +16,19 @@
 // 들어오고, 아래 배열의 인덱스가 곧 레벨.
 const BUFF_TOWER_PERCENTS = [2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
+// mulberry32: 작고 빠른 시드 기반 PRNG. 친구와 함께 실시간으로 같은 전투를 볼 때, 서버 왕복 없이
+// "같은 시드 + 같은 입력이면 양쪽 클라이언트가 완전히 동일한 이벤트 로그를 계산해낸다"를 보장하기
+// 위한 용도(js/core/friend-session.js 등에서 라운드마다 새 시드를 만들어 runDinoBattleSimulation에 넘김).
+function makeSeededRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // 레벨 = 기본 공격력 + (기본 체력/10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준).
 // js/pages/my-dino-page.js의 updateSummary()에 쓰이는 계산식과 동일(요약 카드에 보이는 "레벨" 수치)
 function levelOf(inputs) {
@@ -89,7 +102,12 @@ function makeDinoSide(inputs, key, tileCfg) {
   const initVals = computeSideCombatValues(side, side.count, tileCfg);
   side.dinos = [];
   for (let i = 0; i < side.count; i++) {
-    side.dinos.push({ hp: initVals.maxHp, maxHp: initVals.maxHp, giftAtk: 0, giftSteps: 0, shieldSteps: shieldTurnOf(side), attackCount: 0 });
+    side.dinos.push({
+      hp: initVals.maxHp, maxHp: initVals.maxHp,
+      giftAtk: 0, giftSteps: 0,           // 마지막 선물로 받은 임시 공격력 버프
+      warCryAtkP: 0, warCrySteps: 0,      // 승리의 함성으로 받은 임시 공격력% 버프
+      shieldSteps: shieldTurnOf(side), attackCount: 0
+    });
   }
   return side;
 }
@@ -103,7 +121,10 @@ function aliveDinos(side) {
   return side.dinos.filter((d) => d.hp > 0);
 }
 
-function runDinoBattleSimulation({ my, opp, tileSettings }) {
+// seed가 주어지면(친구 세션의 "이번 라운드" 시드) 그 시드로 고정된 PRNG를 쓰고, 없으면(빠른 계산이
+// 아닌 로컬 "실전 대전"처럼 매번 다른 결과가 나와야 하는 기존 호출부) 그대로 Math.random을 씀
+function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
+  const rand = seed !== undefined && seed !== null ? makeSeededRng(seed) : Math.random;
   const tileCfg = tileSettings || { natureAdjacent: false, tribeControl: "none" };
 
   const mySide = makeDinoSide(my, "my", tileCfg);
@@ -112,6 +133,11 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
   const events = [];
   let turn = 0;
   const MAX_TURNS = 3000;
+  // 방어력/힐이 지나치게 강해 서로 못 죽이는 무한 교착을 막기 위한 실제 게임 규칙: 같은 앞장 쌍이
+  // 평타를 각자 100번씩(총 200회) 주고받으면 남은 체력과 무관하게 양쪽이 동시사망. 앞장이 바뀌면
+  // (둘 중 하나라도 죽으면) 0부터 다시 셈.
+  const MUTUAL_KILL_EXCHANGES = 200;
+  let pairExchangeCount = 0;
 
   // 선공 결정: 레벨이 더 높은 쪽부터. 레벨이 같으면 전투 시작 시점(전원 생존) 종합 공격력이
   // 더 높은 쪽. 그마저 같으면 내 공룡 먼저.
@@ -158,6 +184,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
 
     turn++;
     attacker.attackCount++;
+    pairExchangeCount++;
 
     const event = {
       turn,
@@ -170,7 +197,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
       spawn: null // { side } - 이번 턴에 새 앞장이 등장했는지
     };
 
-    const rollCrit = (vals) => Math.random() * 100 < vals.cRate;
+    const rollCrit = (vals) => rand() * 100 < vals.cRate;
     const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
 
     function hitDefender(rawDmg, isCrit, label) {
@@ -182,7 +209,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
       }
       defenderSide.runes.forEach((r) => {
         if (r.name.includes("단단한 피부")) dmg -= r.s.red_f;
-        if (r.name.includes("피해 저항") && Math.random() * 100 < r.s.prob) dmg -= r.s.red_f;
+        if (r.name.includes("피해 저항") && rand() * 100 < r.s.prob) dmg -= r.s.red_f;
       });
       dmg = Math.max(0, dmg);
       defender.hp = Math.max(0, defender.hp - dmg);
@@ -192,15 +219,15 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
 
     // 힐: 맞기 직전에 방어측 확률 발동
     defenderSide.runes.forEach((r) => {
-      if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
+      if (r.name === "힐" && rand() * 100 < r.s.prob) {
         const before = defender.hp;
         defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
         if (defender.hp > before) event.heals.push({ side: defenderKey, amount: defender.hp - before, cause: "힐" });
       }
     });
 
-    // 평타
-    const finalAtk = attackerVals.atk + attacker.giftAtk;
+    // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
+    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
     const basicCrit = rollCrit(attackerVals);
     hitDefender(withCrit(finalAtk, basicCrit, attackerVals), basicCrit, "평타");
 
@@ -212,12 +239,12 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
         hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "트리플 임팩트");
       }
       // 낙뢰: 룬 설명대로 "전투중인 상대 유닛"만 맞는 단일 대상 스킬 (21+ 즉사 확률 포함)
-      if (r.name === "낙뢰" && Math.random() * 100 < r.s.prob) {
+      if (r.name === "낙뢰" && rand() * 100 < r.s.prob) {
         const c = rollCrit(attackerVals);
         hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, r.name);
         if (r.s.insta_hp !== undefined && defender.hp > 0) {
           const hpPct = (defender.hp / defender.maxHp) * 100;
-          if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) {
+          if (hpPct < r.s.insta_hp && rand() * 100 < r.s.insta_prob) {
             defender.hp = 0;
             event.hits.push({ label: "낙뢰(즉사)", dmg: 0, isCrit: false, targetSide: defenderKey, hpAfter: 0, insta: true });
           }
@@ -227,7 +254,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
       // 단, "대기 공룡 배치"를 다른 타일로 설정했다면 대기 중인 공룡은 물리적으로 이 타일에 없는 것이라
       // 앞장(defender)만 맞음. 21레벨부터 붙는 area_burst_p(주변 타일 추가 피해)는 아직 이 엔진에는
       // 해당 개념이 없어서(향후 육각타일맵에서 구현 예정) 지금은 쓰지 않음.
-      if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
+      if (r.name === "메테오" && rand() * 100 < r.s.prob) {
         const c = rollCrit(attackerVals);
         if (sameTile) {
           const dmgRaw = withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals);
@@ -246,43 +273,69 @@ function runDinoBattleSimulation({ my, opp, tileSettings }) {
           hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "메테오");
         }
       }
-      if (r.name === "흡혈" && Math.random() * 100 < r.s.prob) {
+      if (r.name === "흡혈" && rand() * 100 < r.s.prob) {
         const before = attacker.hp;
         attacker.hp = Math.min(attacker.maxHp, attacker.hp + (attackerSide.vampBaseAtk * r.s.rec_p) / 100);
         if (attacker.hp > before) event.heals.push({ side: attackerKey, amount: attacker.hp - before, cause: "흡혈" });
       }
     });
 
-    // 앞장 사망 처리(평타/스킬/광역까지 다 반영된 최종 hp 기준)
-    if (defender.hp <= 0) {
-      event.deaths.push({ side: defenderKey });
-      const stillAlive = defenderSide.dinos.filter((d) => d !== defender && d.hp > 0);
-      defenderSide.runes.forEach((r) => {
+    // 앞장 사망 처리(평타/스킬/광역까지 다 반영된 최종 hp 기준). dyingSide/dyingKey가 죽는 쪽,
+    // otherDino/otherKey가 반대쪽 - 100회 교환 동시사망 때는 양쪽에 대해 이 함수를 각각 한 번씩 호출함
+    function processFrontDeath(dyingDino, dyingSide, dyingKey, dyingVals, otherDino, otherKey) {
+      event.deaths.push({ side: dyingKey });
+      const stillAlive = dyingSide.dinos.filter((d) => d !== dyingDino && d.hp > 0);
+      dyingSide.runes.forEach((r) => {
         // 희생/마지막 선물은 죽은 공룡 주변의 "같은 타일" 아군에게 적용되는 효과라, 대기 공룡을
         // 다른 타일에 뒀다면(sameTile === false) 발동하지 않음
-        if (r.name === "희생" && sameTile && Math.random() * 100 < r.s.prob) {
+        if (r.name === "희생" && sameTile && rand() * 100 < r.s.prob) {
           stillAlive.forEach((target) => {
             const before = target.hp;
             target.hp = Math.min(target.maxHp, target.hp + (target.maxHp * r.s.rec_p) / 100);
-            if (target.hp > before) event.heals.push({ side: defenderKey, amount: target.hp - before, cause: "희생" });
+            if (target.hp > before) event.heals.push({ side: dyingKey, amount: target.hp - before, cause: "희생" });
           });
         }
-        if (r.name === "죽을 준비" && Math.random() * 100 < r.s.prob) {
-          const burst = (defenderVals.atk * r.s.burst_p) / 100;
-          attacker.hp = Math.max(0, attacker.hp - burst);
-          event.hits.push({ label: "죽을 준비", dmg: burst, isCrit: false, targetSide: attackerKey, hpAfter: attacker.hp });
+        if (r.name === "죽을 준비" && rand() * 100 < r.s.prob) {
+          const burst = (dyingVals.atk * r.s.burst_p) / 100;
+          otherDino.hp = Math.max(0, otherDino.hp - burst);
+          event.hits.push({ label: "죽을 준비", dmg: burst, isCrit: false, targetSide: otherKey, hpAfter: otherDino.hp });
         }
-        if (r.name === "마지막 선물" && sameTile && Math.random() * 100 < r.s.prob && stillAlive.length > 0) {
+        if (r.name === "마지막 선물" && sameTile && rand() * 100 < r.s.prob && stillAlive.length > 0) {
           stillAlive.forEach((target) => { target.giftAtk += r.s.atk_f; target.giftSteps = r.s.turn; });
-          event.heals.push({ side: defenderKey, amount: 0, cause: "마지막 선물" });
+          event.heals.push({ side: dyingKey, amount: 0, cause: "마지막 선물" });
         }
       });
-      const idx = defenderSide.dinos.indexOf(defender);
-      if (idx !== -1) defenderSide.dinos.splice(idx, 1);
-      if (stillAlive.length > 0) event.spawn = { side: defenderKey };
+      const idx = dyingSide.dinos.indexOf(dyingDino);
+      if (idx !== -1) dyingSide.dinos.splice(idx, 1);
+      if (stillAlive.length > 0) event.spawn = { side: dyingKey };
     }
 
+    if (defender.hp <= 0) {
+      processFrontDeath(defender, defenderSide, defenderKey, defenderVals, attacker, attackerKey);
+      // 승리의 함성: 적을 처치한 공격자 본인에게 공격력% 버프(강제 동시사망은 "처치"가 아니라
+      // 무승부 교환이라 여기 자연사 분기에서만 발동함)
+      attackerSide.runes.forEach((r) => {
+        if (r.name === "승리의 함성") {
+          attacker.warCryAtkP = r.s.atk_p;
+          attacker.warCrySteps = r.s.turn;
+        }
+      });
+    }
+
+    // 100회 교환(각자 100번씩) 동안 서로 못 죽였으면 실제 게임 규칙대로 남은 체력과 무관하게
+    // 양쪽 앞장이 동시사망(무한 교착 방지). 이번 턴에 이미 자연사한 경우는 건드리지 않음
+    if (attacker.hp > 0 && defender.hp > 0 && pairExchangeCount >= MUTUAL_KILL_EXCHANGES) {
+      event.mutualKill = true;
+      defender.hp = 0;
+      attacker.hp = 0;
+      processFrontDeath(defender, defenderSide, defenderKey, defenderVals, attacker, attackerKey);
+      processFrontDeath(attacker, attackerSide, attackerKey, attackerVals, defender, defenderKey);
+    }
+
+    if (defender.hp <= 0 || attacker.hp <= 0) pairExchangeCount = 0;
+
     if (attacker.giftSteps > 0 && --attacker.giftSteps === 0) attacker.giftAtk = 0;
+    if (attacker.warCrySteps > 0 && --attacker.warCrySteps === 0) attacker.warCryAtkP = 0;
 
     // UI가 매번 시뮬레이션 상태를 다시 훑지 않아도 재생만으로 그릴 수 있도록 이번 턴 종료 시점의
     // 스냅샷(생존 수, 앞장 체력/최대체력)을 이벤트에 그대로 실어둠
@@ -333,12 +386,20 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
   let myKills = 0, oppKills = 0;
   let myDmgDealt = 0, oppDmgDealt = 0;
+  // "평균 대미지" = 평타/크리티컬/스킬/스킬 크리티컬/죽을 준비 반격까지 이 진영이 입힌 모든 개별
+  // 타격을 다 합쳐서(킬 여부와 무관하게) 타격 횟수로 나눈 값. 킬당 평균이 아니라 "한 번 때릴 때
+  // 평균적으로 얼마나 들어가는지"라 상대 체력/맷집에 안 휘둘리고 순수하게 이 진영의 화력을 보여줌
+  let myHitCount = 0, oppHitCount = 0;
   let deaths = 0;
   let turn = 0;
   const MAX_TURNS = 200000; // 방어 스탯이 극단적으로 쌓여 죽지 않는 경우를 대비한 안전판
+  // runDinoBattleSimulation과 동일한 100회 교환(각자 100번씩) 동시사망 규칙
+  const MUTUAL_KILL_EXCHANGES = 200;
+  let pairExchangeCount = 0;
 
   while (deaths < totalDeaths && turn < MAX_TURNS) {
     turn++;
+    pairExchangeCount++;
     const attackerSide = attackerKey === "my" ? mySide : oppSide;
     const defenderSide = attackerKey === "my" ? oppSide : mySide;
     const defenderKey = attackerKey === "my" ? "opp" : "my";
@@ -372,6 +433,7 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
       dmg = Math.max(0, dmg);
       defender.hp = Math.max(0, defender.hp - dmg);
       dealt += dmg;
+      if (attackerKey === "my") myHitCount++; else oppHitCount++;
     }
 
     // 힐: 맞기 직전에 방어측 확률 발동
@@ -381,8 +443,8 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
       }
     });
 
-    // 평타
-    const finalAtk = attackerVals.atk + attacker.giftAtk;
+    // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
+    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
     const basicCrit = rollCrit(attackerVals);
     hitDefender(withCrit(finalAtk, basicCrit, attackerVals));
 
@@ -412,17 +474,63 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
     if (attackerKey === "my") myDmgDealt += dealt; else oppDmgDealt += dealt;
     if (attacker.giftSteps > 0 && --attacker.giftSteps === 0) attacker.giftAtk = 0;
+    if (attacker.warCrySteps > 0 && --attacker.warCrySteps === 0) attacker.warCryAtkP = 0;
 
+    let diedThisTurn = false;
     if (defender.hp <= 0) {
+      diedThisTurn = true;
       deaths++;
       if (attackerKey === "my") myKills++; else oppKills++;
+      // 승리의 함성: 처치한 공격자 본인에게 공격력% 버프
+      attackerSide.runes.forEach((r) => {
+        if (r.name === "승리의 함성") {
+          attacker.warCryAtkP = r.s.atk_p;
+          attacker.warCrySteps = r.s.turn;
+        }
+      });
+      // 죽을 준비: 죽는 쪽(defender) 본인의 룬 - 자신을 처치한 상대(attacker)에게 반격.
+      // 이 피해는 defenderSide가 입힌 타격이라 "평균 대미지" 집계도 defenderSide 쪽에 더함
+      defenderSide.runes.forEach((r) => {
+        if (r.name === "죽을 준비" && Math.random() * 100 < r.s.prob) {
+          const burst = (defenderVals.atk * r.s.burst_p) / 100;
+          attacker.hp = Math.max(0, attacker.hp - burst);
+          if (attackerKey === "my") { oppDmgDealt += burst; oppHitCount++; } else { myDmgDealt += burst; myHitCount++; }
+        }
+      });
       // 대기 공룡이 없는 단순화 모드라 죽는 즉시 그 자리에서 풀피로 부활(이동/딜레이 없음)
       defender.hp = defender.maxHp;
       defender.giftAtk = 0;
       defender.giftSteps = 0;
+      defender.warCryAtkP = 0;
+      defender.warCrySteps = 0;
       defender.attackCount = 0;
       defender.shieldSteps = shieldTurnOf(defenderSide);
     }
+
+    // 100회 교환 동안 서로 못 죽였으면 동시사망 - 무승부 교환이라 양쪽 다 1킬씩 잡힘(어느 한쪽에
+    // 유리하게 치우치지 않도록, 승리의 함성도 발동 안 함 - "처치"가 아니라 무승부 교환이라)
+    if (!diedThisTurn && pairExchangeCount >= MUTUAL_KILL_EXCHANGES) {
+      diedThisTurn = true;
+      deaths += 2;
+      myKills++;
+      oppKills++;
+      defender.hp = defender.maxHp;
+      defender.giftAtk = 0;
+      defender.giftSteps = 0;
+      defender.warCryAtkP = 0;
+      defender.warCrySteps = 0;
+      defender.attackCount = 0;
+      defender.shieldSteps = shieldTurnOf(defenderSide);
+      attacker.hp = attacker.maxHp;
+      attacker.giftAtk = 0;
+      attacker.giftSteps = 0;
+      attacker.warCryAtkP = 0;
+      attacker.warCrySteps = 0;
+      attacker.attackCount = 0;
+      attacker.shieldSteps = shieldTurnOf(attackerSide);
+    }
+
+    if (diedThisTurn) pairExchangeCount = 0;
 
     attackerKey = defenderKey;
   }
@@ -431,8 +539,10 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     trials: deaths,
     myKills,
     oppKills,
-    avgMyDmgPerKill: myKills > 0 ? myDmgDealt / myKills : 0,
-    avgOppDmgPerKill: oppKills > 0 ? oppDmgDealt / oppKills : 0,
+    // 평타/크리티컬/스킬/스킬 크리티컬/죽을 준비 반격까지 다 포함해서 "타격 한 번당 평균 대미지"
+    // (킬 여부와 무관 - 상대 체력에 안 휘둘리고 이 진영 자체의 화력을 보여줌)
+    avgMyDmgPerHit: myHitCount > 0 ? myDmgDealt / myHitCount : 0,
+    avgOppDmgPerHit: oppHitCount > 0 ? oppDmgDealt / oppHitCount : 0,
     myDmgDealt,
     oppDmgDealt
   };

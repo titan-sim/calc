@@ -64,9 +64,10 @@ function saveMyDinoProfile(profile, storageKey = MY_DINO_PROFILE_KEY) {
   }
 }
 
-// 다른 페이지(타이탄, 공룡 대전 등)가 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환
-function getMyDinoBattleInputs(storageKey = MY_DINO_PROFILE_KEY) {
-  const p = loadMyDinoProfile(storageKey);
+// 저장된(혹은 친구에게서 받은) 원본 프로필 형태 -> 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환.
+// localStorage를 거치지 않는 순수 변환이라, 친구 세션에서 받은 프로필(js/core/friend-session.js)도
+// 그대로 재사용할 수 있음.
+function dinoProfileToBattleInputs(p) {
   return {
     baseAtk: p.baseAtk,
     baseHp: p.baseHp,
@@ -76,6 +77,11 @@ function getMyDinoBattleInputs(storageKey = MY_DINO_PROFILE_KEY) {
     constellation: p.constellation,
     bonusPercent: getEffectiveBonusPercent(p)
   };
+}
+
+// 다른 페이지(타이탄, 공룡 대전 등)가 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환
+function getMyDinoBattleInputs(storageKey = MY_DINO_PROFILE_KEY) {
+  return dinoProfileToBattleInputs(loadMyDinoProfile(storageKey));
 }
 
 // 프리셋 인덱스 -> 버튼 이미지 경로. 0번은 Select.png, 1~8번은 Select0~7.png (에셋이 9종뿐이라 프리셋도 9개로 고정)
@@ -601,4 +607,48 @@ function updateSummary(profile, idPrefix = "") {
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
   const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
   document.getElementById(id("sumLevel")).innerText = level.toLocaleString();
+}
+
+// 친구와 함께 공룡 대전(3단계)에서 상대 쪽 패널에 쓰는 읽기 전용 요약 뷰.
+// renderMyDinoPage는 입력칸/드롭다운/룬 피커가 다 얽힌 편집 컴포넌트라 여기에 읽기 전용 모드를
+// 끼워 넣기보다, "상대가 바꾸는 걸 결과로 보여준다"에 필요한 만큼만(레벨/스탯/장착 룬) 따로
+// 그려주는 게 더 단순하고 안전함. 실시간 세션과 "친구 설정 불러오기" 스냅샷 양쪽에서 재사용됨.
+function renderReadOnlyDinoSummary(container, profile, options = {}) {
+  const tagText = options.tagText || "🔒 읽기 전용";
+  const stats = getBattleStats({
+    baseAtk: profile.baseAtk,
+    baseHp: profile.baseHp,
+    count: profile.dinoCount,
+    selectedRunes: profile.runes,
+    constellation: profile.constellation,
+    bonusPercent: getEffectiveBonusPercent(profile)
+  });
+  const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
+
+  const slotsHtml = (profile.runes && profile.runes.length ? profile.runes : [null, null, null, null, null])
+    .map((rune) => {
+      if (rune && rune.name && RUNES_DATA[rune.name]) {
+        const r = RUNES_DATA[rune.name];
+        const lvClass = getLvClass(rune.lv);
+        return `<div class="slot slot-readonly"><img src="${getImgUrl(r.imgId)}" class="slot-img"><div class="slot-lv-tag ${lvClass}">${rune.lv}</div></div>`;
+      }
+      return `<div class="slot slot-readonly"><img src="./assets/rune slot image folder/RuneSprite_0.png" class="slot-plus-img"></div>`;
+    })
+    .join("");
+
+  container.innerHTML = `
+    <div class="card dino-panel dino-panel-readonly">
+      <div class="dino-panel-readonly-tag">${tagText}</div>
+      <div class="dino-summary-bar">
+        <div class="stat-readout">
+          <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent">${level.toLocaleString()}</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value">${Math.floor(stats.fAtk).toLocaleString()}</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value">${Math.floor(stats.fHp).toLocaleString()}</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value">${profile.dinoCount}마리</div></div>
+        </div>
+      </div>
+      <div class="readonly-slot-row">${slotsHtml}</div>
+    </div>
+  `;
 }
