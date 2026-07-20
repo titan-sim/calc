@@ -91,6 +91,16 @@ function buildAuthModalDom() {
   document.getElementById("signupSubmitBtn").onclick = handleSignupSubmit;
   document.getElementById("forgotSubmitBtn").onclick = handleForgotSubmit;
 
+  // 닉네임/비밀번호 입력 후 버튼을 직접 눌러야만 로그인되던 것 - 두 입력칸 어디서든 Enter를 누르면
+  // 바로 제출되게 함(로그인 폼만 해당, 회원가입/비밀번호 찾기는 요청 범위 밖이라 그대로 둠)
+  const submitLoginOnEnter = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    handleLoginSubmit();
+  };
+  document.getElementById("loginNickname").addEventListener("keydown", submitLoginOnEnter);
+  document.getElementById("loginPassword").addEventListener("keydown", submitLoginOnEnter);
+
   document.getElementById("signupNickname").addEventListener("input", scheduleNicknameCheck);
   document.getElementById("signupConsent").addEventListener("change", (e) => {
     document.getElementById("signupSubmitBtn").disabled = !e.target.checked;

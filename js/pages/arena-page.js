@@ -27,7 +27,9 @@ const ARENA_SPEED_KEY = "dino_arena_speed_ms";
 // - "아레나 프리셋"(5개) = 5슬롯 전부에 (그 진영 프리셋 9개 중) 어떤 걸 배정했는지를 통째로
 //   저장/전환하는 상위 레이어. 저장하는 건 프리셋 "인덱스"뿐이라 프리셋 자체를 나중에 수정하면
 //   그 프리셋을 쓰는 모든 슬롯/아레나 프리셋에 자동 반영됨.
-const ARENA_MY_FORMATIONS_KEY = "dino_arena_my_formations";
+// "내 진영" 배치는 로컬 전용이 아니라 내 공룡 프로필의 arenaFormations 필드로 계정에 동기화됨(친구
+// 스탯 확인에서 내 아레나 프리셋도 보이게 하기 위함) - "상대 진영"(로컬 테스트용 가상 상대)만 계속
+// 이 기기에만 남는 별도 로컬 저장소를 씀
 const ARENA_OPP_FORMATIONS_KEY = "dino_arena_opp_formations";
 const ARENA_FORMATION_COUNT = 5;
 
@@ -88,10 +90,6 @@ function arenaProfileStorageKey(sideKey) {
 
 // ===== 아레나 프리셋(5슬롯 전부의 배정을 통째로 담은 저장 슬롯 5개) =====
 
-function arenaFormationsStorageKey(sideKey) {
-  return sideKey === "my" ? ARENA_MY_FORMATIONS_KEY : ARENA_OPP_FORMATIONS_KEY;
-}
-
 function arenaDefaultFormationsData() {
   return {
     formations: Array.from({ length: ARENA_FORMATION_COUNT }, (_, i) => ({
@@ -110,6 +108,13 @@ function arenaSanitizeFormation(f, i) {
   };
 }
 
+function arenaSanitizeFormationsData(saved) {
+  if (!saved || !Array.isArray(saved.formations) || saved.formations.length !== ARENA_FORMATION_COUNT) return arenaDefaultFormationsData();
+  const activeFormationIndex = Number.isInteger(saved.activeFormationIndex) && saved.activeFormationIndex >= 0 && saved.activeFormationIndex < ARENA_FORMATION_COUNT
+    ? saved.activeFormationIndex : 0;
+  return { formations: saved.formations.map(arenaSanitizeFormation), activeFormationIndex };
+}
+
 function arenaLoadFormationsData(sideKey) {
   // 상대 진영이 친구의 것(실시간 세션/스냅샷)이면 로컬 저장소 대신 메모리상의 임시 배치를 씀 -
   // 내가 직접 만들어둔 상대 진영 배치(로컬 저장소)는 절대 안 건드림
@@ -117,12 +122,13 @@ function arenaLoadFormationsData(sideKey) {
     if (!arenaFriendFormations) arenaFriendFormations = arenaDefaultFormationsData();
     return arenaFriendFormations;
   }
+  if (sideKey === "my") {
+    // 내 아레나 배치는 로컬 전용 저장소가 아니라 "내 공룡" 프로필 자체의 필드(runePresets와 같은
+    // 방식)로 저장함 - 계정에 동기화되므로 친구가 "친구 스탯 확인"에서 내 아레나 프리셋도 볼 수 있음
+    return arenaSanitizeFormationsData(loadMyDinoProfile(MY_DINO_PROFILE_KEY).arenaFormations);
+  }
   try {
-    const saved = JSON.parse(localStorage.getItem(arenaFormationsStorageKey(sideKey)));
-    if (!saved || !Array.isArray(saved.formations) || saved.formations.length !== ARENA_FORMATION_COUNT) return arenaDefaultFormationsData();
-    const activeFormationIndex = Number.isInteger(saved.activeFormationIndex) && saved.activeFormationIndex >= 0 && saved.activeFormationIndex < ARENA_FORMATION_COUNT
-      ? saved.activeFormationIndex : 0;
-    return { formations: saved.formations.map(arenaSanitizeFormation), activeFormationIndex };
+    return arenaSanitizeFormationsData(JSON.parse(localStorage.getItem(ARENA_OPP_FORMATIONS_KEY)));
   } catch (e) {
     return arenaDefaultFormationsData();
   }
@@ -133,7 +139,14 @@ function arenaSaveFormationsData(sideKey, data) {
     arenaFriendFormations = data;
     return;
   }
-  localStorage.setItem(arenaFormationsStorageKey(sideKey), JSON.stringify(data));
+  if (sideKey === "my") {
+    const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
+    profile.arenaFormations = data;
+    saveMyDinoProfile(profile, MY_DINO_PROFILE_KEY);
+    if (arenaIsFriendSessionActive()) sendMyProfileUpdate(profile);
+    return;
+  }
+  localStorage.setItem(ARENA_OPP_FORMATIONS_KEY, JSON.stringify(data));
 }
 
 // 실전/빠른 계산 양쪽 다 여기서 "지금 쓸 5슬롯 룬"을 가져옴 - 활성 아레나 프리셋의 슬롯별 배정
@@ -511,7 +524,10 @@ function renderArenaPage(container) {
     <div class="friend-picker-overlay" id="arenaSlotEditOverlay" style="display:none;">
       <div class="friend-picker-modal arena-slot-edit-modal">
         <div class="friend-picker-header">
-          <span id="arenaSlotEditTitle">슬롯</span>
+          <span>
+            <span id="arenaSlotEditTitle">슬롯</span>
+            <span class="arena-slot-edit-hint">더블클릭하여 확정</span>
+          </span>
           <button class="close-btn" id="arenaSlotEditClose">✕</button>
         </div>
         <div class="slot-wrapper" id="arenaSlotEdit_slotContainer"></div>
@@ -899,9 +915,16 @@ function arenaRenderSlotEditPresetRow() {
       <span class="arena-preset-btn-name" data-idx="${idx}">${preset.name}</span>
       ${isActive && !foreign ? '<button type="button" class="arena-preset-edit-btn" title="이름 수정">✏️</button>' : ""}
     `;
+    // 한 번 클릭 = 미리보기만(룬 슬롯 갱신 + 선택 표시), 두 번 클릭(더블클릭) = 이 슬롯에 실제로
+    // 배정 + 창 닫기. 예전엔 클릭 한 번에 바로 장착돼버려서 어떤 룬 구성인지 확인할 새도 없이
+    // 적용되는 문제가 있었음 - 미리보기 단계를 하나 끼워넣어서 실수로 잘못 장착하는 일을 줄임
     btn.onclick = (e) => {
       if (e.target.closest(".arena-preset-edit-btn")) return;
-      arenaSelectSlotEditPreset(idx);
+      arenaPreviewSlotEditPreset(idx);
+    };
+    btn.ondblclick = (e) => {
+      if (e.target.closest(".arena-preset-edit-btn")) return;
+      arenaConfirmSlotEditPreset(idx);
     };
     const editBtn = btn.querySelector(".arena-preset-edit-btn");
     if (editBtn) editBtn.onclick = (e) => {
@@ -918,11 +941,19 @@ function arenaRenderSlotEditPresetRow() {
   });
 }
 
-// 프리셋 하나를 고르면: 이 슬롯에 즉시 배정 + 저장 + 팝업 닫기(어떤 프리셋을 쓸지 고르는 게
-// 목적이라 고르자마자 바로 반영되고 창이 닫혀야 흐름이 자연스러움 - 룬을 직접 편집하고 싶을 때는
-// 룬 슬롯 쪽을 눌러서 그 안에서 계속 작업)
-function arenaSelectSlotEditPreset(idx) {
+// 한 번 클릭: 이 프리셋의 룬 구성을 룬 슬롯에 띄워서 미리 볼 수만 있게 함(아직 이 슬롯에 배정된 건
+// 아님 - 배정은 arenaConfirmSlotEditPreset에서만 일어남)
+function arenaPreviewSlotEditPreset(idx) {
+  if (idx === arenaSlotEditPresetIndex) return;
   arenaSlotEditPresetIndex = idx;
+  arenaLoadSlotEditPresetIntoRuneUI();
+  arenaRenderSlotEditPresetRow();
+}
+
+// 더블클릭: 이 프리셋을 실제로 이 슬롯에 배정 + 저장 + 팝업 닫기
+function arenaConfirmSlotEditPreset(idx) {
+  arenaSlotEditPresetIndex = idx;
+  arenaLoadSlotEditPresetIntoRuneUI();
 
   const data = arenaLoadFormationsData(arenaSlotEditSide);
   data.formations[data.activeFormationIndex].slotPresetIndices[arenaSlotEditSlotIndex] = idx;

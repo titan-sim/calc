@@ -302,12 +302,27 @@ function renderFriendStatBreakdown(container, profile) {
     sections.push(friendStatHiddenSection("프리셋"));
   }
 
+  // 아레나 프리셋(5슬롯 배치)은 룬 프리셋의 인덱스를 참조하는 값이라 그쪽이 공개돼있을 때만 의미가
+  // 있음 - 서버 쪽에서도 showPresets를 끄면 둘 다 같이 가려서 내려옴
+  if (profile.arenaFormations !== undefined && profile.runePresets !== undefined) {
+    sections.push(`
+      <div class="friend-stat-section">
+        <div class="friend-stat-section-title">아레나 프리셋<span class="friend-stat-section-hint">눌러서 배치 보기</span></div>
+        <div class="friend-preset-list" id="friendArenaFormationList"></div>
+        <div id="friendArenaFormationDetail"></div>
+      </div>
+    `);
+  }
+
   container.innerHTML = sections.join("");
 
   // "프리셋" 섹션이 있으면(공개돼있으면) 눌러서 다른 프리셋의 룬 구성을 미리볼 수 있게 함(순수
   // 조회용 - 아무것도 저장/전송하지 않고 이 모달 안에서만 어떤 프리셋을 보고 있는지 바뀜)
   if (profile.runePresets !== undefined) {
     mountFriendPresetViewer(container, profile);
+  }
+  if (profile.arenaFormations !== undefined && profile.runePresets !== undefined) {
+    mountFriendArenaFormationViewer(container, profile);
   }
 }
 
@@ -342,6 +357,44 @@ function mountFriendPresetViewer(container, profile) {
     });
     const selected = presets[selectedIdx];
     slotsEl.innerHTML = friendRuneSlotsHtml(selected ? selected.runes : null);
+  }
+  render();
+}
+
+// 아레나 배치 1개(5슬롯)를 룬 프리셋 인덱스 -> 실제 프리셋 이름/룬으로 풀어서 보여줌
+function friendArenaFormationDetailHtml(formation, runePresets) {
+  const slotPresetIndices = (formation && formation.slotPresetIndices) || [null, null, null, null, null];
+  return slotPresetIndices.map((idx, i) => {
+    const preset = idx !== null ? runePresets[idx] : null;
+    return `
+      <div class="friend-arena-slot-row">
+        <div class="friend-arena-slot-label">${i + 1}번 ${preset ? `· ${preset.name}` : "· 미배정"}</div>
+        <div class="readonly-slot-row friend-stat-slot-row">${friendRuneSlotsHtml(preset ? preset.runes : null)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function mountFriendArenaFormationViewer(container, profile) {
+  const listEl = container.querySelector("#friendArenaFormationList");
+  const detailEl = container.querySelector("#friendArenaFormationDetail");
+  const runePresets = profile.runePresets || [];
+  const activeFormationIndex = Number.isInteger(profile.arenaFormations.activeFormationIndex) ? profile.arenaFormations.activeFormationIndex : 0;
+  let selectedIdx = activeFormationIndex;
+
+  function render() {
+    const formations = profile.arenaFormations.formations || [];
+    listEl.innerHTML = formations.length
+      ? formations.map((f, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === activeFormationIndex ? "★ " : ""}${f.name}</div>`).join("")
+      : '<span class="friend-stat-hidden-text">저장된 배치가 없습니다.</span>';
+    listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
+      el.onclick = () => {
+        selectedIdx = Number(el.dataset.idx);
+        render();
+      };
+    });
+    const selected = formations[selectedIdx];
+    detailEl.innerHTML = selected ? friendArenaFormationDetailHtml(selected, runePresets) : "";
   }
   render();
 }

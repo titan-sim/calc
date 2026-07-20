@@ -40,6 +40,8 @@ async function renderProfilePage(container) {
       <div class="profile-meta">가입일: ${joinedAt}</div>
     </div>
 
+    <div class="card" id="friendListCard"></div>
+
     <div class="card" id="statVisibilityCard"></div>
 
     <div class="card profile-danger-zone">
@@ -53,6 +55,76 @@ async function renderProfilePage(container) {
 
   document.getElementById("deleteAccountBtn").onclick = handleDeleteAccount;
   renderStatVisibilitySection(session.user.id, (userData && userData.stat_visibility) || null);
+  renderProfileFriendListCard(session.user.id);
+}
+
+// 프로필의 친구 목록 카드 - 한 "페이지"에 5명씩 가로로 두고, 그보다 많으면 화살표를 눌러 페이지
+// 전체가 옆으로 슬라이딩하며 넘어감(연속 스크롤이 아니라 책장을 넘기듯 페이지 단위로 전환)
+const PROFILE_FRIENDS_PER_PAGE = 5;
+
+async function renderProfileFriendListCard(myId) {
+  const card = document.getElementById("friendListCard");
+  if (!card) return;
+  card.innerHTML = `<h2>친구 목록</h2><p style="color:var(--text-sub); font-size:13px;">불러오는 중...</p>`;
+
+  const friends = await getAcceptedFriends(myId);
+  if (!document.getElementById("friendListCard")) return; // 그새 다른 페이지로 이동했으면 중단
+
+  if (friends.length === 0) {
+    card.innerHTML = `
+      <h2>친구 목록</h2>
+      <p style="color:var(--text-sub); font-size:13px;">아직 친구가 없습니다. "친구" 메뉴에서 친구를 추가해보세요.</p>
+    `;
+    return;
+  }
+
+  const pages = [];
+  for (let i = 0; i < friends.length; i += PROFILE_FRIENDS_PER_PAGE) {
+    pages.push(friends.slice(i, i + PROFILE_FRIENDS_PER_PAGE));
+  }
+
+  const pagesHtml = pages.map((page) => `
+    <div class="profile-friend-page">
+      ${page.map((f) => `
+        <div class="profile-friend-item">
+          <div class="auth-avatar profile-friend-avatar">${(f.nickname || "?").slice(0, 1)}</div>
+          <div class="profile-friend-name">${f.nickname}</div>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+
+  card.innerHTML = `
+    <h2>친구 목록</h2>
+    <div class="profile-friend-viewport">
+      <div class="profile-friend-track" id="profileFriendTrack">${pagesHtml}</div>
+    </div>
+    ${pages.length > 1 ? `
+      <div class="profile-friend-nav">
+        <button type="button" class="profile-friend-nav-btn" id="profileFriendPrev" disabled>‹</button>
+        <span class="profile-friend-page-indicator" id="profileFriendPageIndicator">1 / ${pages.length}</span>
+        <button type="button" class="profile-friend-nav-btn" id="profileFriendNext">›</button>
+      </div>
+    ` : ""}
+  `;
+
+  if (pages.length > 1) {
+    let pageIndex = 0;
+    const track = document.getElementById("profileFriendTrack");
+    const prevBtn = document.getElementById("profileFriendPrev");
+    const nextBtn = document.getElementById("profileFriendNext");
+    const indicator = document.getElementById("profileFriendPageIndicator");
+
+    function renderPageState() {
+      track.style.transform = `translateX(-${pageIndex * 100}%)`;
+      indicator.textContent = `${pageIndex + 1} / ${pages.length}`;
+      prevBtn.disabled = pageIndex === 0;
+      nextBtn.disabled = pageIndex === pages.length - 1;
+    }
+
+    prevBtn.onclick = () => { pageIndex = Math.max(0, pageIndex - 1); renderPageState(); };
+    nextBtn.onclick = () => { pageIndex = Math.min(pages.length - 1, pageIndex + 1); renderPageState(); };
+  }
 }
 
 const STAT_VISIBILITY_CATEGORIES = [

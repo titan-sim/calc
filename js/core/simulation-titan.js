@@ -23,7 +23,7 @@ function runTitanSimulation(cfg) {
   const {
     baseAtk, baseHp, maxDino, targetTitan, selectedRunes,
     timeLimitMinutes,
-    constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0 },
+    constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0, bossDmgIncrease: 0 },
     bonusPercent = { atk: 0, hp: 0 },
     moveSpeed = 1,
     distanceTiles = 0,
@@ -98,9 +98,13 @@ function runTitanSimulation(cfg) {
           let hpF = constellation.hp || 0, hpP = bonusPercent.hp || 0;
           let cRate = 3 + (constellation.critRate || 0);
           let cDmg = 105 + (constellation.critDmg || 0);
+          // 보스 슬레이어(룬, %)는 일반 % 바구니(atkP)에 안 넣고 최종 곱연산으로 따로 적용함.
+          // 보스 피해 증가(별자리)는 %가 아니라 정수 고정값이라 atkF(별자리 atk 등)처럼 곱하기 전에
+          // 더해지면 안 되고, (기본 공격력+별자리atk)*(vip/스킨/룬%) 를 계산한 "다음"에 더한 뒤
+          // 보스 슬레이어를 곱해야 함 - 그래서 별도 변수로 갖고 있다가 currentAtk 계산식 안에서만 씀
           let bossSlayerPercent = 0;
+          const bossDmgIncreaseFlat = constellation.bossDmgIncrease || 0;
           activeRunes.forEach((r) => {
-            // 보스 슬레이어는 "증가"가 아니라 "증폭"이라 일반 % 바구니가 아니라 최종 곱연산으로 별도 적용
             if (r.name === "보스 슬레이어") { bossSlayerPercent += r.s.atk_p; return; }
             // 마지막 선물의 atk_f는 사망한 아군이 남은 아군에게 넘겨주는 임시 버프량(giftAtk)이지
             // 상시 스탯이 아님 -> 상시 % 바구니에는 넣지 않음
@@ -117,7 +121,7 @@ function runTitanSimulation(cfg) {
           });
 
           const currentMaxHp = (baseHp + hpF) * (1 + hpP / 100);
-          const currentAtk = (baseAtk + atkF) * (1 + atkP / 100) * (1 + bossSlayerPercent / 100);
+          const currentAtk = ((baseAtk + atkF) * (1 + atkP / 100) + bossDmgIncreaseFlat) * (1 + bossSlayerPercent / 100);
 
           if (t === 1) {
             initialFullHp = currentMaxHp;

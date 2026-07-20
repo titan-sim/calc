@@ -188,7 +188,8 @@ begin
       v_profile := v_profile - 'runes';
     end if;
     if coalesce((v_vis->>'showPresets')::boolean, true) is false then
-      v_profile := v_profile - 'runePresets' - 'activePresetIndex';
+      -- arenaFormations는 runePresets의 인덱스를 참조하는 값이라 프리셋을 가릴 때 같이 가림
+      v_profile := v_profile - 'runePresets' - 'activePresetIndex' - 'arenaFormations';
     end if;
   end if;
 

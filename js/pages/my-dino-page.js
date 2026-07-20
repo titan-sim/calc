@@ -108,8 +108,11 @@ function enableDragScroll(el) {
     el.classList.add("dragging");
   });
   window.addEventListener("mouseup", () => { isDown = false; el.classList.remove("dragging"); });
-  el.addEventListener("mouseleave", () => { isDown = false; el.classList.remove("dragging"); });
-  el.addEventListener("mousemove", (e) => {
+  // mousemove를 el이 아니라 window에 붙여야 함 - el에만 붙어있으면 드래그 도중 마우스 커서가
+  // (버튼을 누른 채로) 이 요소의 경계 밖으로 나가는 순간 더 이상 이벤트가 안 잡혀서 스크롤이
+  // 그 자리에서 멈춰버림. window 기준으로 좌표를 추적하면 커서가 어디에 있든(모달 바깥이어도)
+  // 버튼을 뗄 때까지 계속 스크롤됨 - mouseleave로 드래그를 강제 종료하던 것도 함께 제거함
+  window.addEventListener("mousemove", (e) => {
     if (!isDown) return;
     const dx = e.pageX - startX;
     if (Math.abs(dx) > 4) moved = true;
@@ -603,6 +606,14 @@ function initMyDinoPage(profile, options = {}, container) {
   }
 
   function persistAndRefresh() {
+    // 이 profile 객체는 마운트 시점에 한 번 로드해서 계속 재사용하는 클로저라, 이 모듈이 관리하지
+    // 않는 필드(예: 아레나 배치 탭이 저장하는 arenaFormations)는 여기서 절대 안 바뀌고 마운트 당시
+    // 값 그대로 멈춰있음. 그런데 저장은 이 profile 객체 전체를 통째로 덮어쓰기 때문에, 마운트 이후
+    // 다른 코드 경로(아레나 배치 탭)가 저장소에 직접 써넣은 최신값을 여기서 base/룬 등을 편집할
+    // 때마다 오래된 값으로 되돌려버리는 버그가 있었음(아레나 프리셋을 설정해도 다른 탭에서 뭘 조금만
+    // 고치면 사라짐) - 저장 직전에 그 필드만 저장소에서 다시 읽어와 최신값으로 맞춰줌
+    const latest = loadMyDinoProfile(storageKey);
+    profile.arenaFormations = latest.arenaFormations;
     saveMyDinoProfile(profile, storageKey);
     updateSummary(profile, idPrefix, options.splitCritStat);
     if (options.onChange) options.onChange(profile);
