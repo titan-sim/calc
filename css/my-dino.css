@@ -1,0 +1,211 @@
+/* ===== 내 공룡 페이지(renderMyDinoPage, my-dino-page.js) - 요약바/탭/VIP드롭다운/룬프리셋칩. 타이탄·공룡대전·아레나·허수아비에도 그대로 임베드됨 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+.vip-selected-value {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.67cqw, 10px);
+  text-align: left;
+  padding: clamp(0px, 0.5cqw, 2px) clamp(24px, 5.67cqw, 34px) clamp(0px, 0.5cqw, 2px) clamp(8px, 2cqw, 12px);
+}
+
+.vip-dropdown-list li.vip-option {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.67cqw, 10px);
+  padding: clamp(4px, 1cqw, 6px) clamp(7px, 1.67cqw, 10px);
+}
+
+.vip-option-icon {
+  position: relative;
+  width: clamp(46px, 11.17cqw, 67px);
+  height: clamp(46px, 11.17cqw, 67px);
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* 평소(닫힌 상태)에 보이는 아이콘: 세로 패딩을 거의 없앤 만큼 박스 높이에 거의 꽉 차게 */
+.vip-option-icon.small {
+  width: clamp(30px, 7.33cqw, 44px);
+  height: clamp(30px, 7.33cqw, 44px);
+}
+
+.vip-option-num {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(15px, 3.67cqw, 22px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.vip-option-icon.small .vip-option-num {
+  font-size: clamp(12px, 2.83cqw, 17px);
+}
+
+.vip-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+}
+
+.vip-option-title {
+  font-weight: 700;
+  font-size: clamp(10px, 2.17cqw, 13px);
+  color: var(--text-main);
+}
+
+.vip-option-desc {
+  font-size: clamp(9px, 1.83cqw, 11px);
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+/* ===== 내 공룡: 요약바+탭을 한 패널로 통합 =====
+   overflow:hidden을 쓰면 안의 드롭다운 목록(체력/공룡 수 등)이 카드 경계에 잘려서
+   overflow는 안 씀. 대신 라운드 처리가 필요한 요소는 각자 border-radius로 처리. */
+.dino-panel {
+  padding: 0 !important;
+}
+
+.dino-summary-bar {
+  padding: 18px var(--p-base);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 16px 16px 0 0;
+}
+
+.dino-summary-bar .stat-readout {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.dino-summary-bar .stat-readout-item {
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.dino-summary-bar .stat-readout-label {
+  font-size: 10.5px;
+  white-space: normal;
+}
+
+.dino-summary-bar .stat-readout-value {
+  font-size: clamp(11px, 3.2cqw, 15px);
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+/* 친구와 함께(3단계): 상대 쪽 읽기 전용 요약 카드. 편집 폼과 구분되도록 점선 테두리 + 잠금 태그 */
+.dino-panel-readonly {
+  border: 1px dashed var(--border-color);
+}
+
+.dino-panel-readonly-tag {
+  padding: 10px var(--p-base) 0;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+/* 읽기 전용 모드의 기본 4개 탭(기본 스탯/별자리/둥지·알스킨/룬 조합) 안 콘텐츠 - 값은 그대로 잘
+   보이게 두고(불투명도 안 낮춤 - 흐리면 정작 보려는 스탯이 안 보임) 클릭만 막음. 커스텀
+   드롭다운(VIP/공룡 수/룬 레벨)은 이미 있는 .dropdown-locked(반투명+클릭막기)를 그대로 재사용함.
+   extraTab(아레나 배치 등) 패널은 이 클래스가 안 붙으므로 항상 그대로 편집 가능함.
+   .preset-btn은 여기 안 넣음 - 스냅샷(allowPresetSwitch:true)에서는 로컬 미리보기로 계속 클릭
+   가능해야 하고, 그 여부는 CSS가 아니라 my-dino-page.js의 selectPreset() 안 JS 가드가
+   단일 기준점으로 판단함(막아야 할 때는 그냥 아무 일도 안 일어남) */
+.tab-panel-readonly .slot,
+.tab-panel-readonly .rune-item {
+  pointer-events: none;
+}
+
+.readonly-slot-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  padding: 10px var(--p-base) 16px;
+}
+
+.slot-readonly {
+  cursor: default;
+}
+
+
+/* ===== 내 공룡: 탭 (슬라이딩 밑줄 인디케이터) ===== */
+.dino-tabs {
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dino-tab {
+  flex: 1;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.dino-tab.active {
+  color: var(--primary);
+}
+
+.dino-tab-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--primary);
+  transition: transform 0.25s ease, width 0.25s ease;
+}
+
+.dino-tab-panel {
+  padding: var(--p-base);
+}
+
+/* ===== 내 공룡: 룬 프리셋 칩 ===== */
+.preset-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 0 4px;
+}
+
+.preset-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.preset-chip-add {
+  color: var(--primary);
+  border: 1px dashed var(--primary);
+  background: none;
+}
+
+.preset-chip-remove {
+  opacity: 0.6;
+  font-size: 11px;
+}
+

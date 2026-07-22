@@ -1,0 +1,60 @@
+/* ===== 개인정보처리방침 페이지 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 개인정보처리방침 페이지 ===== */
+.privacy-updated {
+  color: var(--text-sub);
+  font-size: 12px;
+  margin: 4px 0 12px;
+}
+
+.privacy-lead {
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.privacy-note {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.privacy-note a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.privacy-note b {
+  color: var(--text-main);
+}
+
+.privacy-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.privacy-list li {
+  margin-bottom: 6px;
+}
+
+.privacy-list b {
+  color: var(--text-main);
+}
+
+.privacy-contact {
+  font-weight: 700;
+  color: var(--accent);
+}
+

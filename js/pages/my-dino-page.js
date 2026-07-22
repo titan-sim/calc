@@ -31,25 +31,41 @@ function defaultMyDinoProfile() {
   };
 }
 
+// 저장된(혹은 친구에게서 받은) 원본 객체를 완전한 형태로 채워 넣음 - localStorage에서 막 읽은
+// 객체든, 친구 세션/스냅샷에서 받은 외부 객체든 똑같이 씀. **객체 참조를 그대로 유지**(새 객체로
+// 복사하지 않고 saved 자체에 필드를 채움)하는 게 중요함 - 읽기 전용 모드에서 로컬 프리셋 미리보기가
+// 이 함수가 반환한 객체를 그대로 들고 있다가 나중에 전투 계산(getOppBattleInputs 등)에도 쓰이는데,
+// 새 객체로 복사해버리면 그 변경이 원래 참조에는 반영되지 않아 미리보기가 전투 계산과 어긋나게 됨.
+function normalizeDinoProfile(saved) {
+  if (!saved) return defaultMyDinoProfile();
+  const defaults = defaultMyDinoProfile();
+  Object.keys(defaults).forEach((key) => {
+    if (saved[key] === undefined) saved[key] = defaults[key];
+  });
+  // 별자리 항목이 나중에 추가된 경우 대비: 얕은 병합 대신 필드 단위로 병합
+  saved.constellation = { ...defaults.constellation, ...(saved.constellation || {}) };
+  // 프리셋 도입 이전 저장분: 기존 룬 조합을 1번 프리셋으로 이관
+  if (!saved.runePresets) {
+    saved.runePresets = defaultRunePresets();
+    if (saved.runes && saved.runes.some((r) => r)) {
+      saved.runePresets[0].runes = saved.runes;
+    }
+  }
+  // 압축된 힘/매머드의 힘처럼 동시 장착이 불가능한 룬 쌍이 저장 데이터에 섞여 있으면 정리
+  // (수동 localStorage 편집, 예전 버전 저장분 등으로 꼬였을 가능성 방어)
+  saved.runePresets.forEach((preset) => { preset.runes = sanitizeRuneConflicts(preset.runes); });
+  // top-level runes가 아예 없는 데이터(친구 세션/스냅샷이 넘기는 원본은 runePresets만 있고 runes가
+  // 없을 수 있음)는 활성 프리셋에서 유도
+  saved.runes = sanitizeRuneConflicts(
+    (saved.runes && saved.runes.length ? saved.runes : saved.runePresets[saved.activePresetIndex || 0].runes)
+    || [null, null, null, null, null]
+  );
+  return saved;
+}
+
 function loadMyDinoProfile(storageKey = MY_DINO_PROFILE_KEY) {
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (!saved) return defaultMyDinoProfile();
-    const profile = { ...defaultMyDinoProfile(), ...saved };
-    // 별자리 항목이 나중에 추가된 경우 대비: 얕은 병합 대신 필드 단위로 병합
-    profile.constellation = { ...defaultMyDinoProfile().constellation, ...(saved.constellation || {}) };
-    // 프리셋 도입 이전 저장분: 기존 룬 조합을 1번 프리셋으로 이관
-    if (!saved.runePresets) {
-      profile.runePresets = defaultRunePresets();
-      if (saved.runes && saved.runes.some((r) => r)) {
-        profile.runePresets[0].runes = saved.runes;
-      }
-    }
-    // 압축된 힘/매머드의 힘처럼 동시 장착이 불가능한 룬 쌍이 저장 데이터에 섞여 있으면 정리
-    // (수동 localStorage 편집, 예전 버전 저장분 등으로 꼬였을 가능성 방어)
-    profile.runePresets.forEach((preset) => { preset.runes = sanitizeRuneConflicts(preset.runes); });
-    profile.runes = sanitizeRuneConflicts(profile.runes);
-    return profile;
+    return normalizeDinoProfile(JSON.parse(localStorage.getItem(storageKey)));
   } catch (e) {
     return defaultMyDinoProfile();
   }
@@ -188,11 +204,39 @@ function getEffectiveBonusPercent(profile) {
   };
 }
 
+// 패널 헤더(제목 + 상대 진영 툴바 + 닫기 버튼)를 카드 안 첫 줄로 렌더링하기 위한 공용 조각.
+// header를 안 주면(타이탄/허수아비처럼 헤더가 필요 없는 컨텍스트) 빈 문자열 - 기존 동작과 동일.
+// toolbarId/closeId는 idPrefix를 거치지 않는 "페이지가 그냥 정해준 고유 id" - 기존
+// renderOppPanelToolbar()/renderArenaOppToolbar()가 이 id로 직접 getElementById를 하므로
+// 그 함수들은 전혀 안 건드려도 계속 동작함.
+function dinoPanelHeaderHtml(header) {
+  if (!header) return "";
+  const titleAttr = header.titleId ? ` id="${header.titleId}"` : "";
+  const toolbarHtml = header.toolbarId ? `<div class="opp-panel-toolbar" id="${header.toolbarId}"></div>` : "";
+  const closeHtml = header.closeId ? `<button class="close-btn battle-panel-close" id="${header.closeId}">✕</button>` : "";
+  return `
+    <div class="battle-panel-header">
+      <span${titleAttr}>${header.title || ""}</span>
+      ${toolbarHtml}
+      ${closeHtml}
+    </div>
+  `;
+}
+
+// container.innerHTML이 매 렌더마다 통째로 새로 쓰이므로, 닫기 버튼도 매번 새 DOM 노드임 -
+// 페이지 초기화 시점에 한 번만 바깥에서 붙이면 재렌더 후 죽으므로, 렌더될 때마다 다시 불러야 함.
+function wireDinoPanelHeader(root, header) {
+  if (!header || !header.closeId || !header.onClose) return;
+  const btn = (root || document).querySelector(`#${CSS.escape(header.closeId)}`);
+  if (btn) btn.onclick = header.onClose;
+}
+
 function renderMyDinoPage(container, options = {}) {
   const idPrefix = options.idPrefix || "";
   const storageKey = options.storageKey || MY_DINO_PROFILE_KEY;
   const id = (name) => idPrefix + name;
-  const profile = loadMyDinoProfile(storageKey);
+  const readOnly = !!options.readOnly;
+  const profile = readOnly ? normalizeDinoProfile(options.readOnly.profile) : loadMyDinoProfile(storageKey);
 
   // splitCritStat: 아레나처럼 "공룡 수"가 의미 없는 컨텍스트에서, 그 자리를 비우는 대신 치확/치피를
   // 각각 별도 항목으로 나눠서 5칸을 그대로 채움(기본값은 기존 그대로 "치확 / 치피" 한 칸 + 공룡 수)
@@ -208,7 +252,9 @@ function renderMyDinoPage(container, options = {}) {
   const extraTab = options.extraTab || null;
 
   container.innerHTML = `
-    <div class="card dino-panel">
+    <div class="card dino-panel${readOnly ? " dino-panel-readonly" : ""}">
+      ${dinoPanelHeaderHtml(options.header)}
+      ${readOnly ? `<div class="dino-panel-readonly-tag">${options.readOnly.tagText || "🔒 읽기 전용"}</div>` : ""}
       <div class="dino-summary-bar">
         <div class="stat-readout">
           <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent" id="${id("sumLevel")}">0</div></div>
@@ -227,7 +273,7 @@ function renderMyDinoPage(container, options = {}) {
         <div class="dino-tab-indicator" id="${id("tabIndicator")}"></div>
       </div>
 
-      <div class="dino-tab-panel" data-panel="base">
+      <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="base">
         <div class="input-grid">
           <div class="full-width">
             <label>VIP</label>
@@ -249,7 +295,7 @@ function renderMyDinoPage(container, options = {}) {
         </div>
       </div>
 
-      <div class="dino-tab-panel" data-panel="constellation" style="display:none;">
+      <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="constellation" style="display:none;">
         <div class="input-grid">
           <div>
             <label>체력</label>
@@ -290,7 +336,7 @@ function renderMyDinoPage(container, options = {}) {
         </div>
       </div>
 
-      <div class="dino-tab-panel" data-panel="bonus" style="display:none;">
+      <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="bonus" style="display:none;">
         <div class="input-grid">
           <div>
             <label>공격력</label>
@@ -303,7 +349,7 @@ function renderMyDinoPage(container, options = {}) {
         </div>
       </div>
 
-      <div class="dino-tab-panel" data-panel="rune" style="display:none;">
+      <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="rune" style="display:none;">
         <div class="slot-wrapper" id="${id("slotContainer")}"></div>
         <div class="preset-row" id="${id("presetRow")}"></div>
         <div id="${id("runePicker")}">
@@ -323,8 +369,10 @@ function renderMyDinoPage(container, options = {}) {
               </div>
               <div class="desc-box" id="${id("detailDesc")}"></div>
             </div>
-            <button class="btn-apply" id="${id("applyBtn")}">슬롯에 장착</button>
-            <button class="btn-apply" id="${id("removeBtn")}" style="border-color:var(--border-color); color:var(--text-sub); margin-top:5px;">장착 해제</button>
+            <div class="btn-apply-row">
+              <button class="btn-apply" id="${id("applyBtn")}">슬롯에 장착</button>
+              <button class="btn-apply btn-apply-secondary" id="${id("removeBtn")}">장착 해제</button>
+            </div>
           </div>
         </div>
       </div>
@@ -341,13 +389,19 @@ function initMyDinoPage(profile, options = {}, container) {
   const id = (name) => idPrefix + name;
   const $ = (name) => document.getElementById(id(name));
   const root = container || document;
+  const readOnly = !!options.readOnly;
+  // 아래 흩어진 el.onclick = ...같은 대입을 전부 이 헬퍼로 통일 - readOnly면 그냥 핸들러를 안
+  // 붙이는 것 하나로 모든 입력/드롭다운/프리셋 항목이 한 번에 비활성화됨(각 자리마다
+  // `if (readOnly) return;`을 반복해서 넣지 않아도 됨)
+  const on = (el, evt, fn) => { if (!readOnly) el[evt] = fn; };
 
   // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션). 인스턴스가 여러 개 떠 있을 수 있어서
-  // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음.
+  // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음. readOnly여도 탭 전환 자체는
+  // 절대 막지 않음 - 읽기 전용 모드의 핵심 목적이 4개 탭을 전부 볼 수 있게 하는 것이므로.
   const indicator = $("tabIndicator");
-  // btn이 null일 수 있음 - 이 패널이 나중에 읽기 전용 카드(renderReadOnlyDinoSummary)로 통째로
-  // 교체된 뒤에도(예: 아레나에서 "설정 불러오기"), 여기서 등록한 resize 리스너는 그대로 남아있어서
-  // 다음 리사이즈 때 이미 사라진 탭을 찾으려다 null이 나올 수 있음
+  // btn이 null일 수 있음 - 이 패널이 나중에 다른 프로필로 통째로 재렌더된 뒤에도(예: 아레나에서
+  // "설정 불러오기"), 여기서 등록한 resize 리스너는 그대로 남아있어서 다음 리사이즈 때 이미 사라진
+  // 탭을 찾으려다 null이 나올 수 있음
   function moveIndicator(btn) {
     if (!btn) return;
     indicator.style.width = btn.offsetWidth + "px";
@@ -365,8 +419,10 @@ function initMyDinoPage(profile, options = {}, container) {
       });
       // 룬 조합 탭은 프리셋 데이터를 이 탭 바깥(예: 아레나 배치 탭의 슬롯 편집 팝업)에서도 같은
       // storageKey로 직접 수정할 수 있어서, 탭에 진입할 때마다 저장소에서 다시 읽어와야 그 변경이
-      // 여기 화면에도 즉시 반영됨(탭 전환은 단순 display 토글이라 마운트 시점 클로저가 그대로 남음)
-      if (target === "rune") refreshRuneTabFromStorage();
+      // 여기 화면에도 즉시 반영됨(탭 전환은 단순 display 토글이라 마운트 시점 클로저가 그대로 남음).
+      // readOnly는 storageKey가 아니라 외부 profile 객체가 원본이라 저장소를 다시 읽으면 안 됨
+      // (엉뚱하게 뷰어 자신의 로컬 프로필로 덮어써버리는 버그가 됨) - 탭 전환 자체는 항상 허용.
+      if (target === "rune" && !readOnly) refreshRuneTabFromStorage();
     };
   });
   moveIndicator(root.querySelector(".dino-tab.active"));
@@ -386,6 +442,9 @@ function initMyDinoPage(profile, options = {}, container) {
   markChanged(fBaseHp, profile.baseHp !== 10);
   fMoveSpeed.value = profile.moveSpeed;
   markChanged(fMoveSpeed, profile.moveSpeed !== 1);
+  // readOnly면 값은 그대로 잘 보이게 두고(불투명도 안 낮춤) 타이핑만 막음 - opacity로 흐리면
+  // 정작 친구 스탯을 읽으러 온 화면의 목적과 어긋남
+  if (readOnly) { fBaseAtk.readOnly = true; fBaseHp.readOnly = true; fMoveSpeed.readOnly = true; }
 
   // 공룡 수: 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 스타일을 쓰기 위해 <select> 대신 직접 구현
   const dinoCountList = $("dinoCountList");
@@ -400,20 +459,16 @@ function initMyDinoPage(profile, options = {}, container) {
   for (let i = 1; i <= 13; i++) {
     const li = document.createElement("li");
     li.textContent = `${i}마리`;
-    li.onclick = () => {
+    on(li, "onclick", () => {
       setDinoCount(i);
       dinoCountList.style.display = "none";
       persistAndRefresh();
-    };
+    });
     dinoCountList.appendChild(li);
   }
   setDinoCount(profile.dinoCount);
 
-  dinoCountSelectedValue.onclick = () => {
-    const isOpen = dinoCountList.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    dinoCountList.style.display = isOpen ? "none" : "block";
-  };
+  on(dinoCountSelectedValue, "onclick", () => toggleDropdownList(dinoCountSelectedValue, dinoCountList));
 
   // VIP (이미지 배지 + 설명이 들어가는 커스텀 드롭다운. <select>는 항목 안에 이미지를 넣을 수 없어서 직접 구현)
   const vipList = $("vipList");
@@ -441,22 +496,18 @@ function initMyDinoPage(profile, options = {}, container) {
         ${desc ? `<div class="vip-option-desc">${desc}</div>` : ""}
       </div>
     `;
-    li.onclick = () => {
+    on(li, "onclick", () => {
       profile.vip = v;
       setDinoCount(vipToDinoCount(v));
       renderVipSelected();
       vipList.style.display = "none";
       persistAndRefresh();
-    };
+    });
     vipList.appendChild(li);
   }
   renderVipSelected();
 
-  vipSelectedValue.onclick = () => {
-    const isOpen = vipList.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    vipList.style.display = isOpen ? "none" : "block";
-  };
+  on(vipSelectedValue, "onclick", () => toggleDropdownList(vipSelectedValue, vipList));
   // 드롭다운 바깥 클릭 시 전부 닫기: 인스턴스마다 중복 등록되지 않도록 한 번만 붙임
   if (!window.__dinoDropdownCloseHandlerBound) {
     window.__dinoDropdownCloseHandlerBound = true;
@@ -466,27 +517,27 @@ function initMyDinoPage(profile, options = {}, container) {
       }
     });
   }
-  fBaseAtk.oninput = () => sanitizeIntInput(fBaseAtk);
-  fBaseAtk.onblur = () => {
+  on(fBaseAtk, "oninput", () => sanitizeIntInput(fBaseAtk));
+  on(fBaseAtk, "onblur", () => {
     profile.baseAtk = Math.max(1, Number(fBaseAtk.value) || 1);
     fBaseAtk.value = profile.baseAtk;
     markChanged(fBaseAtk, profile.baseAtk !== 1);
     persistAndRefresh();
-  };
-  fBaseHp.oninput = () => sanitizeIntInput(fBaseHp);
-  fBaseHp.onblur = () => {
+  });
+  on(fBaseHp, "oninput", () => sanitizeIntInput(fBaseHp));
+  on(fBaseHp, "onblur", () => {
     profile.baseHp = Math.max(10, Number(fBaseHp.value) || 10);
     fBaseHp.value = profile.baseHp;
     markChanged(fBaseHp, profile.baseHp !== 10);
     persistAndRefresh();
-  };
-  fMoveSpeed.oninput = () => sanitizeIntInput(fMoveSpeed);
-  fMoveSpeed.onblur = () => {
+  });
+  on(fMoveSpeed, "oninput", () => sanitizeIntInput(fMoveSpeed));
+  on(fMoveSpeed, "onblur", () => {
     profile.moveSpeed = Math.min(150, Math.max(1, Number(fMoveSpeed.value) || 1));
     fMoveSpeed.value = profile.moveSpeed;
     markChanged(fMoveSpeed, profile.moveSpeed !== 1);
     persistAndRefresh();
-  };
+  });
 
   // 별자리
   const constFields = [
@@ -501,14 +552,15 @@ function initMyDinoPage(profile, options = {}, container) {
     const el = $(fieldId);
     el.value = profile.constellation[key];
     markChanged(el, profile.constellation[key] !== 0);
-    el.oninput = () => (DECIMAL_CONST_FIELDS.includes(key) ? sanitizeDecimalInput(el) : sanitizeIntInput(el));
-    el.onfocus = () => { if (el.value === "0") el.value = ""; };
-    el.onblur = () => {
+    if (readOnly) el.readOnly = true;
+    on(el, "oninput", () => (DECIMAL_CONST_FIELDS.includes(key) ? sanitizeDecimalInput(el) : sanitizeIntInput(el)));
+    on(el, "onfocus", () => { if (el.value === "0") el.value = ""; });
+    on(el, "onblur", () => {
       profile.constellation[key] = Number(el.value) || 0;
       el.value = profile.constellation[key];
       markChanged(el, profile.constellation[key] !== 0);
       persistAndRefresh();
-    };
+    });
   });
 
   // 둥지·알스킨 (합산된 %값 하나씩만 존재)
@@ -518,20 +570,21 @@ function initMyDinoPage(profile, options = {}, container) {
   markChanged(fBonusAtk, profile.bonusPercent.atk !== 0);
   fBonusHp.value = profile.bonusPercent.hp;
   markChanged(fBonusHp, profile.bonusPercent.hp !== 0);
-  fBonusAtk.onfocus = () => { if (fBonusAtk.value === "0") fBonusAtk.value = ""; };
-  fBonusHp.onfocus = () => { if (fBonusHp.value === "0") fBonusHp.value = ""; };
-  fBonusAtk.onblur = () => {
+  if (readOnly) { fBonusAtk.readOnly = true; fBonusHp.readOnly = true; }
+  on(fBonusAtk, "onfocus", () => { if (fBonusAtk.value === "0") fBonusAtk.value = ""; });
+  on(fBonusHp, "onfocus", () => { if (fBonusHp.value === "0") fBonusHp.value = ""; });
+  on(fBonusAtk, "onblur", () => {
     profile.bonusPercent.atk = Number(fBonusAtk.value) || 0;
     fBonusAtk.value = profile.bonusPercent.atk;
     markChanged(fBonusAtk, profile.bonusPercent.atk !== 0);
     persistAndRefresh();
-  };
-  fBonusHp.onblur = () => {
+  });
+  on(fBonusHp, "onblur", () => {
     profile.bonusPercent.hp = Number(fBonusHp.value) || 0;
     fBonusHp.value = profile.bonusPercent.hp;
     markChanged(fBonusHp, profile.bonusPercent.hp !== 0);
     persistAndRefresh();
-  };
+  });
 
   // 룬 조합 (편집한 내용은 현재 활성 프리셋에 바로 반영됨)
   // unsuitableList가 주어지면(타이탄 등 특정 컨텍스트) 해당 룬을 구분선 아래 흐리게 모아서 표시하고,
@@ -552,14 +605,31 @@ function initMyDinoPage(profile, options = {}, container) {
   renderPresetRow();
   enableDragScroll($("presetRow"));
 
+  if (readOnly) {
+    // 룬 슬롯/그리드는 CSS(.tab-panel-readonly .slot 등)로 클릭을 이미 막아서 rune-ui.js는 무수정
+    // - 다만 Apply/Remove는 진짜 <button>이라 pointer-events:none만으론 키보드 Enter 활성화를 못
+    // 막으므로 .disabled도 같이 줌
+    $("applyBtn").disabled = true;
+    $("removeBtn").disabled = true;
+    // 커스텀 드롭다운(VIP/공룡 수/룬 레벨)은 기존에 있던 "잠긴 컨트롤" 스타일을 재사용해서
+    // 흐리게 표시 - 값 자체를 보여주는 입력칸/룬 아이콘과 달리 이건 버튼처럼 생겨서 흐려도 무방함
+    // extraTab(예: 아레나 배치) 패널은 readOnly와 무관하게 항상 편집 가능해야 하므로 제외하고,
+    // 기본 4개 탭(.tab-panel-readonly) 안의 드롭다운만 잠금
+    root.querySelectorAll(".tab-panel-readonly .custom-dropdown").forEach((el) => el.classList.add("dropdown-locked"));
+  }
+
   function selectPreset(idx) {
     if (idx === profile.activePresetIndex) return;
+    // 실시간 세션(allowPresetSwitch 없음)은 로컬 미리보기도 막고, 스냅샷(allowPresetSwitch:true)은
+    // 로컬로만 전환 허용(persistAndRefresh 자체가 readOnly면 저장을 안 하므로 안전)
+    if (readOnly && !(options.readOnly && options.readOnly.allowPresetSwitch)) return;
     profile.activePresetIndex = idx;
     profile.runes = profile.runePresets[idx].runes.map((r) => (r ? { ...r } : null));
     runeUI.setSelectedRunes(profile.runes);
     runeUI.renderSlots();
     renderPresetRow();
     persistAndRefresh();
+    if (readOnly && options.readOnly.onPresetSwitch) options.readOnly.onPresetSwitch(profile);
   }
 
   function startRenamePreset(idx) {
@@ -593,8 +663,11 @@ function initMyDinoPage(profile, options = {}, container) {
       btn.style.backgroundImage = `url("${getPresetBtnImg(idx, isActive)}")`;
       btn.innerHTML = `
         <span class="preset-btn-name" data-idx="${idx}">${preset.name}</span>
-        ${isActive ? '<button type="button" class="preset-edit-btn" title="이름 수정">✏️</button>' : ""}
+        ${isActive && !readOnly ? '<button type="button" class="preset-edit-btn" title="이름 수정">✏️</button>' : ""}
       `;
+      // selectPreset() 자기 자신이 readOnly/allowPresetSwitch 가드를 갖고 있으므로 여기서는 그냥
+      // 항상 호출 - 다른 el들처럼 on()으로 감싸지 않음(스냅샷 로컬 미리보기 때는 readOnly여도
+      // 이 클릭이 계속 살아있어야 함)
       btn.onclick = (e) => {
         if (e.target.closest(".preset-edit-btn")) return;
         selectPreset(idx);
@@ -606,6 +679,12 @@ function initMyDinoPage(profile, options = {}, container) {
   }
 
   function persistAndRefresh() {
+    // readOnly는 남의 프로필(친구 세션/스냅샷)이라 이 profile을 절대 storageKey에 저장하면 안 됨 -
+    // 화면 갱신만 하고 여기서 끝냄(프리셋 로컬 미리보기 등도 이 가드 하나로 안전해짐)
+    if (readOnly) {
+      updateSummary(profile, idPrefix, options.splitCritStat);
+      return;
+    }
     // 이 profile 객체는 마운트 시점에 한 번 로드해서 계속 재사용하는 클로저라, 이 모듈이 관리하지
     // 않는 필드(예: 아레나 배치 탭이 저장하는 arenaFormations)는 여기서 절대 안 바뀌고 마운트 당시
     // 값 그대로 멈춰있음. 그런데 저장은 이 profile 객체 전체를 통째로 덮어쓰기 때문에, 마운트 이후
@@ -631,11 +710,15 @@ function initMyDinoPage(profile, options = {}, container) {
 
   updateSummary(profile, idPrefix, options.splitCritStat);
 
-  // extraTab(예: 아레나 배치)이 있으면 그 탭 패널에 컨텍스트가 제공한 렌더러를 한 번 실행
+  // extraTab(예: 아레나 배치)이 있으면 그 탭 패널에 컨텍스트가 제공한 렌더러를 한 번 실행 -
+  // readOnly와 무관하게 항상 실행(아레나 배치는 상대가 읽기 전용이어도 로컬 편집 가능한 별개 데이터)
   if (options.extraTab) {
     const panelEl = $("extraTabPanel");
     if (panelEl) options.extraTab.render(panelEl);
   }
+
+  // 헤더의 닫기 버튼은 매 렌더마다 새 DOM이라 여기서 매번 다시 바인딩
+  wireDinoPanelHeader(root, options.header);
 }
 
 function updateSummary(profile, idPrefix = "", splitCrit = false) {
@@ -663,89 +746,3 @@ function updateSummary(profile, idPrefix = "", splitCrit = false) {
   document.getElementById(id("sumLevel")).innerText = level.toLocaleString();
 }
 
-// 친구와 함께 공룡 대전(3단계)에서 상대 쪽 패널에 쓰는 읽기 전용 요약 뷰.
-// renderMyDinoPage는 입력칸/드롭다운/룬 피커가 다 얽힌 편집 컴포넌트라 여기에 읽기 전용 모드를
-// 끼워 넣기보다, "상대가 바꾸는 걸 결과로 보여준다"에 필요한 만큼만(레벨/스탯/장착 룬) 따로
-// 그려주는 게 더 단순하고 안전함. 실시간 세션과 "친구 설정 불러오기" 스냅샷 양쪽에서 재사용됨.
-function renderReadOnlyDinoSummary(container, profile, options = {}) {
-  const tagText = options.tagText || "🔒 읽기 전용";
-  // profile.runes가 없는 데이터(예: 아레나가 넘기는 스냅샷/실시간 프로필은 top-level runes 없이
-  // runePresets만 있을 수 있음)를 대비해 활성 프리셋에서 유도 - getBattleStats가 undefined를
-  // forEach하다가 죽는 걸 막음
-  const effectiveRunes = profile.runes && profile.runes.length
-    ? profile.runes
-    : (Array.isArray(profile.runePresets) && profile.runePresets[profile.activePresetIndex || 0]
-        ? profile.runePresets[profile.activePresetIndex || 0].runes
-        : [null, null, null, null, null]);
-  const stats = getBattleStats({
-    baseAtk: profile.baseAtk,
-    baseHp: profile.baseHp,
-    count: profile.dinoCount,
-    selectedRunes: effectiveRunes,
-    constellation: profile.constellation,
-    bonusPercent: getEffectiveBonusPercent(profile)
-  });
-  const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
-
-  const slotsHtml = effectiveRunes
-    .map((rune) => {
-      if (rune && rune.name && RUNES_DATA[rune.name]) {
-        const r = RUNES_DATA[rune.name];
-        const lvClass = getLvClass(rune.lv);
-        return `<div class="slot slot-readonly"><img src="${getImgUrl(r.imgId)}" class="slot-img"><div class="slot-lv-tag ${lvClass}">${rune.lv}</div></div>`;
-      }
-      return `<div class="slot slot-readonly"><img src="./assets/rune slot image folder/RuneSprite_0.png" class="slot-plus-img"></div>`;
-    })
-    .join("");
-
-  const critItemsHtml = options.splitCritStat
-    ? `<div class="stat-readout-item"><div class="stat-readout-label">치명타 확률</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}%</div></div>
-       <div class="stat-readout-item"><div class="stat-readout-label">치명타 피해</div><div class="stat-readout-value">${stats.cDmg.toFixed(2)}%</div></div>`
-    : `<div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value">${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%</div></div>
-       <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value">${profile.dinoCount}마리</div></div>`;
-
-  // allowPresetSwitch: 정적 스냅샷일 때만 의미가 있음(실시간 세션은 친구가 바꾸면 다시 통째로
-  // 덮어써지므로 로컬 선택이 무의미) - 관찰자가 로컬에서 다른 프리셋을 미리 볼 수만 있고, 실제
-  // profile 자체가 이 화면 밖으로 나가는 게 아니라서 원본(친구) 데이터는 전혀 바뀌지 않음
-  const allowPresetSwitch = !!options.allowPresetSwitch && Array.isArray(profile.runePresets) && profile.runePresets.length > 0;
-
-  container.innerHTML = `
-    <div class="card dino-panel dino-panel-readonly">
-      <div class="dino-panel-readonly-tag">${tagText}</div>
-      <div class="dino-summary-bar">
-        <div class="stat-readout">
-          <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent">${level.toLocaleString()}</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value">${Math.floor(stats.fAtk).toLocaleString()}</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value">${Math.floor(stats.fHp).toLocaleString()}</div></div>
-          ${critItemsHtml}
-        </div>
-      </div>
-      ${options.hideRuneRow ? "" : `<div class="readonly-slot-row">${slotsHtml}</div>`}
-      ${allowPresetSwitch ? `
-        <div class="readonly-preset-switcher">
-          <div class="readonly-preset-switcher-label">프리셋 선택 (관찰용 - 실제 상대 설정은 바뀌지 않음)</div>
-          <div class="friend-preset-list" id="readonlyPresetList"></div>
-        </div>
-      ` : ""}
-    </div>
-  `;
-
-  if (allowPresetSwitch) {
-    const listEl = document.getElementById("readonlyPresetList");
-    listEl.innerHTML = profile.runePresets
-      .map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${p.name}</div>`)
-      .join("");
-    listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
-      el.onclick = () => {
-        const idx = Number(el.dataset.idx);
-        if (idx === profile.activePresetIndex) return;
-        // 스냅샷 profile 객체 자체를 로컬로만 갱신(호출부가 들고 있는 참조가 그대로 이 객체라
-        // getOppBattleInputs 등 전투 계산에도 자연스럽게 반영됨 - 서버로는 아무것도 안 나감)
-        profile.activePresetIndex = idx;
-        profile.runes = profile.runePresets[idx].runes.map((r) => (r ? { ...r } : null));
-        renderReadOnlyDinoSummary(container, profile, options);
-        if (options.onPresetSwitch) options.onPresetSwitch(profile);
-      };
-    });
-  }
-}

@@ -111,7 +111,7 @@ function renderDummyPage(container) {
       <div class="battle-mode-tabs mode-live dummy-mode-tabs-3" id="dummyModeTabs">
         <span class="battle-mode-indicator"></span>
         <button class="battle-mode-tab" data-mode="quick" id="dummyModeTabQuick"><span>빠른 계산</span></button>
-        <button class="battle-mode-tab active" data-mode="live" id="dummyModeTabLive"><span>실전 대전</span></button>
+        <button class="battle-mode-tab active" data-mode="live" id="dummyModeTabLive"><span>시뮬레이션</span></button>
         <button class="battle-mode-tab" data-mode="optimize" id="dummyModeTabOptimize"><span>조합 찾기</span></button>
       </div>
 
@@ -230,11 +230,7 @@ function dummyInitTileSettings() {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 // 빠른 계산 / 실전 대전 / 조합 찾기 3개 탭 전환. 다른 페이지(아레나 등)의 mode-live/mode-quick
@@ -393,11 +389,7 @@ function dummyInitSpeedDropdown() {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 function dummyInitControls() {

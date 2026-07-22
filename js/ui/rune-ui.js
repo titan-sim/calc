@@ -128,11 +128,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     setLevel(currentLevel);
 
     const selectedValue = $("levelSelectedValue");
-    selectedValue.onclick = () => {
-      const isOpen = list.style.display === "block";
-      document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-      list.style.display = isOpen ? "none" : "block";
-    };
+    selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
   }
 
   function openPicker(idx) {
@@ -222,6 +218,10 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     $("runePicker").style.display = "none";
     warnEl.style.display = "none";
     onChange(getSelectedRunes());
+    // 모바일에서는 룬 목록이 화면 아래로 펼쳐진 채 장착하면, 목록만 사라지고 스크롤 위치는 그대로라
+    // 정작 방금 채운 슬롯이 화면 밖(위쪽)에 남아있어 다시 스크롤해 올려야 했음 - 장착 직후 슬롯
+    // 목록 쪽으로 자동 스크롤해서 바로 결과를 보여줌
+    $("slotContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function removeRuneFromSlot() {
@@ -230,6 +230,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     renderSlotContent(activeSlotIdx);
     $("runePicker").style.display = "none";
     onChange(getSelectedRunes());
+    $("slotContainer").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function mount() {

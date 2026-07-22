@@ -1,0 +1,391 @@
+/* ===== 공룡 대전 페이지 전용(dino-battle-page.js) - 타일 설정 카드, 1:1 공룡 스택 대전 화면 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 공룡 대전 페이지 =====
+   모바일(기본): 가운데 전투 화면만 보이고, 내 공룡/상대 공룡 설정은 화면 밖에 숨겨뒀다가
+   좌우 가장자리의 탭(peek 버튼)을 누르면 슬라이드 패널로 들어옴.
+   데스크톱(1100px 이상): 컨테이너 폭을 넓혀서 좌-내공룡 / 중앙-전투 / 우-상대공룡 3단 그리드로 항상 다 보이게 함. */
+
+/* 타일 설정 카드: 제목을 위에 두고, 그 아래 항목들은 라벨+컨트롤이 붙은 작은 덩어리(chip)로
+   만들어서 폭이 남으면 한 줄에 여러 개, 좁으면 자동 줄바꿈되게 함(항목이 4개로 늘어나도 안정적) */
+.battle-tile-card {
+  padding: 12px 16px;
+}
+
+.battle-tile-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin: 0 0 10px;
+}
+
+.battle-tile-card .setting-list {
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+
+.battle-tile-card .setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: none;
+  padding: 0;
+}
+
+.battle-tile-card .setting-control {
+  width: 96px;
+  max-width: 96px;
+}
+
+/* 이 카드 안 드롭다운은 다른 페이지의 큰 입력칸용 높이를 그대로 쓰기엔 과해서 한 줄짜리로 축소 */
+.battle-tile-card .selected-value {
+  height: 30px;
+  padding: 0 26px 0 10px;
+  line-height: 30px;
+  font-size: 12px;
+}
+
+/* 항목이 늘어날수록(버프 타워 추가 등) 한 덩어리로 뭉쳐 보이지 않도록 "환경"/"진영별 설정"으로
+   묶고, 그룹 사이는 얇은 구분선으로 나눔 */
+.tile-group + .tile-group {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tile-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+/* 진영별 설정(배치/버프 타워)은 내 공룡·상대 공룡을 좌우로 나란히 둬서 대칭 비교가 쉽게 함 */
+.tile-side-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 20px;
+}
+
+.tile-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tile-side-col-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tile-side-col-label::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.tile-side-col-label.my-side-label::before {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.tile-side-col-label.opp-side-label::before {
+  background: #e0473f;
+  box-shadow: 0 0 6px rgba(224, 71, 63, 0.6);
+}
+
+.tile-side-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tile-side-field label {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.battle-arena {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 4cqw, 24px);
+  padding: clamp(24px, 10cqw, 64px) 0;
+  min-height: clamp(160px, 46cqw, 320px);
+}
+
+.battle-fighter {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transition: opacity 0.4s ease;
+}
+
+.battle-fighter.defeated .battle-avatar {
+  filter: grayscale(1) brightness(0.6);
+  transform: rotate(90deg) scale(0.85);
+}
+
+.battle-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(12px, 3cqw, 14px);
+  color: var(--text-sub);
+  font-weight: 700;
+}
+
+.battle-name::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+#myFighter .battle-name::before {
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+#oppFighter .battle-name::before {
+  background: #e0473f;
+  box-shadow: 0 0 6px rgba(224, 71, 63, 0.6);
+}
+
+.battle-hp-bar {
+  width: 100%;
+  max-width: 160px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.battle-hp-fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+.my-hp-fill {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+
+.opp-hp-fill {
+  background: linear-gradient(90deg, #a4241f, #e0473f);
+}
+
+.battle-hp-label {
+  font-size: clamp(10px, 2.6cqw, 12px);
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-avatar {
+  position: relative;
+  width: clamp(56px, 20cqw, 96px);
+  height: clamp(56px, 20cqw, 96px);
+  border-radius: 50%;
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.my-avatar {
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white), var(--accent-strong) 75%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.opp-avatar {
+  background: radial-gradient(circle at 35% 30%, #ff8a80, #a4241f 75%);
+  box-shadow: 0 0 22px rgba(224, 71, 63, 0.55);
+}
+
+/* 무대 조명 느낌을 주는 바닥 스포트라이트: 현재 맞붙고 있는 앞줄 공룡(.battle-avatar) 발밑에만 표시 */
+.battle-avatar.my-avatar::after,
+.battle-avatar.opp-avatar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  width: 72%;
+  height: 8px;
+  border-radius: 50%;
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+.battle-avatar.my-avatar::after {
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 55%, transparent), transparent 75%);
+}
+
+.battle-avatar.opp-avatar::after {
+  background: radial-gradient(ellipse, rgba(224, 71, 63, 0.55), transparent 75%);
+}
+
+.battle-avatar.lunge-right {
+  animation: battle-lunge-right 0.35s ease;
+}
+
+.battle-avatar.lunge-left {
+  animation: battle-lunge-left 0.35s ease;
+}
+
+.battle-avatar.hit-shake {
+  animation: battle-hit-shake 0.35s ease;
+}
+
+@keyframes battle-lunge-right {
+  0% { transform: translateX(0) scale(1); }
+  45% { transform: translateX(28px) scale(1.08); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes battle-lunge-left {
+  0% { transform: translateX(0) scale(1); }
+  45% { transform: translateX(-28px) scale(1.08); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+@keyframes battle-hit-shake {
+  0%, 100% { transform: translateX(0); filter: brightness(1); }
+  20% { transform: translateX(-6px); filter: brightness(1.8); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+/* 타일 위에 여러 마리가 대기 중임을 보여주는 스택 표현: 맨 앞(현재 싸우는 중)만 크게,
+   대기 중인 나머지는 뒤에 작고 흐리게 겹쳐 보이게 함 */
+.battle-stack {
+  position: relative;
+  width: clamp(56px, 20cqw, 96px);
+  height: clamp(56px, 20cqw, 96px);
+}
+
+.stack-dino {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+}
+
+.stack-dino.front {
+  z-index: 3;
+}
+
+.stack-dino.behind-1 {
+  z-index: 2;
+  transform: scale(0.6) translate(28%, 28%);
+  opacity: 0.55;
+  filter: saturate(0.7);
+}
+
+.stack-dino.behind-2 {
+  z-index: 1;
+  transform: scale(0.42) translate(52%, 52%);
+  opacity: 0.32;
+  filter: saturate(0.5);
+}
+
+/* 스택(대표 공룡) + 대기 중인 나머지 공룡들의 미니 체력바를 나란히 배치. 항상 무대 바깥쪽으로 붙도록
+   내 쪽은 바가 오른쪽(무대 중앙 방향)이 아니라 왼쪽에, 상대 쪽은 반대로 둠.
+   타일 배치 설정에 따라 점선 테두리로 "같은 타일(전부 하나로 묶임)"인지 "다른 타일(전투 공룡과
+   대기 공룡이 분리됨)"인지 시각적으로 보여줌(순수 표시용, 실제 분리 여부는 엔진 쪽에서 처리). */
+.battle-stack-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.battle-stack-row.tile-same {
+  padding: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-main) 3%, transparent);
+}
+
+.battle-stack-row.tile-separate {
+  gap: 14px;
+}
+
+/* .battle-stack는 내부 공룡 원들이 position:absolute; top:0; left:0으로 자기 자신(패딩 없는
+   0,0 기준)에 딱 맞춰 앉아있어서, 여기에 직접 padding을 주면 그 아이들도 패딩 안쪽으로 같이
+   밀려 들어가 테두리와 어긋나 보임. 그래서 장식용 점선 테두리는 별도의 감싸는 .tile-box에
+   주고, .battle-stack 자체는 손대지 않음(대기 체력바 쪽은 절대위치 자식이 없어서 그대로 둬도 됨) */
+.battle-stack-row.tile-separate .tile-box,
+.battle-stack-row.tile-separate .reserve-bars {
+  padding: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-main) 3%, transparent);
+}
+
+.my-stack-row {
+  flex-direction: row-reverse;
+}
+
+/* 스택(.battle-stack)과 정확히 같은 높이로 고정해서 대기 마릿수와 무관하게 박스 크기/위치가
+   항상 일정하게 유지되도록 함(다른 타일 모드에서 점선 박스가 들쭉날쭉해 보이던 문제 해결).
+   최대 12마리(공룡 수 상한 13 - 앞장 1)까지도 스크롤 없이 다 들어가도록 바를 얇게 잡음. */
+.reserve-bars {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  height: clamp(56px, 20cqw, 96px);
+  overflow: hidden;
+}
+
+.reserve-bar {
+  width: clamp(20px, 8cqw, 34px);
+  height: 3px;
+  border-radius: 1.5px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.reserve-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.battle-avatar.front-defeated {
+  animation: battle-front-defeated 0.4s ease;
+}
+
+@keyframes battle-front-defeated {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(0.7) rotate(30deg); filter: brightness(2) grayscale(1); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.battle-arena.area-flash {
+  animation: battle-area-flash 0.4s ease;
+}
+
+@keyframes battle-area-flash {
+  0%, 100% { background: transparent; }
+  40% { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+}
+

@@ -1,0 +1,492 @@
+/* ===== 타이탄 페이지 전용(titan-page.js) - 관련 수치 카드, 전투설정/빠른계산/실전시뮬레이션/조합찾기 4탭, 육각형 듀얼 장면 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 타이탄 페이지: 관련 수치 카드 ===== */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(6px, 1.67cqw, 10px);
+}
+
+.metric-tile {
+  /* <button> 기본 스타일 리셋 */
+  appearance: none;
+  font-family: inherit;
+  outline: none;
+
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: clamp(7px, 1.83cqw, 11px) clamp(10px, 2.5cqw, 15px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+@media (hover: hover) {
+  .metric-tile:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
+    background: color-mix(in srgb, var(--accent) 5%, var(--input-bg));
+  }
+}
+
+.metric-tile:active {
+  background: var(--card-bg);
+}
+
+.metric-tile.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.metric-label {
+  font-size: clamp(11px, 2.33cqw, 13px);
+  color: var(--text-sub);
+}
+
+.metric-value {
+  font-size: clamp(15px, 4cqw, 20px);
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: normal;
+}
+
+.metric-sub {
+  font-size: clamp(10px, 2.2cqw, 12px);
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 기본값에서 바뀐 값만 노란색으로 강조(입력칸/드롭다운/관련 수치 타일 공통).
+   input/.selected-value/.metric-value 등 이 규칙보다 뒤에 나오는 동일 특이도 클래스도 있어서
+   소스 순서에 기대지 않도록 !important로 확실히 이기게 함 */
+.value-changed {
+  color: var(--accent) !important;
+}
+
+.metric-detail {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--bg-color);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.metric-detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+
+.metric-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.metric-detail-row:first-of-type {
+  border-top: none;
+}
+
+.metric-detail-empty {
+  font-size: 13px;
+  color: var(--text-sub);
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* ===== 타이탄: 전투 설정 / 빠른 계산 / 실전 시뮬레이션 / 조합 찾기 4개 모드를 정확히 4등분 -
+   탭 폭이 전부 같아서 인디케이터도 순수 CSS 퍼센트로 처리(JS 픽셀 측정 방식은 창 폭이 좁아질 때
+   재계산이 안 돼서 옆 탭을 침범하는 버그가 있었음 - %는 항상 컨테이너와 같이 줄어들어 안전함).
+   이동은 #titanModeTabs의 data-active-idx 속성으로 표시(titanInitModeTabs, titan-page.js) =====*/
+.titan-mode-tabs-4 .battle-mode-indicator {
+  width: calc(25% - 5px);
+}
+
+.titan-mode-tabs-4[data-active-idx="1"] .battle-mode-indicator { transform: translateX(calc(100% + 4px)); }
+.titan-mode-tabs-4[data-active-idx="2"] .battle-mode-indicator { transform: translateX(calc(200% + 8px)); }
+.titan-mode-tabs-4[data-active-idx="3"] .battle-mode-indicator { transform: translateX(calc(300% + 12px)); }
+
+/* 전투 설정 탭(idx 0)만 나머지 모드와 구분되게 하늘색(#3cb4be)으로 표시 - 나머지 3개(빠른 계산/
+   실전 시뮬레이션/조합 찾기)는 기본 골드 그라디언트 그대로 유지 */
+.titan-mode-tabs-4[data-active-idx="0"] .battle-mode-indicator {
+  background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
+  box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
+}
+
+.titan-mode-tabs-4[data-active-idx="0"] #titanModeTabSettings.active {
+  color: #eef4ff;
+}
+
+/* 전투 설정 8칸(자연/부족/공버프/체버프/레벨/시간/거리/연속전투)을 전부 "라벨 왼쪽 - 조작 오른쪽"
+   행으로 통일해서 2열 grid에 정확히 4행씩 배치 - 줄바꿈 대신 글자 크기를 줄여서 한 줄에 들어가게 함 */
+.titan-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.titan-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: clamp(34px, 8cqw, 48px);
+  min-width: 0;
+}
+
+
+/* 타이탄 레벨/전투 제한시간 - 위아래 가로선으로 하나의 구역처럼 묶고, 각각 라벨 밑에 드롭다운이
+   자기 칸 폭 전체를 차지하도록(다른 행들처럼 라벨 옆에 붙는 게 아니라 아래로 스택) */
+.titan-settings-levelblock {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.titan-settings-stack .setting-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.titan-settings-stack .custom-dropdown,
+.titan-settings-stack .affix-input {
+  width: 100%;
+}
+
+/* 짝 없이 혼자 스택으로 배치되는 항목(타이탄 레벨)용 - 위아래 구분선 없이 전체 폭 한 줄만 차지 */
+.titan-settings-fullstack {
+  grid-column: 1 / -1;
+}
+
+/* 연속 전투는 토글이라 겹칠 일이 없어서 라벨 옆 배치를 유지하되, 짝이 없어져서 혼자 전체 폭을 씀 */
+.titan-settings-row-full {
+  grid-column: 1 / -1;
+}
+
+/* 연속 전투 - 왼쪽이 허전해 보이지 않게 라벨+토글을 오른쪽으로 붙임 */
+.titan-settings-row-end {
+  justify-content: flex-end;
+}
+
+/* 2열 상태(공격력·체력 버프 타워 / 전투 제한시간·타이탄 거리)에서는 드롭다운 폭이 카드 전체가
+   아니라 그 절반이라 기본 selected-value 글자 크기가 여전히 크면 ▼ 삼각형과 겹침 - 더 작게
+   클램프하고, 그래도 넘치면 자간 대신 말줄임표로 처리 */
+.titan-settings-stack .selected-value {
+  font-size: clamp(9.5px, 2cqw, 13px);
+  padding-left: 20px;
+  padding-right: 20px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 타이탄 레벨은 짝 없이 혼자 카드 전체 폭을 쓰므로(반쪽 폭이 아님) 위의 축소가 필요 없음 -
+   기본 드롭다운 크기(다른 페이지의 일반 커스텀 드롭다운과 동일)로 되돌림 */
+.titan-settings-fullstack .selected-value {
+  font-size: clamp(11px, 2.5cqw, 15px);
+  padding-left: clamp(10px, 2.33cqw, 14px);
+  padding-right: clamp(10px, 2.33cqw, 14px);
+}
+
+/* 카드 폭이 좁아지면 2열로는 텍스트가 도저히 안 들어가므로, 레벨/제한시간을 세로로 줄내림
+   (각자 한 행 전체를 차지) - 이 블록만 스코프해서 나머지 설정 항목(자연구조물 등)은 그대로 2열 유지 */
+@container (max-width: 400px) {
+  .titan-settings-levelblock {
+    grid-template-columns: 1fr;
+  }
+}
+
+.titan-settings-row .setting-label {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titan-settings-row .setting-control,
+.titan-settings-row .custom-dropdown,
+.titan-settings-row .affix-input {
+  width: 44%;
+  min-width: 0;
+}
+
+.titan-settings-row .selected-value {
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 타이탄: 빠른 계산 탭 - 현재 전투 설정 요약. 진짜 2열 grid + 실선 테두리로 좌우를 명확히
+   나눔(칸 폭이 항상 정확히 반반이라 어긋날 일이 없음) ===== */
+.titan-quick-summary {
+  margin-bottom: 14px;
+}
+
+.titan-quick-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.titan-quick-summary-col {
+  border-left: 1px solid var(--border-color);
+  padding: 0 0 0 14px;
+}
+
+/* 왼쪽 칸은 구분선이 자기 오른쪽에 있으니 오른쪽 여백이 있어야 글자가 선에 안 붙어 보임 */
+.titan-quick-summary-col:first-child {
+  border-left: none;
+  padding: 0 14px 0 0;
+}
+
+.titan-quick-summary-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.titan-quick-summary-item:first-child {
+  border-top: none;
+}
+
+.titan-quick-summary-item span {
+  color: var(--text-sub);
+}
+
+.titan-quick-summary-item b {
+  color: var(--text-main);
+  text-align: right;
+}
+
+/* ===== 타이탄: 실전 시뮬레이션 탭 - 육각형 2개(인접 타일)를 각각 따로 3D 회전시켜 모서리를
+   맞추면 계산이 어긋나기 쉬워서, 애초에 두 육각형을 회전 "전" 평면 좌표계 위에 정확한 인접
+   좌표(정육각형 타일 좌표 공식)로 함께 그려두고, 그 전체(SVG 하나)를 통째로 한 번만 rotateX 함 -
+   회전은 강체 변환이라 회전 전에 맞아있던 인접 관계가 그대로 보존되어 별도 계산 없이 항상 맞음.
+   결합 좌표계: 육각형 1개 100x86.6, 우상단 이웃은 (+75,-43.3) 오프셋 -> 합친 뷰박스 175x129.9,
+   내 타일 중심 (50,86.6)=28.57%/66.67%, 상대 타일 중심 (125,43.3)=71.43%/33.33%.
+   공룡/타이탄 아바타는 3D 변환을 아예 쓰지 않는 평면 레이어 - rotateX(55deg) 순수 회전 가정 하의
+   좌표 압축 공식(세로는 무대 중심 기준 cos(55°)≈0.5736배, 가로는 회전축이라 그대로)을 좌표
+   계산으로 직접 적용해서 배치함(중첩 3D에서 나던 렌더링 아티팩트를 구조적으로 피함) */
+.titan-duel-wrap {
+  container-type: inline-size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 0 10px;
+  /* 사이드바 체력바 폭을 육각형 스테이지와 같은 기준으로 맞추기 위해 여기(공통 부모)에 선언해서
+     .titan-hex-hpbar-list와 .titan-duel-field가 같은 값을 공유하게 함 - 기존 280px 기준에서
+     전체적으로 약 30% 키움(280 * 1.3 = 364) */
+  --duel-w: min(364px, 90cqw);
+}
+
+.titan-duel-field {
+  position: relative;
+  padding: clamp(10px, 4cqw, 20px) 0;
+  perspective: 1000px;
+}
+
+/* 바닥(3D 기울임)과 아바타 오버레이(평면)가 정확히 같은 박스를 공유하는 기준 무대 - 두 레이어가
+   서로 다른 padding/여백을 가지면 좌표가 어긋나므로, 결합 좌표계(175x129.9) 박스는 이 하나로만
+   정의하고 두 레이어 모두 여기 꽉 채워 겹침 */
+.titan-duel-stage {
+  position: relative;
+  width: var(--duel-w);
+  aspect-ratio: 175 / 129.9;
+  margin: 0 auto;
+}
+
+/* 바닥(SVG)만 진짜 3D로 기울임(preserve-3d + rotateX) */
+.titan-duel-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(55deg);
+}
+
+.titan-duel-floor-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
+}
+
+/* 아바타는 3D 변환을 전혀 안 씀(중첩 3D에서 생기던 반투명/z-fighting 렌더링 버그를 구조적으로
+   피함) - 대신 rotateX(55deg) 순수 회전을 가정했을 때의 좌표 압축 공식을 그대로 계산해서 좌표만
+   대입: 세로 위치는 무대 중심(50%) 기준 cos(55°)≈0.5736배로 당겨오고, 가로는 그대로 둠(회전축이라
+   영향 없음). 두 진영 타일 중심 원래 좌표(28.57%/66.67%, 71.43%/33.33%)에 이 공식을 적용한 값 */
+.titan-hex-anchor {
+  position: absolute;
+  width: 57.14%;
+  height: 38.24%;
+  transform: translate(-50%, -50%);
+}
+
+.titan-anchor-mine { left: 28.57%; top: 59.56%; }
+.titan-anchor-boss { left: 71.43%; top: 40.44%; }
+
+.titan-hex-anchor-popup-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 아바타는 3D 변환이 전혀 없는 평면 요소 - 앵커(.titan-hex-anchor)가 이미 압축 좌표로 배치돼
+   있으므로 여기서는 그냥 자기 위치(left/top)를 자기 자신의 아래쪽 중앙에 맞추기만 하면 됨.
+   3D 중첩 변환이 없어서 z-fighting/반투명 렌더링 아티팩트가 구조적으로 생길 수 없음 */
+.titan-hex-avatar {
+  position: absolute;
+  top: 50%;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -80%);
+  transform-origin: 50% 100%;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+/* 아바타 삼각 대형(뒤 2 + 앞 1) - 무게중심이 앵커 중앙(50%,50% = 육각형 타일 중심)에 오도록
+   좌표를 잡음: (38+X+38)/3=50 -> X=74. 앵커 자체가 이미 압축된 좌표/크기로 배치돼 있으므로
+   그 안에서의 상대 비율(fraction)은 압축 여부와 무관하게 그대로 써도 무게중심이 유지됨.
+   z-index: DOM 순서상 slot2(오른쪽 뒤)가 slot1(앞)보다 나중에 그려져서 slot1의 체력바 오른쪽
+   절반을 덮어버렸음(왼쪽은 slot0가 먼저 그려져서 우연히 안 덮였던 것) - 앞쪽(slot1)이 항상 위에
+   오도록 명시해서 그 체력바 테두리가 양쪽 다 뒤쪽 공룡과 또렷이 구분되게 함 */
+.titan-hex-avatar-slot0 { left: 32%; top: 38%; z-index: 1; }
+.titan-hex-avatar-slot1 { left: 50%; top: 74%; z-index: 2; }
+.titan-hex-avatar-slot2 { left: 68%; top: 38%; z-index: 1; }
+
+/* 타이탄 쪽은 항상 1마리뿐이라 그대로 중앙 배치 */
+.titan-hex-avatar-boss {
+  left: 50%;
+  width: 36%;
+}
+
+.titan-hex-avatar-mine {
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white), var(--accent-strong) 75%);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.titan-hex-avatar-boss {
+  background: radial-gradient(circle at 35% 30%, #ff8a80, #a4241f 75%);
+  box-shadow: 0 0 14px rgba(224, 71, 63, 0.55);
+}
+
+.titan-hex-avatar.dummy-shaking {
+  animation: titan-hex-shake 0.35s ease-in-out;
+}
+
+@keyframes titan-hex-shake {
+  0%, 100% { transform: translate(-50%, -80%) rotate(0deg); }
+  20% { transform: translate(-50%, -80%) rotate(-6deg); }
+  40% { transform: translate(-50%, -80%) rotate(5deg); }
+  60% { transform: translate(-50%, -80%) rotate(-4deg); }
+  80% { transform: translate(-50%, -80%) rotate(2deg); }
+}
+
+/* 앞 3자리(삼각 대형) 각자의 체력바 - 아바타 원 바로 위에 붙임(대상 위쪽이 더 상식적인 위치) */
+.titan-hex-avatar-hpbar {
+  position: absolute;
+  left: 50%;
+  top: -22%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.titan-hex-avatar-hpfill {
+  height: 100%;
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+/* 표시 중인 3마리 각자의 피격/회복/공격 기여를 그 공룡 아바타 위에 개별적으로 띄움(.battle-dmg-popup
+   기반 - position/애니메이션은 그대로 재사용, 크기/색만 작게 오버라이드) */
+.titan-mini-popup {
+  font-size: 13px;
+  top: -13px;
+}
+
+.titan-mini-popup-dmg {
+  color: #ff6b5e;
+}
+
+.titan-mini-popup-heal {
+  color: #6cf27a;
+}
+
+.titan-mini-popup-attack {
+  color: var(--accent);
+}
+
+/* 숨겨진(비표시) 공룡들의 체력바 - 육각형 왼쪽에 세로 1열. 막대 사이 여백을 살짝 더 줌 */
+.titan-hex-hpbar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* position:relative는 이 막대 위에 개별 피격/힐/공격 팝업을 띄우기 위한 기준점 - overflow:hidden은
+   빼둠(팝업이 막대 밖 위쪽으로 떠야 하는데 잘려 보이면 안 되니까). 채움 막대 자체가 이미
+   border-radius를 갖고 있어서 둥근 모양은 그대로 유지됨.
+   폭은 표시 중인 3마리 자기 체력바와 같은 비율(0.9(hpbar폭) × 0.26(아바타폭) × 0.5714(앵커폭) ≈
+   0.1337 × 무대 폭)로 계산해서 "대기 공룡 체력바 가로길이 = 표시되는 3마리와 동일"하게 맞춤 */
+.titan-hex-hpbar {
+  position: relative;
+  width: calc(var(--duel-w) * 0.1337);
+  height: 9px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+}
+
+.titan-hex-hpfill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+.titan-hex-hpfill-mine {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+
+.titan-hex-hpfill-boss {
+  background: linear-gradient(90deg, #a4241f, #e0473f);
+}
+
+.titan-live-stats {
+  margin-top: 14px;
+}
+
+#titanLiveModeCard .battle-controls {
+  margin-top: 14px;
+}
+
+#battleReport.report-box {
+  margin-top: 16px;
+}
+

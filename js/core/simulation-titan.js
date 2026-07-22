@@ -14,6 +14,8 @@
  * @param {number} [cfg.moveSpeed] 이동속도(1~150). 연속 전투 재소환 이동시간 계산에 씀
  * @param {number} [cfg.distanceTiles] 둥지-타이탄 거리(타일). 연속 전투 재소환 이동시간 계산에 씀
  * @param {boolean} [cfg.continuousBattle] 켜져 있으면 공룡이 죽어도 1.5초 후 재소환 + 이동시간 뒤 다시 합류
+ * @param {number|null} [cfg.atkTowerLevel] 공격력 버프 타워 레벨(0~14). null이면 미설치
+ * @param {number|null} [cfg.hpTowerLevel] 체력 버프 타워 레벨(0~14). null이면 미설치
  * @param {number} [cfg.iterations]
  * @param {boolean} [cfg.collectLog] 1회차 상세 로그 수집 여부
  * @param {(completed:number, total:number)=>void} [cfg.onProgress]
@@ -28,16 +30,26 @@ function runTitanSimulation(cfg) {
     moveSpeed = 1,
     distanceTiles = 0,
     continuousBattle = false,
+    natureAdjacent = false,
+    tribeControl = false,
+    atkTowerLevel = null,
+    hpTowerLevel = null,
     iterations = 500,
     collectLog = false,
-    onProgress = () => {}
+    onProgress = () => {},
+    batchSize: batchSizeCfg = 1
   } = cfg;
+  const atkTowerP = (atkTowerLevel !== null && atkTowerLevel !== undefined) ? BUFF_TOWER_PERCENTS[atkTowerLevel] : 0;
+  const hpTowerP = (hpTowerLevel !== null && hpTowerLevel !== undefined) ? BUFF_TOWER_PERCENTS[hpTowerLevel] : 0;
 
   // 재소환 딜레이(1.5초 고정) + 둥지<->타이탄 이동 시간(거리 × 타일당 이동시간)
   const respawnDelaySec = 1.5 + distanceTiles * getTileMoveSeconds(moveSpeed);
 
   return new Promise((resolve) => {
-    const batchSize = 1;
+    // onProgress를 안 쓰는 호출(조합 찾기 최적화기 내부)은 batchSize를 키워서 반복마다
+    // setTimeout(0)으로 쪼개지는 타이머 오버헤드를 줄일 수 있음. 실전 시뮬레이션(진행률 표시용
+    // onProgress 사용)은 기본값 1을 그대로 써서 매끄러운 진행률 갱신을 유지함.
+    const batchSize = Math.max(1, batchSizeCfg);
     let completed = 0;
     const detailedLogs = [];
     let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0;
@@ -50,14 +62,22 @@ function runTitanSimulation(cfg) {
       .filter((r) => r !== null)
       .map((r) => ({ ...r, s: RUNES_DATA[r.name].levels[r.lv] }));
 
+    // 자연의 포옹/부족의 축복은 해당 타일 조건이 충족된 상태여야만 효과가 적용됨(허수아비/공룡
+    // 대전과 같은 조건). 다른 룬은 항상 적용.
+    const isTileGated = (r) =>
+      r.name === "자연의 포옹" ? !natureAdjacent
+      : (r.name === "부족의 축복 1" || r.name === "부족의 축복 2") ? !tribeControl
+      : false;
+
     let atkF_vamp = 0, atkP_vamp = 0;
     activeRunes.forEach((r) => {
       if (VAMP_EXCLUSION_LIST.includes(r.name)) return;
+      if (isTileGated(r)) return;
       if (r.s.atk_f) atkF_vamp += r.s.atk_f;
       if (r.s.atk_p) atkP_vamp += r.s.atk_p;
     });
     atkF_vamp += constellation.atk || 0;
-    atkP_vamp += bonusPercent.atk || 0;
+    atkP_vamp += (bonusPercent.atk || 0) + atkTowerP;
     const vampBaseAtk = (baseAtk + atkF_vamp) * (1 + atkP_vamp / 100);
 
     const runBatch = () => {
@@ -94,8 +114,8 @@ function runTitanSimulation(cfg) {
           const hasPendingRevive = dinos.some((d) => d.reviveAtTime !== undefined);
           if (aliveCount <= 0 && !hasPendingRevive) break;
 
-          let atkF = constellation.atk || 0, atkP = bonusPercent.atk || 0;
-          let hpF = constellation.hp || 0, hpP = bonusPercent.hp || 0;
+          let atkF = constellation.atk || 0, atkP = (bonusPercent.atk || 0) + atkTowerP;
+          let hpF = constellation.hp || 0, hpP = (bonusPercent.hp || 0) + hpTowerP;
           let cRate = 3 + (constellation.critRate || 0);
           let cDmg = 105 + (constellation.critDmg || 0);
           // 보스 슬레이어(룬, %)는 일반 % 바구니(atkP)에 안 넣고 최종 곱연산으로 따로 적용함.
@@ -109,6 +129,7 @@ function runTitanSimulation(cfg) {
             // 마지막 선물의 atk_f는 사망한 아군이 남은 아군에게 넘겨주는 임시 버프량(giftAtk)이지
             // 상시 스탯이 아님 -> 상시 % 바구니에는 넣지 않음
             if (r.name === "마지막 선물") return;
+            if (isTileGated(r)) return;
             let active = r.name === "협동 공격" ? aliveCount >= 5 : r.name === "고독한 분노" ? aliveCount === 1 : true;
             if (active) {
               if (r.s.atk_f) atkF += r.s.atk_f;
@@ -291,8 +312,11 @@ function runTitanSimulation(cfg) {
             detailedLogs.push({
               시간: t + "초",
               타이탄HP: Math.floor(tHp).toLocaleString(),
+              타이탄HP_raw: Math.max(0, tHp),
+              타이탄최대HP_raw: targetTitan.hp,
               생존공룡: aliveCount + "마리",
               공룡상태: dinos.map((d, idx) => ({ 번호: idx + 1, 남은HP: Math.max(0, d.hp).toFixed(0) })),
+              공룡최대HP_raw: currentMaxHp,
               이벤트: tickEvents
             });
           }

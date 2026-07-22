@@ -1,0 +1,554 @@
+/* ===== 로그인/회원가입 모달 + 친구 초대·목록·선택 팝업 + 친구 스탯 확인 모달(friends-page.js) =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+.login-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1a1206;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: transform 0.15s ease;
+}
+
+.login-btn:active {
+  transform: scale(0.98);
+  background: color-mix(in srgb, var(--accent-strong) 85%, black);
+}
+
+/* 로그인 상태 표시줄: 아바타+닉네임+액션을 각자 테두리 박스로 나누지 않고 한 줄로 흐르게 구성 */
+#authRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.auth-identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
+.auth-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1a1206;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.auth-username {
+  min-width: 0;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.auth-text-btn {
+  flex-shrink: 0;
+  padding: 6px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auth-text-btn:hover {
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+/* ===== 로그인/회원가입/비밀번호 찾기 모달 ===== */
+#authModalOverlay {
+  /* .menu-overlay(1999)보다 위, .side-menu(2000)보다도 위에 항상 뜨도록 */
+  z-index: 2099;
+}
+
+.auth-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px;
+  z-index: 2100;
+  container-type: inline-size;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.auth-modal.open {
+  display: block;
+}
+
+/* ===== 친구 초대 배너 (친구 기능 3단계) =====
+   어느 페이지에 있든, 심지어 다른 모달이 열려 있어도 위에 뜨도록 z-index를 가장 높게 잡음.
+   화면 상단 고정 바 형태 - 토스트처럼 사라지지 않고 수락/거절할 때까지 유지됨. */
+.friend-invite-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2200;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+
+.friend-invite-text {
+  color: #1a1206;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.friend-invite-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.friend-invite-actions button {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.friend-invite-accept {
+  background: #1a1206;
+  color: var(--accent);
+}
+
+.friend-invite-decline {
+  background: rgba(26, 18, 6, 0.15);
+  color: #1a1206;
+}
+
+/* 친구 요청 등 "그냥 알림"용 짧게 떴다 사라지는 토스트. 수락/거절이 필요한
+   .friend-invite-banner(상단 고정)와 달리 화면 하단에 살짝 떴다가 자동으로 사라짐 */
+.friend-toast {
+  display: none;
+  align-items: center;
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2200;
+  max-width: min(90vw, 360px);
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auth-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.auth-modal-header span {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.auth-field {
+  margin-bottom: 14px;
+}
+
+.auth-field label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+}
+
+.auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-nickname-hint {
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.friend-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-search-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-search-btn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1a1206;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.friend-search-btn:active {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--accent-strong) 85%, black);
+}
+
+.auth-nickname-hint-good {
+  color: #2ecc71;
+}
+
+.auth-nickname-hint-bad {
+  color: #ff4444;
+}
+
+/* ===== 친구 목록 행 ===== */
+.friend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.friend-row:first-child {
+  border-top: none;
+}
+
+.friend-row-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.friend-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.friend-row-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-submit-btn {
+  margin-top: 6px;
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.auth-consent-row input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-top: 2px;
+  background: none;
+  flex-shrink: 0;
+}
+
+.auth-consent-row span {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-consent-row a {
+  color: var(--accent);
+}
+
+.auth-modal-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.auth-modal-links a {
+  color: var(--text-sub);
+  text-decoration: none;
+}
+
+.auth-modal-links a:hover {
+  color: var(--accent);
+}
+
+.auth-modal-error {
+  color: #ff4444;
+  background: rgba(255, 68, 68, 0.1);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 14px;
+}
+
+.auth-modal-success {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 4px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+/* ===== 친구 선택 팝업(초대/설정 불러오기 공용) ===== */
+.friend-picker-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+.friend-picker-modal {
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  /* 아레나 슬롯 편집 팝업(.arena-slot-edit-modal)의 프리셋 버튼이 cqw로 반응형 축소를 하는데,
+     그 계산 기준이 될 컨테이너가 없으면(부모 쪽 어디에도 container-type이 없으면) 깨짐 - 여기서
+     잡아줌. 다른 friend-picker-modal 용도(친구 초대 등)엔 cqw를 쓰는 요소가 없어서 영향 없음 */
+  container-type: inline-size;
+}
+
+.friend-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.friend-picker-item {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border-color);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.friend-picker-item:first-child {
+  border-top: none;
+}
+
+.friend-picker-item:hover {
+  color: var(--accent);
+}
+
+.friend-picker-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 13px;
+}
+
+/* ===== 친구 스탯 확인(카테고리별 부분 공개 대응) ===== */
+/* 룬 아이콘이 작다는 피드백 반영 - 모달 자체를 넓히고 슬롯 그리드의 최대 폭도 같이 키움 */
+#friendStatOverlay .friend-picker-modal {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.friend-stat-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.friend-stat-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.friend-stat-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+
+.friend-stat-section-hint {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-sub);
+  opacity: 0.75;
+}
+
+.friend-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.friend-stat-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.friend-stat-grid span {
+  color: var(--text-sub);
+}
+
+.friend-stat-grid b {
+  color: var(--text-main);
+}
+
+.friend-stat-slot-row {
+  padding: 0;
+  max-width: 340px;
+}
+
+.friend-stat-hidden-text {
+  font-size: 13px;
+  color: var(--text-sub);
+  font-style: italic;
+}
+
+.friend-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.friend-preset-item {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.friend-preset-item:hover {
+  color: var(--accent);
+}
+
+.friend-preset-item.active {
+  background: color-mix(in srgb, var(--accent) 18%, var(--input-bg));
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.friend-preset-detail-slots {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.friend-stat-subrow {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+/* 친구 스탯 확인의 "아레나 프리셋" - 배치 하나를 고르면 5개 슬롯을 세로로 나열, 각 슬롯마다
+   어떤 룬 프리셋이 배정됐는지 이름 + 룬 아이콘 미리보기 */
+#friendArenaFormationDetail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-arena-slot-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.friend-arena-slot-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+

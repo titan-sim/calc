@@ -1,0 +1,138 @@
+/* ===== 상단 앱바 + 좌측 드로어 내비게이션(페이지 이동, 테마 토글, 설정 행) =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+.menu-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+/* 다크/라이트 모드 전환: 안으로 살짝 파인 알약 트랙에 "다크모드"/"라이트모드"를 양쪽에 항상
+   써두고, 트랙보다 2배 넓은 그라데이션 이미지(가운데만 노란 "봉우리", 양 끝은 투명한 모양) 하나를
+   배경으로 깔아서 background-position만 슬라이드시킴. 이 봉우리가 오른쪽 끝 -> 트랙 한가운데 ->
+   왼쪽 끝으로 전환 내내 끊김 없이 쭉 이어서 이동하는 것처럼 보임(테두리 있는 도형이 움직이는 게
+   아니라 경계 없는 빛 덩어리가 흘러가는 느낌). 글자는 opacity로 따로 켜고 끔. */
+.theme-slider {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: var(--input-bg);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18);
+  padding: 3px;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.theme-slider-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    to right,
+    rgb(from var(--accent) r g b / 0) 0%,
+    rgb(from var(--accent) r g b / 0) 25%,
+    var(--accent) 50%,
+    rgb(from var(--accent) r g b / 0) 75%,
+    rgb(from var(--accent) r g b / 0) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  background-position: 0% 0; /* 기본(다크모드): 봉우리가 트랙 오른쪽 끝에 딱 붙어 있음 */
+  transition: background-position 1.15s ease;
+  pointer-events: none;
+}
+
+.theme-slider.is-light .theme-slider-glow {
+  background-position: 100% 0; /* 라이트모드: 봉우리가 트랙 왼쪽 끝으로 이동 */
+}
+
+.theme-slider-label {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--text-main);
+  transition: opacity 0.15s ease;
+}
+
+.theme-slider-label-light {
+  opacity: 0;
+}
+
+.theme-slider.is-light .theme-slider-label-dark {
+  opacity: 0;
+}
+
+.theme-slider.is-light .theme-slider-label-light {
+  opacity: 1;
+}
+
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 1999;
+}
+
+.menu-divider {
+  border-top: 1px solid var(--border-color);
+  margin: 16px 0;
+}
+
+/* ===== 페이지 내비게이션(드로어 안) ===== */
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* hover:hover 가드 - 터치 기기에서 탭했을 때 호버가 눌어붙어 보이는 걸 막음(마우스 있는 PC에서만) */
+@media (hover: hover) {
+  .nav-link:not(.nav-link-soon):hover {
+    background: var(--input-bg);
+    color: var(--primary);
+  }
+}
+
+.nav-link.active {
+  background: var(--input-bg);
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.nav-link-soon {
+  opacity: 0.55;
+}
+
+.nav-soon-tag {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-sub);
+  margin-left: 6px;
+}
+

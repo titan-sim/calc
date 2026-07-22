@@ -1,0 +1,202 @@
+/* ===== 허수아비 페이지 전용(dummy-page.js) - 육각형 타일, 타격 이펙트, 최적 조합 찾기 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 허수아비 =====
+   정육각형은 순수하게 "바닥" 역할만 함(3D로 앞으로 기울인 clip-path 도형, 그 자체엔 내용물이 없음).
+   허수아비/타격 이펙트/대미지 숫자는 전부 그 바닥과는 별개인 평평한 2D 레이어들로, 같은 grid 칸에
+   포개서 육각형과 정확히 같은 위치·크기를 공유함 - 이러면 "육각형 안에 갇힌" 것처럼 보이는 3D 겹침
+   문제 없이, 그냥 평평한 스프라이트가 기울어진 바닥 그림 위에 얹힌 것처럼 자연스럽게 보임(2D
+   아이소메트릭 게임에서 흔히 쓰는 방식 - 캐릭터 스프라이트 자체는 기울이지 않음) */
+.dummy-field-card {
+  container-type: inline-size;
+}
+
+/* 시작/일시정지 버튼 줄이 그 위 대미지·경과시간 카드에 바로 붙어 보인다는 피드백 - 살짝 띄움 */
+#dummyLiveModeCard .battle-controls {
+  margin-top: 14px;
+}
+
+.dummy-field-wrap {
+  display: grid;
+  justify-items: center;
+  /* 육각형/허수아비 크기에 비해 위아래 여백이 과했다는 피드백 - 여백만 줄여서 그 아래 대미지/
+     경과시간 카드가 더 위로 붙게 함(육각형 자체 크기는 그대로 둠) */
+  padding: clamp(10px, 4cqw, 22px) 0 clamp(16px, 5cqw, 28px);
+  perspective: 1000px;
+}
+
+.dummy-hexagon,
+.dummy-target-layer,
+.dummy-popup-layer {
+  grid-column: 1;
+  grid-row: 1;
+  width: min(300px, 78cqw);
+  aspect-ratio: 1 / 0.866;
+}
+
+.dummy-hexagon {
+  position: relative;
+  transform: rotateX(55deg);
+  filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
+}
+
+/* clip-path + border 조합은 대각선 변에서 테두리가 끊겨 보이는 고질적인 문제가 있어서(border는
+   클리핑 전의 사각 박스 기준으로 그려짐), 진짜 육각형 다각형을 그리는 SVG polygon으로 바꿈 -
+   stroke가 꼭짓점을 그대로 잇는 하나의 이어진 선이라 테두리가 절대 끊기지 않음 */
+.dummy-hexagon-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 육각형 자체(바닥)는 3D로 기울지만, 그 위에 놓이는 것들(허수아비/이펙트/대미지 숫자)은 전부
+   평평한 2D 레이어로 별도 grid 칸에 포개져 있을 뿐 회전하지 않음 - 캐릭터 스프라이트 자체를
+   기울이거나 비율을 바꾸지 않는, 2D 아이소메트릭 게임에서 흔한 방식 */
+.dummy-target-layer {
+  position: relative;
+  pointer-events: none;
+}
+
+/* 허수아비의 "가장 밑부분"이 육각형의 기하학적 중심(마주보는 꼭짓점끼리 이은 대각선들의 교차점 -
+   정육각형이라 바운딩 박스의 정중앙과 같음)에 오도록 함. top:50%에 이미지 자기 자신의 전체 높이만큼
+   위로(translateY(-100%)) 밀어올리면 "이미지의 아래쪽 끝"이 정확히 그 50% 지점에 위치하게 됨.
+   추가로 translateX(6%)를 더 준 건 - 이미지 박스 자체는 정확히 중앙에 있어도 Scarecrow_1.png
+   원본 그림 안에서 실제 허수아비 그림(캐릭터)이 여백 없이 딱 붙어있지 않고 왼쪽으로 치우쳐 그려져
+   있어서(오른쪽에 빈 여백이 더 많음), 그 안쪽 그림 기준으로 보정해서 육각형 중심과 맞춘 것 */
+.dummy-scarecrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40%;
+  height: auto;
+  transform: translate(-50%, -100%) translateX(6%);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 맞을 때마다 살짝 떨리는 효과 - 발밑(transform-origin)을 축으로 좌우로 흔들려서 바닥에 박혀
+   있는 것처럼 자연스럽게 흔들림 */
+.dummy-scarecrow.dummy-shaking {
+  animation: dummy-shake 0.35s ease-in-out;
+}
+
+@keyframes dummy-shake {
+  0%, 100% { transform: translate(-50%, -100%) translateX(6%) rotate(0deg); }
+  20% { transform: translate(-50%, -100%) translateX(6%) rotate(-5deg); }
+  40% { transform: translate(-50%, -100%) translateX(6%) rotate(4deg); }
+  60% { transform: translate(-50%, -100%) translateX(6%) rotate(-3deg); }
+  80% { transform: translate(-50%, -100%) translateX(6%) rotate(2deg); }
+}
+
+.dummy-popup-layer {
+  position: relative;
+  pointer-events: none;
+}
+
+/* 대미지 숫자는 허수아비 머리 위에서 뜨도록 배치(발이 50% 지점에 있고 그 위로 몸통 전체가
+   올라가 있으므로, 머리는 50%보다 한참 위) */
+.dummy-dmg-popup {
+  top: -6%;
+}
+
+.dummy-hit-effect {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  width: 26%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  /* 원본 이펙트 이미지(대부분 흰색/밝은 회색 + 투명 배경)를 빨갛게 물들이는 표준 CSS 트릭:
+     brightness(0)로 실루엣(검정+알파)만 남긴 뒤 invert/sepia/saturate/hue-rotate로 재채색 */
+  filter: brightness(0) saturate(100%) invert(20%) sepia(89%) saturate(6142%) hue-rotate(2deg) brightness(100%) contrast(112%)
+    drop-shadow(0 0 10px rgba(255, 40, 30, 0.55));
+  animation: dummy-hit-flash 0.4s ease-out forwards;
+}
+
+@keyframes dummy-hit-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--hit-angle, 0deg)) scale(0.4); }
+  30% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--hit-angle, 0deg)) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--hit-angle, 0deg)) scale(1.35); }
+}
+
+/* ===== 허수아비 "최적 조합 찾기" - 보유 룬 14종 레벨 입력 목록 + 결과 ===== */
+
+.dummy-optimizer-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.dummy-owned-rune-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin: 10px 0 14px;
+}
+
+.dummy-owned-rune-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dummy-owned-rune-name {
+  font-size: 12.5px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dummy-owned-rune-level {
+  width: 48px;
+  height: 30px;
+  padding: 4px 6px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.dummy-optimize-best-tile {
+  grid-column: 1 / -1;
+}
+
+/* 조합 찾기 결과 3개(생존 최고/대미지 최고/균형)를 각각 하나의 박스로 눈에 띄게 구분 - 안쪽
+   타일(.report-tile)은 그대로 --input-bg를 쓰므로, 바깥 박스는 --card-bg로 둬서 테두리로만
+   구분되게 하고 색이 겹쳐 밋밋해 보이지 않게 함 */
+.dummy-optimize-result-box {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--card-bg);
+}
+
+.dummy-optimize-result-box + .dummy-optimize-result-box {
+  margin-top: 10px;
+}
+
+.dummy-optimize-best-combo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.6;
+  margin-top: 2px;
+}
+
+.dummy-optimize-runner-ups {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dummy-optimize-runner-up {
+  font-size: 11.5px;
+  color: var(--text-sub);
+}
+

@@ -25,7 +25,21 @@
   <meta name="twitter:description" content="다이노 뮤턴트의 타이탄/공룡 대전/아레나 결과를 미리 예측할 수 있습니다.">
   <meta name="twitter:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
 
-  <link rel="stylesheet" href="css/style.css">
+  <!-- css/style.css(단일 4600여 줄 파일)를 여러 파일로 분리함 - 순서가 원본 cascade 순서와
+       같아야 하므로(뒤에 오는 파일이 앞의 것을 덮어쓸 수 있음) 이 순서를 함부로 바꾸지 말 것 -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/rune-picker.css">
+  <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/auth-friends.css">
+  <link rel="stylesheet" href="css/privacy.css">
+  <link rel="stylesheet" href="css/profile.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/my-dino.css">
+  <link rel="stylesheet" href="css/battle-shared.css">
+  <link rel="stylesheet" href="css/dino-battle.css">
+  <link rel="stylesheet" href="css/arena.css">
+  <link rel="stylesheet" href="css/dummy.css">
+  <link rel="stylesheet" href="css/titan.css">
 </head>
 
 <body>
@@ -99,6 +113,7 @@
   <script src="js/core/supabase-config.js"></script>
   <script src="js/core/data-sync.js"></script>
   <script src="js/core/friend-session.js"></script>
+  <script src="js/core/update-check.js"></script>
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
   <script src="js/core/stat-calc.js"></script>
@@ -107,6 +122,7 @@
   <script src="js/core/simulation-arena.js"></script>
   <script src="js/core/simulation-dummy.js"></script>
   <script src="js/ui/chart-ui.js"></script>
+  <script src="js/ui/dropdown-ui.js"></script>
   <script src="js/ui/rune-ui.js"></script>
   <script src="js/ui/auth-modal.js"></script>
   <script src="js/ui/auth-ui.js"></script>

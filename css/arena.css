@@ -1,0 +1,584 @@
+/* ===== 아레나(5:5 진영전) 페이지 전용(arena-page.js) - 아레나 배치 탭, 10마리 전투 화면, 진형 프리셋 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 아레나(5:5 진영전) =====
+   공룡 대전과 같은 3단 레이아웃(.battle-layout/.battle-side-panel/.battle-main-card 등)을
+   그대로 재사용하고, 아레나 전용인 소환 배치 위젯 + 10마리 전투 화면만 새로 추가함. */
+@media (min-width: 1400px) {
+  /* PC 실사용 화면(1440~1920px대 모니터)에서 열어보면 1240px 고정 폭은 화면 양옆에 큰 여백이 남아
+     전체적으로 작아 보인다는 피드백 반영 - 뷰포트 폭에 비례해서 거의 끝까지 채우되(96vw), 초광각
+     모니터에서 과하게 늘어지지 않도록 상한만 넉넉히 둠 */
+  body[data-page="arena"] .container {
+    width: min(96vw, 1760px);
+  }
+  /* 좌우 진영 설정 패널(기본 스탯/별자리/둥지·알스킨/룬 조합 탭 + 소환 배치까지 있어 세로로 김)이
+     전투 카드보다 훨씬 길어서, 그리드의 기본 정렬(align-items:start)을 그대로 쓰면 전투 카드가
+     맨 위에 붙어 화면 위쪽으로 쏠려 보임 - 가운데 열만 위에서 살짝 띄워서 붕 뜬 느낌을 줄임.
+     원래는 align-self:center를 썼는데, 그 행의 "가장 큰 높이" 기준으로 매번 다시 계산되다 보니
+     좌우 패널 중 한쪽만 탭이 바뀌거나(예: 별자리 탭은 기본 스탯 탭보다 세로로 김) 헤더가 줄바꿈되면
+     (친구초대/설정불러오기 버튼이 있는 상대 쪽만 좁아지면 줄바꿈됨) 그 행 높이가 변해서 가운데
+     카드가 위아래로 슬쩍슬쩍 움직이는 버그가 있었음 - 좌우 패널 상태와 무관하게 항상 똑같은
+     고정 여백만 주는 고정 margin-top으로 바꿔서 흔들리지 않게 함(공룡 대전 페이지는 카드 구성이
+     달라 그대로 둠 - 아레나 스코프로만 한정) */
+  body[data-page="arena"] .battle-arena-wrap {
+    margin-top: clamp(16px, 3vw, 48px);
+  }
+  /* 전투 화면이 핵심인데 공룡 대전과 같은 1:1.15:1 비율(.battle-layout 공용 규칙)을 그대로 쓰면
+     설정 패널과 크기 차이가 거의 없어서 안 부각됨 - 아레나만 가운데 열 비중을 크게 키움 */
+  body[data-page="arena"] .battle-layout {
+    grid-template-columns: 0.82fr 1.7fr 0.82fr;
+  }
+  /* VS 배지도 커진 아바타에 맞춰 같이 키움(공용 .battle-vs 규칙은 공룡 대전용 크기라 그대로 둠) */
+  body[data-page="arena"] .battle-vs {
+    width: clamp(40px, 10.5cqw, 82px);
+    height: clamp(40px, 10.5cqw, 82px);
+  }
+  body[data-page="arena"] .battle-vs span {
+    font-size: clamp(13px, 3.2cqw, 23px);
+  }
+}
+
+/* 아레나 전용 조기 수납(1100~1399px 구간). 공용 데스크톱 3단 규칙은 1100px부터 켜지지만, 아레나는
+   "상대 진영" 헤더에 친구초대/설정불러오기 버튼 2개가 더 있고 요약칸도 5개(치확/치피 분리)라
+   공룡 대전보다 훨씬 일찍 좁아짐 - 실측 결과 뷰포트 1330px 부근(사이드 패널 폭 ~305px)에서 헤더가
+   두 줄로 줄바꿈되기 시작하고, 그 순간 .battle-arena-wrap의 align-self:center 때문에(위 주석 참고)
+   행 높이가 늘어난 만큼 가운데 전투 카드가 아래로 처지는 게 눈에 띄었음. 이 좁은 중간 구간에서
+   찌그러진 3단을 억지로 보여주는 대신, 위 데스크톱 규칙 시작점(1400px)까지는 그냥 미리
+   모바일과 똑같이 좌우 패널을 수납해버림(공용 max-width:1099px 규칙을 아레나만 1399px까지 확장) */
+@media (min-width: 1100px) and (max-width: 1399px) {
+  body[data-page="arena"] .battle-layout {
+    grid-template-columns: 1fr;
+  }
+  body[data-page="arena"] .battle-side-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: min(88vw, 400px);
+    background: var(--bg-color);
+    z-index: 2050;
+    overflow-y: auto;
+    padding: 16px;
+    box-sizing: border-box;
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.45);
+  }
+  body[data-page="arena"] .battle-side-panel.my-side {
+    left: 0;
+    transform: translateX(-105%);
+  }
+  body[data-page="arena"] .battle-side-panel.opp-side {
+    right: 0;
+    transform: translateX(105%);
+  }
+  body[data-page="arena"] .battle-side-panel.open {
+    transform: translateX(0);
+  }
+  body[data-page="arena"] .battle-panel-close {
+    display: flex;
+  }
+  body[data-page="arena"] .battle-peek-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 64px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-sub);
+    font-size: 13px;
+    cursor: pointer;
+    z-index: 10;
+  }
+  body[data-page="arena"] .battle-peek-btn.my-peek {
+    left: 0;
+    border-radius: 0 10px 10px 0;
+  }
+  body[data-page="arena"] .battle-peek-btn.opp-peek {
+    right: 0;
+    border-radius: 10px 0 0 10px;
+  }
+}
+
+/* 탭이 4개->5개로 늘고("아레나 배치") 요약 칸도 4개->5개로 늘면서("치명타 확률"/"치명타 피해") 좁은
+   패널 폭에서 글자가 줄바꿈되던 문제 - 줄바꿈 대신 글자 크기를 줄여서 한 줄에 들어가게 함(모바일도
+   해당되는 문제라 min-width 미디어쿼리 밖에서 페이지 스코프로만 적용) */
+body[data-page="arena"] .dino-tab {
+  font-size: 9.5px;
+  padding: 14px 0;
+  letter-spacing: -0.3px;
+}
+
+body[data-page="arena"] .dino-summary-bar .stat-readout-label {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+/* 공룡 대전의 "공룡 수" 드롭다운은 아레나에선 항상 5마리 고정이라 의미가 없어서 숨김
+   (renderMyDinoPage를 그대로 재사용하는 대신, 아레나 페이지 스코프에서만 CSS로 감춤). 요약 카드의
+   "공룡 수" 항목은 CSS로 숨기는 대신 renderMyDinoPage(splitCritStat:true)가 애초에 치확/치피
+   분리 항목으로 대체해서 5칸을 그대로 채우므로 여기서 따로 감출 필요 없음(감추면 마지막 칸인
+   "치명타 피해"가 대신 잘려서 안 보이게 됨) */
+body[data-page="arena"] .dino-tab-panel[data-panel="base"] .input-grid > div:last-child {
+  display: none;
+}
+
+/* ===== "아레나 배치" 탭: 원형 슬롯 5개(전투 화면과 동일한 좌우 배치) + 그 아래 "아레나 프리셋"
+   (완성된 5슬롯 배치 통째 저장) 목록. 설명 문구 없이 원/버튼만으로 바로 알아볼 수 있게 최소한으로
+   구성. 두 칼럼의 "전체 높이"는 항상 같지만(같은 grid 안), 3칸이 들어가는 칼럼은 원이 작게
+   3등분되고 2칸이 들어가는 칼럼은 크게 2등분됨(LCM(3,2)=6행 그리드에서 3칸 칼럼은 칸당 2행씩,
+   2칸 칼럼은 칸당 3행씩 차지 - 전열이 후열보다 큼직하게 보이는 배틀필드와 같은 위계). 전체 크기는
+   이 비율 그대로 유지한 채 이미지 축소하듯 한 단계 작게 줄인 값(원래 clamp(210px,58cqw,300px)의
+   약 0.55배) */
+.arena-fmt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 8px;
+  height: clamp(116px, 32cqw, 165px);
+  margin-bottom: 16px;
+}
+
+.arena-fmt-square.col-0 { grid-column: 1; }
+.arena-fmt-square.col-1 { grid-column: 2; }
+.arena-fmt-square.of-3.pos-0 { grid-row: 1 / 3; }
+.arena-fmt-square.of-3.pos-1 { grid-row: 3 / 5; }
+.arena-fmt-square.of-3.pos-2 { grid-row: 5 / 7; }
+.arena-fmt-square.of-2.pos-0 { grid-row: 1 / 4; }
+.arena-fmt-square.of-2.pos-1 { grid-row: 4 / 7; }
+
+/* 유리 재질(glassmorphism) - 배경은 거의 비치고 얇은 테두리만 도드라지게, 선택 안 된 상태는
+   최대한 존재감을 낮추고 배정된 원만 accent 테두리+은은한 글로우로 "포인트"를 줌.
+   모양은 원형 - 칼럼 셀 자체는 계속 사각 그리드 영역(전열 칸이 후열 칸보다 큼)을 차지하되, 그 안에
+   셀의 짧은 변(칸 높이) 기준의 진짜 원을 가운데 정렬해서 타원으로 찌그러지지 않게 함 */
+.arena-fmt-square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1;
+  justify-self: center;
+  align-self: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--text-main) 14%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 38%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--text-sub);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+/* 배정된 원엔 슬롯 번호 대신 프리셋 이름이 들어가는데, 원보다 글자가 길어져도 줄임표로 자르지
+   않고 그대로 다 보여줌(원 밖으로 튀어나가는 건 괜찮다는 지시). 단, 일반 flex 자식으로 두면
+   내용 너비가 원의 지름을 넘는 순간 원 자체가 옆으로 늘어나 타원이 되어버림(flex-item의
+   min-width:auto가 콘텐츠 너비만큼 강제로 확보되기 때문) - position:absolute로 레이아웃
+   흐름에서 완전히 빼서, 글자는 원 중앙에 고정해두고 시각적으로만 밖으로 삐져나가게 함(원의
+   박스 크기 계산에는 전혀 영향을 안 줌) */
+.arena-fmt-square-num {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(10px, 3.6cqw, 13px);
+  font-weight: 700;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, color 0.18s ease;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 배정된 원엔 슬롯 번호 대신 프리셋 이름이 들어가서 숫자 하나보다 글자 수가 많음 - 원 안에서 잘리지
+   않고 최대한 보이도록 조금 더 작게 */
+.arena-fmt-square.assigned .arena-fmt-square-num {
+  font-size: clamp(8.5px, 3cqw, 11px);
+}
+
+.arena-fmt-square:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* 배정 완료 상태 - 배경은 계속 유리 재질을 유지하고 accent 테두리 + 옅은 색 틴트 + 은은한 글로우만
+   더해서 "포인트"만 줌(전면 단색 채움 대신) */
+.arena-fmt-square.assigned {
+  border-width: 1.5px;
+}
+
+.arena-fmt-square.assigned .arena-fmt-square-num {
+  opacity: 1;
+}
+
+.arena-fmt-square.my-fmt-square.assigned {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, var(--card-bg) 38%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.arena-fmt-square.my-fmt-square.assigned .arena-fmt-square-num {
+  color: var(--accent);
+}
+
+.arena-fmt-square.opp-fmt-square.assigned {
+  border-color: #e0473f;
+  background: color-mix(in srgb, #e0473f 16%, color-mix(in srgb, var(--card-bg) 38%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(224, 71, 63, 0.3), 0 4px 14px rgba(224, 71, 63, 0.28);
+}
+
+.arena-fmt-square.opp-fmt-square.assigned .arena-fmt-square-num {
+  color: #ff6b61;
+}
+
+/* CSS 전용 프리셋 버튼(이미지 배지 대신) - "아레나 프리셋"(5개, 배치 탭) 및 슬롯 편집 팝업의
+   "룬 프리셋"(9개) 양쪽에서 공용으로 씀. 사각형과 같은 유리 재질 언어를 씀 - 어차피 가로 스크롤
+   이라 폭을 좁게 고정할 필요는 없지만, 사각형보다도 더 작고 담백하게(포인트는 activee 상태의
+   accent 테두리로만) */
+.arena-preset-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+  cursor: grab;
+  user-select: none;
+}
+
+.arena-preset-row.dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.arena-preset-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.arena-preset-row::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.arena-preset-btn {
+  flex: 0 0 auto;
+  position: relative;
+  /* 예전엔 고정 픽셀(86px/36px)이라 화면이 좁아져도 전혀 안 줄어서 다른 요소들(다 cqw로 비례
+     축소됨)과 다르게 유독 커 보였음 - clamp로 바꿔서 반응형으로 줄어들게 하고, 기본 크기도
+     살짝 줄임 */
+  min-width: clamp(58px, 16cqw, 82px);
+  height: clamp(30px, 8cqw, 36px);
+  padding: 0 clamp(10px, 3cqw, 14px);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--text-main) 14%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 38%, transparent);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.arena-preset-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, color-mix(in srgb, var(--card-bg) 38%, transparent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), 0 3px 10px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.arena-preset-btn-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(10px, 3.2cqw, 12px);
+  font-weight: 600;
+  color: var(--text-sub);
+  pointer-events: none;
+}
+
+.arena-preset-btn.active .arena-preset-btn-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.arena-preset-edit-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.arena-preset-name-input {
+  width: 82%;
+  font-size: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: #fff;
+  padding: 1px 3px;
+}
+
+/* 슬롯 편집 팝업(사각형 클릭 시) - 기존 친구 선택 모달 구조를 재사용하되 룬 편집기가 들어갈 수
+   있게 폭/높이를 넓힘 */
+#arenaSlotEditOverlay .arena-slot-edit-modal {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+}
+
+.arena-slot-edit-hint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-sub);
+  opacity: 0.75;
+}
+
+/* 전투 화면: 10마리(5+5)가 한 화면에 다 들어가야 해서 공룡 대전의 큰 1:1 아바타보다 훨씬 작고
+   조밀하게 배치. 룬 아이콘은 상시 노출하지 않고(소환 배치 위젯에서만 확인) 원형 아바타 + 얇은
+   체력바만 둬서 화면이 복잡해지지 않게 함(사용자가 직접 언급한 "화면이 꽉 차 보일 수 있다"는
+   우려에 대한 대응) */
+.arena-battlefield {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* space-between이었을 때 카드가 넓은 데스크톱에서 두 진영이 화면 양 끝까지 벌어져 보였음(자식이
+     3개뿐이라 남는 공간이 전부 my팀<->VS<->opp팀 사이에 분산됨) - center로 모아서 VS 배지를
+     기준으로 항상 붙어있게 함 */
+  justify-content: center;
+  gap: clamp(28px, 9cqw, 104px);
+  padding: clamp(16px, 9cqw, 64px) 0;
+  container-type: inline-size;
+}
+
+/* 공격자<->피격자를 잇는 선(누가 누구를 때리는지 명확하게 보이도록) - getBoundingClientRect로
+   두 아바타 중심을 잰 뒤 JS가 left/top/width(공격자~피격자 전체 길이)/--strike-angle을 인라인으로
+   계산해서 넣어줌. 예전엔 선이 처음부터 전체 길이로 "뙇" 나타나서 어느 쪽이 쏜 건지 방향을 알기
+   어렵다는 피드백 -> "쏜다"는 개념으로: transform-origin이 공격자 쪽(왼쪽)에 있으니 scaleX를
+   0->1로 키우면 공격자 지점에서 피격자 쪽으로 자라나는 것처럼 보임 + 그라디언트도 공격자 쪽은
+   흐리고 피격자 쪽(탄두)은 진하게 해서 진행 방향이 분명하게 드러남 + 탄두 끝에 작은 발광 점을 더해
+   투사체가 날아가 꽂히는 느낌을 줌 */
+.arena-strike-line {
+  position: absolute;
+  height: 2px;
+  transform-origin: 0 50%;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 5;
+  animation: arena-strike-shoot 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+.arena-strike-line::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.arena-strike-line.my {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 35%, transparent), var(--accent));
+}
+
+.arena-strike-line.my::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.arena-strike-line.opp {
+  background: linear-gradient(90deg, color-mix(in srgb, #e0473f 35%, transparent), #e0473f);
+}
+
+.arena-strike-line.opp::after {
+  background: #ff6b61;
+  box-shadow: 0 0 8px 2px rgba(224, 71, 63, 0.7);
+}
+
+@keyframes arena-strike-shoot {
+  0% { transform: rotate(var(--strike-angle)) scaleX(0); opacity: 0.95; }
+  55% { transform: rotate(var(--strike-angle)) scaleX(1); opacity: 1; }
+  100% { transform: rotate(var(--strike-angle)) scaleX(1); opacity: 0; }
+}
+
+/* 진영당 2열(전열/후열) x 최대 3행 세로 배치(사용자 지정). 전열 열은 항상 VS 배지와 가까운 쪽에
+   오도록 팀별로 열 순서를 뒤집음(내 진영: 후열열-전열열, 상대 진영: 전열열-후열열) - 실제 순서는
+   arena-page.js가 마크업을 만들 때 컬럼 자체를 그 순서로 배치해서 넣어주므로 여기선 단순히 "행
+   컨테이너를 가로로 나열"만 하면 됨. 전열은 2칸뿐이라 후열(3칸)보다 짧은데, 위쪽부터 채워지도록
+   상단 정렬함(사용자 다이어그램의 빈 칸이 항상 맨 아래에 오는 것과 일치) */
+.arena-team-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 2.5cqw, 14px);
+  min-width: 0;
+}
+
+/* 친구 초대/설정 불러오기로 실제 상대가 있을 때만 채워짐(js에서 display 토글) - 닉네임 + 전투력
+   (레벨×5)을 그 진영 5마리 위에 표시. 혼자 테스트할 땐 화면이 깔끔하도록 숨김 */
+.arena-power-label {
+  font-size: clamp(11px, 3.4cqw, 15px);
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  text-align: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+}
+
+.arena-team {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: clamp(6px, 2cqw, 18px);
+  min-width: 0;
+}
+
+.arena-col {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 1.6cqw, 14px);
+}
+
+.arena-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: opacity 0.15s ease;
+}
+
+.arena-slot-avatar {
+  border-radius: 50%;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+}
+
+.arena-col-front .arena-slot-avatar {
+  width: clamp(36px, 11.5cqw, 96px);
+  height: clamp(36px, 11.5cqw, 96px);
+}
+
+.arena-col-back .arena-slot-avatar {
+  width: clamp(27px, 8.6cqw, 72px);
+  height: clamp(27px, 8.6cqw, 72px);
+  opacity: 0.9;
+  filter: saturate(0.88);
+}
+
+.my-slot-avatar {
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white), var(--accent-strong) 75%);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.opp-slot-avatar {
+  background: radial-gradient(circle at 35% 30%, #ff8a80, #a4241f 75%);
+  box-shadow: 0 0 10px rgba(224, 71, 63, 0.5);
+}
+
+.arena-slot-hpbar {
+  width: clamp(26px, 8.5cqw, 56px);
+  height: 5px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.arena-slot-hpfill {
+  height: 100%;
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+.arena-slot-hpfill.my-hp-fill {
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+}
+
+.arena-slot-hpfill.opp-hp-fill {
+  background: linear-gradient(90deg, #a4241f, #e0473f);
+}
+
+.arena-slot-avatar.arena-dead {
+  opacity: 1;
+  filter: grayscale(1) brightness(0.55);
+  transform: scale(0.8) rotate(75deg);
+}
+
+/* 공격/피격 모션이 비슷해 보인다는 피드백 반영: 공격측은 상대 팀 쪽(중앙 VS 방향)으로 튀어나가는
+   방향성 있는 돌진 + 밝은 확대(어느 슬롯이 때렸는지가 "움직임의 방향"으로 바로 읽히게), 피격측은
+   흔들림에 더해 빨간 링 플래시를 얹어서 "맞았다"가 색으로도 분명히 구분되게 함(공격=중립 밝기
+   증가, 피격=빨간색 - 대미지를 나타내는 통상적인 색 연상 재사용) */
+.my-slot-avatar.arena-attacking {
+  animation: arena-lunge-toward-center 0.35s ease;
+}
+
+.opp-slot-avatar.arena-attacking {
+  animation: arena-lunge-toward-center-rev 0.35s ease;
+}
+
+@keyframes arena-lunge-toward-center {
+  0% { transform: scale(1) translateX(0); filter: brightness(1); }
+  45% { transform: scale(1.3) translateX(10px); filter: brightness(1.6); }
+  100% { transform: scale(1) translateX(0); filter: brightness(1); }
+}
+
+@keyframes arena-lunge-toward-center-rev {
+  0% { transform: scale(1) translateX(0); filter: brightness(1); }
+  45% { transform: scale(1.3) translateX(-10px); filter: brightness(1.6); }
+  100% { transform: scale(1) translateX(0); filter: brightness(1); }
+}
+
+.arena-slot-avatar.arena-hit {
+  animation: battle-hit-shake 0.35s ease, arena-hit-ring-flash 0.35s ease;
+}
+
+@keyframes arena-hit-ring-flash {
+  0% { box-shadow: 0 0 0 0 rgba(255, 60, 60, 0); }
+  35% { box-shadow: 0 0 0 4px rgba(255, 60, 60, 0.9); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 60, 60, 0); }
+}
+
+.arena-slot-avatar.arena-death-flash {
+  animation: battle-front-defeated 0.4s ease;
+}
+
+.arena-battlefield.area-flash {
+  animation: battle-area-flash 0.4s ease;
+}
+
+.arena-dmg-popup {
+  font-size: 11px;
+}
+
+.arena-dmg-popup.crit:not(.skill) {
+  font-size: 13px;
+}
+
+.arena-dmg-popup.skill.crit {
+  font-size: 13px;
+}
+

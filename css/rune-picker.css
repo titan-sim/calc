@@ -1,0 +1,314 @@
+/* ===== 룬 픽커 컴포넌트(js/ui/rune-ui.js) - 슬롯/프리셋버튼/룬그리드/상세/장착버튼. 룬을 다루는 모든 페이지가 재사용 =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+.slot-wrapper {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0px;
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.slot {
+  aspect-ratio: 1;
+  background-image: url("../assets/rune slot image folder/RuneSlot.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  /* 레이아웃 설정 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.slot-img {
+  width: 70%; /* 슬롯 이미지보다 작게 설정하여 룬이 중앙에 오게 함 */
+  height: 70%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.slot-plus-img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  pointer-events: none;
+  opacity: 0.85;
+}
+/* 선택된 슬롯에 적용될 스타일 */
+.slot.active {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 65%, transparent));
+  z-index: 5;
+  transition: filter 0.2s ease;
+}
+
+/* 슬롯 내 컨테이너 설정 */
+.slot .rune-img-container {
+  position: relative; /* 배지의 기준점 */
+  overflow: visible !important; 
+}
+
+.slot-lv-tag {
+  position: absolute;
+  top: 5%;
+  right: 5%;
+  
+  /* 배지 크기: 슬롯의 약 35% (기존 28px 대신 비율로) */
+  width: 35%;
+  height: 35%;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  
+  font-size: clamp(9px, 3.2cqw, 16px);
+  font-weight: 900;
+  line-height: 1;
+  
+  color: white;
+  text-shadow: 1px 1px 2px #000;
+  
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  
+  /* 숫자가 이미지 정중앙에 오도록 미세 조정 (이미지 모양에 따라 필요시 사용) */
+  padding-top: 1px; 
+}
+
+/* 5레벨 단위 배경 이미지 매핑 */
+.slot-lv-tag.lv-5  { background-image: url("../assets/rune image folder/RuneLevelGrade_0.png"); }
+.slot-lv-tag.lv-10 { background-image: url("../assets/rune image folder/RuneLevelGrade_1.png"); }
+.slot-lv-tag.lv-15 { background-image: url("../assets/rune image folder/RuneLevelGrade_2.png"); }
+.slot-lv-tag.lv-20 { background-image: url("../assets/rune image folder/RuneLevelGrade_3.png"); }
+.slot-lv-tag.lv-25 { background-image: url("../assets/rune image folder/RuneLevelGrade_4.png"); }
+.slot-lv-tag.lv-30 { background-image: url("../assets/rune image folder/RuneLevelGrade_5.png"); }
+.slot-lv-tag.lv-31 { background-image: url("../assets/rune image folder/RuneLevelGrade_6.png"); }
+
+/* 룬 프리셋 버튼 (가로 스크롤, 9개 고정) */
+.preset-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 2px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+  cursor: grab;
+  user-select: none;
+}
+
+.preset-row.dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.preset-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.preset-row::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.preset-btn {
+  flex: 0 0 auto;
+  /* 가로 스크롤 대상이라 폭이 카드 크기와 무관하게 고정돼 있었음 -> 다른 요소처럼 카드 폭 비례로 축소.
+     드래그 스크롤은 마우스 이동량(pageX)과 scrollLeft 차이만 쓰므로 버튼 크기와는 무관해서 영향 없음.
+     최소치가 룬 슬롯(.slot, 하한 없이 그리드 비례로 계속 줄어듦)보다 높아서 좁은 화면에서 프리셋만
+     유독 안 줄고 커 보인다는 피드백 - 최소치를 살짝 낮춤 */
+  width: clamp(44px, 12.67cqw, 76px);
+  aspect-ratio: 153 / 119;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.preset-btn-name {
+  max-width: 82%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+  pointer-events: none;
+  /* 배지 이미지 아래쪽에 그림자 여백이 있어서 이미지의 실제 중심이 살짝 위쪽에 있음 -> 글자를 그만큼 올려서 맞춤 */
+  margin-top: -3px;
+}
+
+.preset-edit-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.preset-name-input {
+  width: 82%;
+  font-size: 11px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: #fff;
+  padding: 1px 2px;
+}
+
+/* 룬 목록 스크롤 영역 */
+.rune-scroll-container {
+  max-height: 300px;
+  /* 목록의 최대 높이 (이후 스크롤 발생) */
+  overflow-y: auto;
+  /* 세로 스크롤 활성화 */
+  padding-right: 5px;
+  /* 스크롤바 디자인 (선택 사항) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+/* 크롬, 사파리용 스크롤바 숨기기 혹은 디자인 */
+.rune-scroll-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rune-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+#runePicker {
+  display: none;
+  margin-top: 15px;
+  background: var(--input-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 15px;
+}
+
+.rune-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, 2vw, 15px);
+  width: 100%;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  justify-items: center;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.rune-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 5px 0;
+  box-sizing: border-box;
+}
+
+/* 현재 컨텍스트(타이탄 등)에 적합하지 않은 룬: 구분선 아래에 흐리게 표시 */
+.rune-item-dim {
+  opacity: 0.4;
+  filter: grayscale(50%);
+}
+
+.rune-img-container {
+  width: 90%;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 8px;
+  max-width: 75px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  /* [추가] 기존 선과 배경색 강제 제거 */
+  border: none !important;
+  background-color: transparent !important;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.rune-img-container[style*="일반"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Normal.png"); }
+.rune-img-container[style*="희귀"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Rare.png"); }
+.rune-img-container[style*="에픽"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Epic.png"); }
+.rune-img-container[style*="유니크"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Unique.png"); }
+.rune-img-container[style*="전설"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Legendary.png"); }
+
+.rune-img-container img {
+  width: 75% !important; 
+  height: 75% !important;
+  object-fit: contain;
+  display: block;
+}
+
+.rune-label {
+  /* 글자 크기도 화면이 작아지면 미세하게 조정 */
+  font-size: clamp(9px, 2.5vw, 11px);
+  font-weight: bold;
+  color: var(--text-main);
+  text-align: center;
+  width: 100%;
+  word-break: keep-all;
+  line-height: 1.2;
+}
+
+/* 기존 로직 유지 */
+#unsuitableGrid .rune-img-container {
+  filter: grayscale(0.5) opacity(0.8);
+}
+
+#runeDetail {
+  display: none;
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--card-bg);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+/* 모바일 전용 미세 조정 (미디어 쿼리 최소화) */
+@media (max-width: 480px) {
+  .rune-img-container {
+    /* 모바일에서는 테두리 두께를 살짝 줄여 공간 확보 */
+    border-width: 1.5px;
+    border-radius: 8px;
+  }
+}
+
+.desc-box {
+  font-size: 13px;
+  color: var(--text-main);
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  white-space: pre-line;
+}
+

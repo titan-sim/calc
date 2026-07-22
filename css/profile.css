@@ -1,0 +1,158 @@
+/* ===== 프로필 페이지(닉네임/아바타/친구 목록 미리보기/스탯 공개 설정/계정 삭제) =====
+   css/style.css를 여러 파일로 분리한 것 중 하나 - index.html에 링크된 순서(cascade 순서)가
+   원본과 동일하게 유지되도록 주의할 것 ===== */
+
+/* ===== 프로필 페이지 ===== */
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-avatar {
+  width: 48px;
+  height: 48px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.profile-nickname {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.profile-email {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.profile-meta {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.profile-danger-zone {
+  border: 1px solid color-mix(in srgb, #ff4444 35%, var(--border-color));
+}
+
+.profile-delete-btn {
+  margin-top: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #ff4444;
+  background: color-mix(in srgb, #ff4444 12%, transparent);
+  color: #ff4444;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.profile-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 프로필의 친구 목록 카드 - 한 페이지에 5명씩, 넘치면 화살표로 페이지 단위 슬라이드(책장 넘기듯) */
+.profile-friend-viewport {
+  overflow: hidden;
+}
+
+.profile-friend-track {
+  display: flex;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-friend-page {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-friend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.profile-friend-avatar {
+  width: 42px;
+  height: 42px;
+  font-size: 16px;
+}
+
+.profile-friend-name {
+  max-width: 100%;
+  font-size: 11.5px;
+  color: var(--text-main);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-friend-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.profile-friend-nav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-friend-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.profile-friend-page-indicator {
+  font-size: 12px;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-visibility-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 4px;
+}
+
+.stat-visibility-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.stat-visibility-item input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: none;
+}
+

@@ -17,7 +17,8 @@
 
 ```
 index.html                 // 사이드바 + <main id="app"> 뼈대
-css/style.css
+css/                        // 페이지/용도별 13개 파일로 분리(base/rune-picker/nav/auth-friends/
+                             // privacy/profile/home/my-dino/battle-shared/dino-battle/arena/dummy/titan)
 js/router.js                // location.hash 감지 → 페이지 렌더 함수 호출
 js/data/
   rune-data.js               // RUNES_DATA, UNSUITABLE_RUNE_LIST, VAMP_EXCLUSION_LIST
@@ -25,16 +26,30 @@ js/data/
 js/core/
   stat-calc.js                // getBattleStats, getTitanCombatMetrics 등 순수 계산 함수
   simulation-titan.js         // 타이탄 몬테카를로 시뮬레이션(500회 반복)
+  simulation-dino-battle.js   // 공룡 대전 1:1 시뮬레이션
+  simulation-arena.js         // 아레나 5:5 시뮬레이션
+  simulation-dummy.js         // 허수아비 대상 딜 측정
+  supabase-config.js          // Supabase 클라이언트 초기화
+  data-sync.js                // 로그인 시 dino_my_profile ↔ Supabase user_data 동기화
+  friend-session.js           // 친구 초대/실시간 세션(Supabase Realtime 채널 기반 상태 공유)
+  update-check.js             // version.json 폴링 + 업데이트 배너
 js/ui/
   rune-ui.js                  // 룬 픽커, 슬롯 장착, 레벨 드롭다운
   chart-ui.js                 // 결과 리포트 HP 그래프
+  dropdown-ui.js               // 커스텀 드롭다운 공통 열기/닫기, clip-ancestor 인식 위치 계산
+  auth-modal.js / auth-ui.js   // 로그인/회원가입 모달 + 헤더 인증 UI
   settings-ui.js
 js/pages/
   home.js
   titan-page.js
-  dino-battle-page.js         // 아직 뼈대만
-  arena-page.js                // 아직 뼈대만
-  my-dino-page.js              // 내 공룡 설정(기본 스탯/별자리/둥지·알스킨/룬 조합)
+  dino-battle-page.js         // 1:1 대전(실전/시뮬레이션) 완성
+  arena-page.js                 // 5:5 아레나 완성
+  dummy-page.js                 // 허수아비 대상 딜 측정 + 룬 조합 최적화
+  my-dino-page.js               // 내 공룡 설정(기본 스탯/별자리/둥지·알스킨/룬 조합), header/readOnly 모드 지원
+  friends-page.js                // 친구 목록/검색/초대
+  profile-page.js                // 프로필(닉네임/스탯 공개범위/계정 삭제)
+  privacy-page.js                // 개인정보처리방침
+  building-page.js               // 건물 공략 예측 (준비 중, 스텁)
 ```
 
 **사이트 구조**: SPA(파일 1개) + 해시 라우팅(`#home`, `#titan`, `#dino-battle`, `#arena`, `#my-dino`).
@@ -119,7 +134,7 @@ js/pages/
    - 대미지 감소량 / 회복량
 
    각 타일 클릭 시 아래에 그 항목에 관여한 개별 룬 계산값이 펼쳐짐 (`getTitanCombatMetrics()` 결과 기반, `js/pages/titan-page.js`의 `renderMetricDetail()`). 값이 0(기본값, 관련 룬 미장착)이면 흰 글씨, 0이 아니면(변화가 생기면) 노란 글씨로 자동 강조(`.value-changed` 클래스).
-3. **전투 설정** — 타이탄 레벨(1~120) / 전투 제한시간 드롭다운 + 타이탄과의 거리(타일) / 연속 전투 토글. **거리·연속전투는 값 저장만 하고 시뮬레이션 엔진에는 아직 미연결** (추후 반영 예정)
+3. **전투 설정** — 타이탄 레벨(1~120) / 전투 제한시간 드롭다운 + 타이탄과의 거리(타일) / 연속 전투 토글. 거리·연속전투 모두 `simulation-titan.js`에 연결됨: 연속 전투 켜짐 시 사망한 공룡이 1.5초 + (거리 × 타일당 이동시간) 후 재소환되어 다시 합류.
 4. **시뮬레이션 시작** 버튼 → `runTitanSimulation()` 500회 반복
 5. **시뮬레이션 결과** — 총 피해량/남은 체력/평균 시간/사망 수 + 시간대별 체력 변화 그래프 + (설정에서 상세 로그 켰으면) 로그 다운로드
 
@@ -148,12 +163,95 @@ js/pages/
 - [x] 타이탄 레벨 1~120 데이터(float32 오차 재현 포함)
 - [x] 보스 슬레이어 증폭 로직 / 타이탄 가드 감소 로직을 관련 수치 계산과 실제 시뮬레이션 엔진 양쪽에 일관되게 반영
 - [x] 모든 드롭다운(룬 레벨 포함) 커스텀 스타일로 통일
-- [ ] 타이탄과의 거리(타일) / 연속 전투 — 값 저장만 되고 시뮬레이션 로직에는 미반영
+- [x] 공룡 대전 페이지 (실전 대전/시뮬레이션 포함 완성)
+- [x] 아레나 페이지 (5:5, 전열 2 / 후열 3, 상대 프리셋 저장소, 실시간 친구 대전 세션까지 구현)
+- [x] 허수아비 페이지 (대상 딜 측정 + 룬 조합 최적화)
+- [x] 로그인 + 클라우드 저장 (Supabase Auth + `data-sync.js`가 `dino_my_profile`을 `user_data` 테이블과 동기화, 로그아웃 상태면 조용히 localStorage만 사용)
+- [x] 친구 시스템 (검색/초대/실시간 세션 상태 공유 — `friend-session.js`, Supabase Realtime 채널 기반. **단, 각 클라이언트가 로컬에서 자체 시뮬레이션을 돌리는 방식**이라 서버가 1회 판정 후 이벤트 로그를 재생하는 구조는 아님)
+- [ ] 서버 판정 기반 실시간 대전 (서버가 1회 시뮬레이션 후 이벤트 로그를 양쪽에 재생하는 구조 — 아직 미착수, 현재 친구 실시간 세션은 상태 동기화 수준)
 - [ ] 낙뢰 즉사 효과, 메테오 주변 타일 효과 — 데이터는 있으나 계산 로직 미연결 (메테오는 아레나처럼 다중 타일 전투에서 의미 있음)
-- [ ] 공룡 대전 페이지 (뼈대만 존재)
-- [ ] 아레나 페이지 (전열 2 / 후열 3, 상대 프리셋 저장소) — 부적합 룬 목록 별도로 받아야 함
-- [ ] 로그인 + 클라우드 저장
-- [ ] 서버 판정 기반 실시간 대전
 
 ---
-*마지막 업데이트: 타이탄 페이지 "관련 수치" 카드 + 룬 레벨 드롭다운 커스텀 스타일 적용 완료 시점*
+*마지막 업데이트: css/style.css를 13개 파일로 분리 완료 시점 (묶음 6)*
+
+## 10. 남은 작업 백로그 (진행 중 — 이 섹션을 항상 최신 상태로 유지할 것)
+
+여러 세션에 걸쳐 잘게 쪼개서 순서대로 처리 중인 작업 목록. **항목을 끝내면 통째로 지우고, 새로
+확정된 항목이 생기면 여기에 추가**하는 식으로 계속 갱신한다 — 대화가 요약/압축되어도 이 섹션만
+보면 방향을 다시 잡을 수 있어야 함. 다국어(묶음 5)는 항상 맨 마지막.
+
+### ✅ 완료 — 묶음 1: 타이탄 페이지 마무리
+4탭(전투설정/빠른계산/실전 시뮬레이션/조합찾기, 정확히 4등분, 전투설정만 `#3cb4be` 강조) 구조,
+육각형 2개 실제 인접 배치(하나의 결합 SVG 좌표계 + 바닥만 진짜 3D rotateX, 아바타는 좌표 압축
+공식만 적용한 평면 레이어라 렌더링 아티팩트 없음), 다중 공룡(최대 3마리 타일 표시 + 나머지 사이드바,
+숨긴 쪽도 전부 개별 피해/힐/공격 팝업), 조합 최적화 2단계 필터+균형 조합, "실전 대전/실전
+시뮬레이션" 등 표현을 전 페이지 "시뮬레이션"으로 통일, 체력바 전부 대상 위쪽 배치까지 전부 완료.
+
+### ✅ 완료 — 묶음 2: 공룡 대전 UI 개편
+"내 공룡"/"상대 공룡"(아레나는 "내 진영"/"상대 진영") 헤더(제목+친구초대/설정불러오기 버튼+닫기
+버튼)를 카드 바깥 `.battle-panel-header` 형제 div에서 카드 안 첫 줄로 흡수(`renderMyDinoPage`에
+`options.header` 추가, `dinoPanelHeaderHtml`/`wireDinoPanelHeader` 헬퍼로 매 재렌더마다 닫기
+버튼 재바인딩 - 모바일 슬라이드 패널 재렌더 후에도 닫기 버튼이 안 죽는 것 확인). "상대 설정
+가져오기"의 축소판 컴포넌트(`renderReadOnlyDinoSummary`, 탭 없음)를 삭제하고 `renderMyDinoPage`에
+`readOnly` 옵션 추가해서 탭 4개(기본 스탯/별자리/둥지·알스킨/룬 조합) 전부 보여주되 입력/드롭다운/
+룬 조작은 막는 형태로 통일(값은 안 흐리고 native `readOnly`/`pointer-events:none`/버튼 `disabled`로
+비활성화). 부수 효과로 아레나의 "아레나 배치" 탭이 읽기 전용 상대 화면에서도 `extraTab`으로 정상
+동작하게 되어, 예전 우회책(`arenaAppendStandaloneFormationWidget` 별도 카드)을 삭제함.
+
+### ⚠️ 재작업 필요 — 묶음 3: 홈 화면 유리 재질 3D 틸트
+`initHomeTileTilt()`(`js/pages/home.js`) + `.home-tile-main`(css/style.css, 홈 화면 섹션)을
+여러 차례 다시 만들었으나 아직 "안 된다"는 피드백 - 다음에 이어서 손볼 것.
+지금까지 시도/폐기한 것 기록:
+1. rotateX/rotateY + 은은한 radial 반사 스팟 + 대각선 빛 띠(`.home-tile-glare`, `--shine-angle`) →
+   "카드 안 반짝임 없애고 테두리만" 요청으로 `.home-tile-glare` 전체 삭제.
+2. 테두리를 커서 위치(`--glare-x/y`) 따라가는 radial-gradient border로 구현(border-box 배경
+   레이어 트릭) → "커서 따라다니는 노란 불빛 없애라"는 요청으로 폐기, 테두리는 다시 고정
+   accent 색 정적 hover로 되돌림.
+3. box-shadow 여러 겹으로 "두께감" 흉내 → "같잖은 짓, 진짜 3D로 만들어라" 피드백으로 폐기.
+4. **현재 상태**: `perspective(420px)`(기존 700px보다 훨씬 낮춤) + `transform-style:preserve-3d` +
+   실제 옆면 4개(`.home-tile-edge-t/r/b/l`, 표준 "CSS 큐브" 만드는 방식으로 90도 회전시켜 앞면
+   가장자리에 이어붙임, 두께 `--thickness:12px`)를 추가해서 진짜 지오메트리 두께를 구현함.
+   Playwright로 커서를 반대쪽 모서리로 옮겨가며 확인했을 때 transform 값(rotateX/rotateY)이
+   정확히 반대 부호로 바뀌고, 스크린샷상 사각형이 사다리꼴로 뚜렷이 찌그러지는 것과 확대 캡처에서
+   옆면이 실제로 보이는 것까지 확인은 했으나, 사용자가 실제 화면에서 봤을 때 "일단 안 된다"고
+   판단함 - 브라우저 실사용 환경에서 왜 의도만큼 안 보이는지(각도가 부족한지, 두께가 너무 얇은지,
+   다른 CSS가 덮어쓰는지 등) 원인을 다시 짚어보고 재작업 필요.
+
+### ✅ 완료 — 묶음 4: 작은 마무리 묶음
+- 룬 장착/장착해제 버튼 50/50 나란히 배치: `.btn-apply-row`(flex, gap 8px)로 감싸고 각 버튼은
+  `flex:1`(`my-dino-page.js`, `arena-page.js`의 슬롯 편집 모달 둘 다 적용).
+- 업데이트 알림 배너: `version.json`(루트, `{"version":"YYYY-MM-DD.N"}`) + `js/core/update-check.js`.
+  페이지 로드 시 버전을 한 번 기억해두고 5분마다(+ 탭이 다시 보일 때) 캐시 우회로 재확인, 값이
+  다르면 화면 하단에 "새 버전이 있습니다" 배너(새로고침/닫기 버튼) 표시. **새 버전을 배포할 때마다
+  `version.json`의 값을 반드시 바꿔야 배너가 동작함** - 안 바꾸면 그냥 계속 조용함(사이트 이용에는
+  지장 없음, 배너만 안 뜰 뿐).
+
+### ✅ 완료 — 묶음 6: css/style.css 파일 분리
+단일 4614줄 `css/style.css`를 페이지/용도별로 13개 파일로 분리(`css/base.css`,
+`rune-picker.css`, `nav.css`, `auth-friends.css`, `privacy.css`, `profile.css`, `home.css`,
+`my-dino.css`, `battle-shared.css`, `dino-battle.css`, `arena.css`, `dummy.css`, `titan.css`).
+`index.html`의 `<link>` 순서가 원본 cascade 순서와 동일해야 함(뒤 파일이 앞 파일의 규칙을 덮어씀) -
+파일 상단 주석과 `index.html`에 순서 변경 금지 경고 남겨둠. 분리 전/후 전체 재구성 diff로 무손실
+확인 + Playwright로 6개 페이지(홈/타이탄/허수아비/공룡대전/아레나/내공룡) 스크린샷 및 콘솔/네트워크
+에러 회귀 검증 완료. 원본 `style.css`는 삭제됨(git 이력으로 복구 가능).
+
+### ✅ 완료 — 묶음 7: 타이탄 "조합 찾기" 1단계 스크리닝을 해석적 계산으로 교체
+기존 1단계는 DPS(closed form)와 생존 시간(`runTitanSimulation`을 단 2회만 돌린 몬테카를로 추정)으로
+후보를 추렸는데, 두 가지 문제를 확인함: (1) n=2 표본은 노이즈가 커서 확률형 완화/회복 룬(피해 저항,
+흡혈 등)이 확정형 룬(단단한 피부 등)보다 표본 분산이 더 커 억울하게 상위 30위 컷에서 탈락할 위험이
+있고 — 동일 입력으로 5회 반복 검증 결과 top-30 집합이 실행마다 최대 25/44개(약 57%)나 들쭉날쭉
+바뀌는 것을 직접 확인함. (2) 균형 조합(생존·DPS 기하평균) 후보군이 `top30(DPS) ∪ top30(생존)`뿐이라
+두 지표 개별로는 상위 30위 밖이지만 균형 점수는 가장 높은 조합이 애초에 후보군에 못 들어가는 구조적
+누락이 있었음. `getTitanCombatMetrics()`(`stat-calc.js`)가 DPS 계산용으로 이미 구해둔 `finalHp`,
+`reductionTotal`과 새로 노출한 `healAvg`/`vampAvg`만으로 시뮬레이션 없이 노이즈 없는 생존 시간을
+추정하는 `estimateTitanSurvivalSec()`을 추가해서 1단계를 순수 산술 계산으로 교체(조합 8568개 기준
+14초→39ms, 359배 개선 확인), 후보군도 `top30(DPS) ∪ top30(해석적 생존) ∪ top30(해석적 균형)` 3갈래
+합집합으로 넓혀 문제 (2)를 구조적으로 해결함. 부수적으로 `runTitanSimulation`에 `onProgress` 없이
+호출될 때 반복마다 `setTimeout(0)`으로 쪼개지던 타이머 오버헤드를 줄이기 위해 opt-in `batchSize`
+파라미터를 추가하고 2단계 정밀 계산 호출에 `batchSize:10` 적용(실전 시뮬레이션 버튼은 진행률 표시를
+위해 기본값 1 그대로 유지, 무변경). 균형 조합의 기하평균 공식 자체는 이미 수학적으로 올바름을
+재확인해 변경하지 않음. Node 스크립트(랭킹 상관관계 + 반복 안정성)와 Playwright E2E로 검증 완료.
+
+### 묶음 5: 다국어 텍스트 추출 (맨 마지막)
+코드 수정 없이 사이트 전체 사용자 노출 텍스트를 파일로 정리해서 제공(번역용). 어떤 파일 형식
+(마크다운 표/JSON 키-값 등)을 원하는지 착수 시점에 확인 필요.

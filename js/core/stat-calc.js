@@ -103,10 +103,12 @@ function getTitanCombatMetrics({
   baseHp,
   count,
   selectedRunes,
-  constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0 },
+  constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0, bossDmgIncrease: 0 },
   bonusPercent = { atk: 0, hp: 0 }
-}) {
+}, tileCfg = {}) {
   let atkF = 0, atkP = 0, hpF = 0, hpP = 0;
+  if (tileCfg.atkTowerLevel !== null && tileCfg.atkTowerLevel !== undefined) atkP += BUFF_TOWER_PERCENTS[tileCfg.atkTowerLevel];
+  if (tileCfg.hpTowerLevel !== null && tileCfg.hpTowerLevel !== undefined) hpP += BUFF_TOWER_PERCENTS[tileCfg.hpTowerLevel];
   let cRate = 3, cDmg = 105;
   let bossSlayerPercent = 0;
   const reductions = [];
@@ -120,13 +122,18 @@ function getTitanCombatMetrics({
     const s = RUNES_DATA[r.name].levels[r.lv];
     const isAmpRune = r.name === "보스 슬레이어"; // 현재 유일한 "증폭"형 룬. 일반 % 바구니엔 안 들어감
     const isGiftRune = r.name === "마지막 선물"; // atk_f는 사망한 아군이 넘겨주는 임시 버프량이지 상시 스탯이 아님
+    // 자연의 포옹/부족의 축복은 타일 조건이 충족돼야만 효과가 붙음(허수아비/공룡 대전과 동일)
+    const isTileGated =
+      r.name === "자연의 포옹" ? !tileCfg.natureAdjacent
+      : (r.name === "부족의 축복 1" || r.name === "부족의 축복 2") ? !tileCfg.tribeControl
+      : false;
 
     let active =
       r.name === "협동 공격" ? count >= 5
       : r.name === "고독한 분노" ? count === 1
       : true;
 
-    if (active && !isAmpRune && !isGiftRune) {
+    if (active && !isAmpRune && !isGiftRune && !isTileGated) {
       if (s.atk_f) atkF += s.atk_f;
       if (s.atk_p) atkP += s.atk_p;
       if (s.hp_f) hpF += s.hp_f;
@@ -134,7 +141,7 @@ function getTitanCombatMetrics({
     }
     if (isAmpRune) bossSlayerPercent += s.atk_p;
 
-    if (!VAMP_EXCLUSION_LIST.includes(r.name)) {
+    if (!VAMP_EXCLUSION_LIST.includes(r.name) && !isTileGated) {
       if (s.atk_f) atkF_vamp += s.atk_f;
       if (s.atk_p) atkP_vamp += s.atk_p;
     }
@@ -176,9 +183,12 @@ function getTitanCombatMetrics({
   atkP += bonusPercent.atk || 0;
   hpP += bonusPercent.hp || 0;
   atkP_vamp += bonusPercent.atk || 0;
+  if (tileCfg.atkTowerLevel !== null && tileCfg.atkTowerLevel !== undefined) atkP_vamp += BUFF_TOWER_PERCENTS[tileCfg.atkTowerLevel];
 
   const finalAtk = (baseAtk + atkF) * (1 + atkP / 100);
-  const ampFinalAtk = finalAtk * (1 + bossSlayerPercent / 100);
+  // 보스 피해 증가(별자리, 정수 고정값)는 %가 아니라서 finalAtk에 곱셈으로 안 들어가고, 보스
+  // 슬레이어(룬, %)를 곱하기 "전" 단계에서 더해짐 - simulation-titan.js의 currentAtk 공식과 동일한 순서
+  const ampFinalAtk = (finalAtk + (constellation.bossDmgIncrease || 0)) * (1 + bossSlayerPercent / 100);
   const finalHp = (baseHp + hpF) * (1 + hpP / 100);
 
   // 치확/치피를 반영한 평균 배율: 치명타면 cDmg%, 아니면 100%
@@ -218,6 +228,20 @@ function getTitanCombatMetrics({
     reductions,
     reductionTotal,
     recoveries,
-    recoveryTotal
+    recoveryTotal,
+    healAvg,
+    vampAvg
   };
+}
+
+// 타이탄 조합 최적화기(titan-page.js titanRunOptimizer)의 1단계 스크리닝 전용: 시뮬레이션을
+// 돌리지 않고 getTitanCombatMetrics() 결과만으로 노이즈 없는 생존 시간을 추정한다.
+// 타이탄 공격/힐은 3초 주기(simulation-titan.js의 t%3===0), 흡혈은 공룡 자신의 공격 주기인
+// 1초 주기라 나누는 분모가 다르다. 보호막(일회성 방어)과 사망 트리거 룬(마지막 선물/희생/
+// 죽을 준비), 연속 전투 재소환은 정의상 "첫 사망 시각"에 영향을 줄 수 없어 여기서는 반영하지
+// 않아도 오차가 없다(runTitanSimulation의 avgTimeSec도 첫 사망 시각의 평균).
+function estimateTitanSurvivalSec(metrics, targetTitan, timeLimitSec) {
+  const netDrainPerSec = Math.max(0, targetTitan.atk - metrics.reductionTotal) / 3
+    - metrics.healAvg / 3 - metrics.vampAvg;
+  return netDrainPerSec <= 0 ? timeLimitSec : metrics.finalHp / netDrainPerSec;
 }

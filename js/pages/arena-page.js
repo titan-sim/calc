@@ -252,28 +252,60 @@ function renderArenaOppPanel() {
   const container = document.getElementById("arenaOppDinoSection");
   if (!container) return;
   const session = getActiveSession();
+  // 모든 분기가 공유하는 헤더 - renderMyDinoPage에 그대로 넘기거나, 탭 컴포넌트를 안 쓰는 임시
+  // 카드(초대 중/불러오는 중)에는 dinoPanelHeaderHtml로 직접 붙임
+  const header = { title: "상대 진영", titleId: "arenaOppPanelTitleText", toolbarId: "arenaOppToolbar", closeId: "arenaOppPanelClose", onClose: arenaCloseSidePanels };
+  // "아레나 배치" 탭 - readOnly여도 arenaMountFormationTab이 arenaIsOppRunePresetsForeign()로
+  // 스스로 편집 가능 여부를 판단하므로(마운트되는 컨테이너와 무관), 편집 가능/읽기전용 두 분기 모두
+  // 완전히 같은 extraTab을 넣으면 됨 - 예전엔 읽기전용 쪽에 탭 시스템 자체가 없어서 별도 카드
+  // (arenaAppendStandaloneFormationWidget)를 붙이는 우회책을 썼는데, 이제 필요 없어짐
+  const formationExtraTab = { id: "arenaFormation", label: "아레나 배치", render: (panelEl) => arenaMountFormationTab("opp", panelEl) };
 
   if (session && session.status === "inviting") {
     container.innerHTML = `
       <div class="card friend-session-waiting">
+        ${dinoPanelHeaderHtml(header)}
         <div>${session.friendNickname}님에게 초대를 보냈습니다.<br>응답을 기다리는 중...</div>
         <button class="friend-toolbar-btn" id="arenaCancelInviteBtn">초대 취소</button>
       </div>
     `;
+    wireDinoPanelHeader(container, header);
     document.getElementById("arenaCancelInviteBtn").onclick = () => leaveFriendSession();
   } else if (session && session.status === "active") {
     if (session.friendProfile) {
-      // hideRuneRow: 아레나는 "지금 활성화된 프리셋 1개"라는 개념 자체가 없음(5마리가 각자 다른
-      // 프리셋을 씀) - renderReadOnlyDinoSummary의 기본 룬 슬롯 한 줄 미리보기는 공룡 대전 전용
-      // 개념이라 여기선 오해만 주므로 끔. 실제 슬롯별 배치는 바로 아래 아레나 배치 위젯에서 보여줌
-      renderReadOnlyDinoSummary(container, session.friendProfile, { tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다`, splitCritStat: true, hideRuneRow: true });
-      arenaAppendStandaloneFormationWidget(container, "opp");
+      renderMyDinoPage(container, {
+        idPrefix: "arenaOpp_",
+        unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
+        unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+        splitCritStat: true,
+        header,
+        extraTab: formationExtraTab,
+        readOnly: { profile: session.friendProfile, tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` }
+      });
     } else {
-      container.innerHTML = `<div class="card friend-session-waiting"><div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div></div>`;
+      container.innerHTML = `
+        <div class="card friend-session-waiting">
+          ${dinoPanelHeaderHtml(header)}
+          <div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div>
+        </div>
+      `;
+      wireDinoPanelHeader(container, header);
     }
   } else if (arenaFriendSnapshotProfile) {
-    renderReadOnlyDinoSummary(container, arenaFriendSnapshotProfile, { tagText: `🔒 ${arenaFriendSnapshotNickname} - 스냅샷 (편집 불가)`, splitCritStat: true, hideRuneRow: true });
-    arenaAppendStandaloneFormationWidget(container, "opp");
+    renderMyDinoPage(container, {
+      idPrefix: "arenaOpp_",
+      unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
+      unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+      splitCritStat: true,
+      header,
+      extraTab: formationExtraTab,
+      readOnly: {
+        profile: arenaFriendSnapshotProfile,
+        tagText: `🔒 ${arenaFriendSnapshotNickname} - 스냅샷 (편집 불가)`,
+        allowPresetSwitch: true,
+        onPresetSwitch: () => arenaResetDisplay()
+      }
+    });
   } else {
     renderMyDinoPage(container, {
       idPrefix: "arenaOpp_",
@@ -281,24 +313,13 @@ function renderArenaOppPanel() {
       unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
       unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
       splitCritStat: true,
-      extraTab: { id: "arenaFormation", label: "아레나 배치", render: (panelEl) => arenaMountFormationTab("opp", panelEl) },
+      header,
+      extraTab: formationExtraTab,
       onChange: () => arenaResetDisplay()
     });
   }
 
   renderArenaOppToolbar();
-}
-
-// 상대 진영이 읽기 전용(실시간 세션/스냅샷)일 때는 renderMyDinoPage의 탭 시스템 자체를 안 쓰므로
-// (renderReadOnlyDinoSummary는 탭 없는 단순 카드), "아레나 배치"를 못 넣는 대신 그 아래에 작은
-// 전용 카드를 하나 더 붙여서 배치 편집은 계속 가능하게 함(기본 스탯은 읽기 전용이어도 배치는
-// 로컬 전용 데이터라 항상 편집 가능) - arenaMountFormationTab은 어떤 컨테이너에든 마운트 가능해서
-// 탭 패널이든 이 독립 카드든 똑같은 편집 UI를 그대로 재사용함
-function arenaAppendStandaloneFormationWidget(container, sideKey) {
-  const widget = document.createElement("div");
-  widget.className = "card arena-formation-standalone";
-  container.appendChild(widget);
-  arenaMountFormationTab(sideKey, widget);
 }
 
 function renderArenaOppToolbar() {
@@ -421,8 +442,8 @@ const ARENA_OPP_BACK_ORDER = [2, 3, 4]; // 슬롯3, 슬롯4, 슬롯5 (위->아�
 function arenaAvatarHtml(sideKey, slotIndex, rowClass) {
   return `
     <div class="arena-slot ${rowClass}" id="arenaSlot_${sideKey}_${slotIndex}">
-      <div class="arena-slot-avatar ${sideKey}-slot-avatar" id="arenaAvatar_${sideKey}_${slotIndex}"></div>
       <div class="arena-slot-hpbar"><div class="arena-slot-hpfill ${sideKey}-hp-fill" id="arenaHpFill_${sideKey}_${slotIndex}"></div></div>
+      <div class="arena-slot-avatar ${sideKey}-slot-avatar" id="arenaAvatar_${sideKey}_${slotIndex}"></div>
     </div>
   `;
 }
@@ -454,10 +475,6 @@ function renderArenaPage(container) {
   container.innerHTML = `
     <div class="battle-layout" id="arenaLayout">
       <div class="battle-side-panel my-side" id="arenaMySidePanel">
-        <div class="battle-panel-header">
-          <span id="arenaMyPanelTitleText">내 진영</span>
-          <button class="close-btn battle-panel-close" id="arenaMyPanelClose">✕</button>
-        </div>
         <div id="arenaMyDinoSection"></div>
       </div>
 
@@ -468,7 +485,7 @@ function renderArenaPage(container) {
           <div class="battle-mode-tabs mode-live" id="arenaModeTabs">
             <span class="battle-mode-indicator"></span>
             <button class="battle-mode-tab" data-mode="quick" id="arenaModeTabQuick"><span>빠른 계산</span></button>
-            <button class="battle-mode-tab active" data-mode="live" id="arenaModeTabLive"><span>실전 대전</span></button>
+            <button class="battle-mode-tab active" data-mode="live" id="arenaModeTabLive"><span>시뮬레이션</span></button>
           </div>
 
           <div class="battle-mode-panel" id="arenaQuickModeCard" style="display:none;">
@@ -501,11 +518,6 @@ function renderArenaPage(container) {
       </div>
 
       <div class="battle-side-panel opp-side" id="arenaOppSidePanel">
-        <div class="battle-panel-header">
-          <span id="arenaOppPanelTitleText">상대 진영</span>
-          <div class="opp-panel-toolbar" id="arenaOppToolbar"></div>
-          <button class="close-btn battle-panel-close" id="arenaOppPanelClose">✕</button>
-        </div>
         <div id="arenaOppDinoSection"></div>
       </div>
     </div>
@@ -549,8 +561,10 @@ function renderArenaPage(container) {
               </div>
               <div class="desc-box" id="arenaSlotEdit_detailDesc"></div>
             </div>
-            <button class="btn-apply" id="arenaSlotEdit_applyBtn">슬롯에 장착</button>
-            <button class="btn-apply" id="arenaSlotEdit_removeBtn" style="border-color:var(--border-color); color:var(--text-sub); margin-top:5px;">장착 해제</button>
+            <div class="btn-apply-row">
+              <button class="btn-apply" id="arenaSlotEdit_applyBtn">슬롯에 장착</button>
+              <button class="btn-apply" id="arenaSlotEdit_removeBtn" style="border-color:var(--border-color); color:var(--text-sub);">장착 해제</button>
+            </div>
           </div>
         </div>
       </div>
@@ -560,6 +574,21 @@ function renderArenaPage(container) {
   initArenaPage();
 }
 
+// 모바일 PIP 슬라이드 패널 열기/닫기. dino-battle-page.js에도 같은 이름의 개념이 있지만, 모든
+// 페이지 스크립트가 하나의 전역 스코프를 공유해서 이름이 겹치면 나중에 로드된 쪽 정의가 앞의 것을
+// 덮어써버림 - arena 전용 접두사로 구분함. renderArenaOppPanel()(모듈 최상위 함수)이 헤더의 닫기
+// 버튼에 onClose로 넘겨야 해서 initArenaPage 안 중첩 함수가 아니라 최상위로 둠.
+function arenaCloseSidePanels() {
+  document.getElementById("arenaMySidePanel").classList.remove("open");
+  document.getElementById("arenaOppSidePanel").classList.remove("open");
+  document.getElementById("arenaPanelOverlay").classList.remove("open");
+}
+function arenaOpenSidePanel(panel) {
+  arenaCloseSidePanels();
+  panel.classList.add("open");
+  document.getElementById("arenaPanelOverlay").classList.add("open");
+}
+
 function initArenaPage() {
   renderMyDinoPage(document.getElementById("arenaMyDinoSection"), {
     idPrefix: "arenaMy_",
@@ -567,6 +596,7 @@ function initArenaPage() {
     unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
     unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
     splitCritStat: true,
+    header: { title: "내 진영", titleId: "arenaMyPanelTitleText", closeId: "arenaMyPanelClose", onClose: arenaCloseSidePanels },
     extraTab: { id: "arenaFormation", label: "아레나 배치", render: (panelEl) => arenaMountFormationTab("my", panelEl) },
     onChange: (profile) => {
       arenaResetDisplay();
@@ -605,22 +635,12 @@ function initArenaPage() {
   const oppSidePanel = document.getElementById("arenaOppSidePanel");
   const overlay = document.getElementById("arenaPanelOverlay");
 
-  function closeSidePanels() {
-    mySidePanel.classList.remove("open");
-    oppSidePanel.classList.remove("open");
-    overlay.classList.remove("open");
-  }
-  function openSidePanel(panel) {
-    closeSidePanels();
-    panel.classList.add("open");
-    overlay.classList.add("open");
-  }
-
-  document.getElementById("arenaMyPeekBtn").onclick = () => openSidePanel(mySidePanel);
-  document.getElementById("arenaOppPeekBtn").onclick = () => openSidePanel(oppSidePanel);
-  document.getElementById("arenaMyPanelClose").onclick = closeSidePanels;
-  document.getElementById("arenaOppPanelClose").onclick = closeSidePanels;
-  overlay.onclick = closeSidePanels;
+  document.getElementById("arenaMyPeekBtn").onclick = () => arenaOpenSidePanel(mySidePanel);
+  document.getElementById("arenaOppPeekBtn").onclick = () => arenaOpenSidePanel(oppSidePanel);
+  // 닫기 버튼은 이제 renderMyDinoPage/renderArenaOppPanel이 매번 새로 그리는 헤더 안에 있어서, 그
+  // 렌더 함수들이 각자 wireDinoPanelHeader()로 매 렌더마다 다시 바인딩함(여기서 한 번만 붙이면
+  // 재렌더 후 끊어짐) - 오버레이 클릭만 여기서 한 번 붙이면 됨(오버레이 자체는 재생성 안 되므로)
+  overlay.onclick = arenaCloseSidePanels;
 
   document.getElementById("arenaStartBtn").onclick = arenaOnBattleButtonClick;
   document.getElementById("arenaRestartBtn").onclick = () => {
@@ -728,11 +748,7 @@ function arenaInitSpeedDropdown() {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 // ===== "아레나 배치" 탭: 사각형 5개(전투 화면과 동일한 좌우 배치 - 전열2/후열3) + 그 아래 아레나
@@ -1014,12 +1030,6 @@ function arenaPlayAttackAnim(attackerSide, attackerSlot, defenderSide, defenderS
   document.querySelectorAll(".arena-slot-avatar").forEach((el) => el.classList.remove("arena-attacking", "arena-hit"));
   document.querySelectorAll(".arena-strike-line").forEach((el) => el.remove());
 
-  const attackerSlotEl = document.getElementById(`arenaSlot_${attackerSide}_${attackerSlot}`);
-  const defenderSlotEl = document.getElementById(`arenaSlot_${defenderSide}_${defenderSlot}`);
-  document.querySelectorAll(".arena-slot").forEach((el) => {
-    el.classList.toggle("arena-dimmed", el !== attackerSlotEl && el !== defenderSlotEl);
-  });
-
   void attackerEl.offsetWidth;
 
   attackerEl.classList.add("arena-attacking");
@@ -1029,7 +1039,6 @@ function arenaPlayAttackAnim(attackerSide, attackerSlot, defenderSide, defenderS
   arenaShakeTimeout = setTimeout(() => {
     attackerEl.classList.remove("arena-attacking");
     defenderEl.classList.remove("arena-hit");
-    document.querySelectorAll(".arena-slot.arena-dimmed").forEach((el) => el.classList.remove("arena-dimmed"));
     document.querySelectorAll(".arena-strike-line").forEach((el) => el.remove());
   }, 350);
 }

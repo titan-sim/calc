@@ -148,10 +148,6 @@ function renderDinoBattlePage(container) {
 
     <div class="battle-layout" id="battleLayout">
       <div class="battle-side-panel my-side" id="mySidePanel">
-        <div class="battle-panel-header">
-          <span id="myPanelTitleText">내 공룡</span>
-          <button class="close-btn battle-panel-close" id="myPanelClose">✕</button>
-        </div>
         <div id="myDinoBattleSection"></div>
       </div>
 
@@ -162,7 +158,7 @@ function renderDinoBattlePage(container) {
           <div class="battle-mode-tabs mode-live" id="battleModeTabs">
             <span class="battle-mode-indicator"></span>
             <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>빠른 계산</span></button>
-            <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>실전 대전</span></button>
+            <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>시뮬레이션</span></button>
           </div>
 
           <div class="battle-mode-panel" id="quickModeCard" style="display:none;">
@@ -229,11 +225,6 @@ function renderDinoBattlePage(container) {
       </div>
 
       <div class="battle-side-panel opp-side" id="oppSidePanel">
-        <div class="battle-panel-header">
-          <span id="oppPanelTitleText">상대 공룡</span>
-          <div class="opp-panel-toolbar" id="oppPanelToolbar"></div>
-          <button class="close-btn battle-panel-close" id="oppPanelClose">✕</button>
-        </div>
         <div id="oppDinoBattleSection"></div>
       </div>
     </div>
@@ -253,12 +244,27 @@ function renderDinoBattlePage(container) {
   initDinoBattlePage();
 }
 
+// 모바일 PIP 슬라이드 패널 열기/닫기. renderOppPanel()(모듈 최상위 함수)이 헤더의 닫기 버튼에
+// onClose로 넘겨야 해서 initDinoBattlePage 안 중첩 함수가 아니라 최상위로 둠 - 패널/오버레이
+// 엘리먼트는 정적이라(재생성 안 됨) 그냥 그때그때 id로 찾아도 무방함.
+function closeSidePanels() {
+  document.getElementById("mySidePanel").classList.remove("open");
+  document.getElementById("oppSidePanel").classList.remove("open");
+  document.getElementById("battlePanelOverlay").classList.remove("open");
+}
+function openSidePanel(panel) {
+  closeSidePanels();
+  panel.classList.add("open");
+  document.getElementById("battlePanelOverlay").classList.add("open");
+}
+
 function initDinoBattlePage() {
   renderMyDinoPage(document.getElementById("myDinoBattleSection"), {
     idPrefix: "myB_",
     storageKey: MY_DINO_PROFILE_KEY,
     unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
     unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+    header: { title: "내 공룡", titleId: "myPanelTitleText", closeId: "myPanelClose", onClose: closeSidePanels },
     onChange: (profile) => {
       resetBattleDisplay();
       if (isFriendSessionActive()) sendMyProfileUpdate(profile);
@@ -290,26 +296,14 @@ function initDinoBattlePage() {
   unsubscribeFriendSession = onFriendSessionChange(handleFriendSessionEvent);
   if (getActiveSession()) applyOppTileLock(true);
 
-  // 모바일 PIP 슬라이드 패널 열기/닫기
   const mySidePanel = document.getElementById("mySidePanel");
   const oppSidePanel = document.getElementById("oppSidePanel");
   const overlay = document.getElementById("battlePanelOverlay");
-
-  function closeSidePanels() {
-    mySidePanel.classList.remove("open");
-    oppSidePanel.classList.remove("open");
-    overlay.classList.remove("open");
-  }
-  function openSidePanel(panel) {
-    closeSidePanels();
-    panel.classList.add("open");
-    overlay.classList.add("open");
-  }
-
   document.getElementById("myPeekBtn").onclick = () => openSidePanel(mySidePanel);
   document.getElementById("oppPeekBtn").onclick = () => openSidePanel(oppSidePanel);
-  document.getElementById("myPanelClose").onclick = closeSidePanels;
-  document.getElementById("oppPanelClose").onclick = closeSidePanels;
+  // 닫기 버튼은 이제 renderMyDinoPage/renderOppPanel이 매번 새로 그리는 헤더 안에 있어서, 그
+  // 렌더 함수들이 각자 wireDinoPanelHeader()로 매 렌더마다 다시 바인딩함(여기서 한 번만 붙이면
+  // 재렌더 후 끊어짐) - 오버레이 클릭만 여기서 한 번 붙이면 됨(오버레이 자체는 재생성 안 되므로)
   overlay.onclick = closeSidePanels;
 
   document.getElementById("battleStartBtn").onclick = onBattleButtonClick;
@@ -424,11 +418,7 @@ function initSpeedDropdown() {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 function initTileSettings() {
@@ -465,11 +455,7 @@ function initTileSettings() {
     };
     tribeList.appendChild(li);
   });
-  tribeSelectedValue.onclick = () => {
-    const isOpen = tribeList.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    tribeList.style.display = isOpen ? "none" : "block";
-  };
+  tribeSelectedValue.onclick = () => toggleDropdownList(tribeSelectedValue, tribeList);
 
   initArrangementDropdown("my", settings);
   initArrangementDropdown("opp", settings);
@@ -515,11 +501,7 @@ function initBuffTowerDropdown(sideKey, statKey, settings) {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 // sideKey: "my" | "opp" - 내 공룡/상대 공룡 각자 독립적으로 "대기 공룡을 같은 타일에 모을지,
@@ -545,11 +527,7 @@ function initArrangementDropdown(sideKey, settings) {
     };
     list.appendChild(li);
   });
-  selectedValue.onclick = () => {
-    const isOpen = list.style.display === "block";
-    document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    list.style.display = isOpen ? "none" : "block";
-  };
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
 }
 
 function applyTileArrangementClass(sideKey, arrangement) {
@@ -673,28 +651,52 @@ function renderOppPanel() {
   const container = document.getElementById("oppDinoBattleSection");
   if (!container) return;
   const session = getActiveSession();
+  // 모든 분기가 공유하는 헤더(제목/툴바/닫기 버튼) - renderMyDinoPage에 그대로 넘기거나,
+  // 탭 컴포넌트를 안 쓰는 임시 카드(초대 중/불러오는 중)에는 dinoPanelHeaderHtml로 직접 붙임
+  const header = { title: "상대 공룡", titleId: "oppPanelTitleText", toolbarId: "oppPanelToolbar", closeId: "oppPanelClose", onClose: closeSidePanels };
 
   if (session && session.status === "inviting") {
     container.innerHTML = `
       <div class="card friend-session-waiting">
+        ${dinoPanelHeaderHtml(header)}
         <div>${session.friendNickname}님에게 초대를 보냈습니다.<br>응답을 기다리는 중...</div>
         <button class="friend-toolbar-btn" id="cancelInviteBtn">초대 취소</button>
       </div>
     `;
+    wireDinoPanelHeader(container, header);
     document.getElementById("cancelInviteBtn").onclick = () => leaveFriendSession();
   } else if (session && session.status === "active") {
     if (session.friendProfile) {
-      renderReadOnlyDinoSummary(container, session.friendProfile, { tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` });
+      renderMyDinoPage(container, {
+        idPrefix: "oppB_",
+        unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
+        unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+        header,
+        readOnly: { profile: session.friendProfile, tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` }
+      });
     } else {
-      container.innerHTML = `<div class="card friend-session-waiting"><div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div></div>`;
+      container.innerHTML = `
+        <div class="card friend-session-waiting">
+          ${dinoPanelHeaderHtml(header)}
+          <div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div>
+        </div>
+      `;
+      wireDinoPanelHeader(container, header);
     }
   } else if (friendSnapshotProfile) {
     // 스냅샷은 실시간 동기화가 없는 정적 사본이라, 관찰자가 로컬에서만 다른 프리셋을 미리 볼 수
     // 있게 허용함(친구의 실제 데이터는 전혀 안 바뀜 - allowPresetSwitch 참고)
-    renderReadOnlyDinoSummary(container, friendSnapshotProfile, {
-      tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)`,
-      allowPresetSwitch: true,
-      onPresetSwitch: () => resetBattleDisplay()
+    renderMyDinoPage(container, {
+      idPrefix: "oppB_",
+      unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
+      unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+      header,
+      readOnly: {
+        profile: friendSnapshotProfile,
+        tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)`,
+        allowPresetSwitch: true,
+        onPresetSwitch: () => resetBattleDisplay()
+      }
     });
   } else {
     renderMyDinoPage(container, {
@@ -702,6 +704,7 @@ function renderOppPanel() {
       storageKey: DINO_BATTLE_OPPONENT_KEY,
       unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
       unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+      header,
       onChange: () => resetBattleDisplay()
     });
   }

@@ -23,7 +23,12 @@ function renderHome(container) {
     <div class="home-bento">
       ${HOME_TILES.map((t, i) => `
         <a class="home-tile ${t.ready ? "home-tile-main" : "home-tile-soon"}" href="${t.href}" style="--i:${i}">
-          ${t.ready ? '<div class="home-tile-glare"></div>' : ""}
+          ${t.ready ? `
+            <div class="home-tile-edge home-tile-edge-r"></div>
+            <div class="home-tile-edge home-tile-edge-l"></div>
+            <div class="home-tile-edge home-tile-edge-b"></div>
+            <div class="home-tile-edge home-tile-edge-t"></div>
+          ` : ""}
           <div class="home-tile-title">${t.title}</div>
           <div class="home-tile-desc">${t.desc}${t.ready ? "" : ' <span class="nav-soon-tag">준비 중</span>'}</div>
         </a>
@@ -65,8 +70,10 @@ function renderHome(container) {
   overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
 }
 
-// 데스크톱(마우스 포인터 있는 환경)에서만 카드가 커서를 향해 살짝 기울어지는 3D 틸트 효과.
+// 데스크톱(마우스 포인터 있는 환경)에서만 카드가 커서를 향해 기울어지는 유리판 3D 틸트 효과.
 // 터치 기기는 mousemove가 의미 없어서 아예 리스너를 안 닮.
+// --shadow-x/y는 그림자를 카드가 들리는 반대 방향으로 밀어서 실제로 그 방향으로 뜬 것 같은
+// 깊이감을 줌(CSS의 box-shadow가 이 값을 씀)
 function initHomeTileTilt() {
   if (!window.matchMedia("(pointer: fine)").matches) return;
 
@@ -75,14 +82,20 @@ function initHomeTileTilt() {
       const rect = tile.getBoundingClientRect();
       const px = (e.clientX - rect.left) / rect.width;
       const py = (e.clientY - rect.top) / rect.height;
-      const rotateY = (px - 0.5) * 10;
-      const rotateX = (0.5 - py) * 10;
-      tile.style.transform = `perspective(700px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
-      tile.style.setProperty("--glare-x", `${px * 100}%`);
-      tile.style.setProperty("--glare-y", `${py * 100}%`);
+      const tiltX = (px - 0.5) * 2; // -1..1
+      const tiltY = (py - 0.5) * 2; // -1..1
+      const rotateY = tiltX * 18;
+      const rotateX = -tiltY * 18;
+      // perspective를 카드 폭보다 작게 잡아서 원근 왜곡(사각형이 사다리꼴로 찌그러지는 것)이
+      // 눈에 뚜렷하게 보이게 함 - 이전엔 700px이라 거의 안 보였음
+      tile.style.transform = `perspective(420px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-6px) scale(1.02)`;
+      tile.style.setProperty("--shadow-x", `${-tiltX * 18}px`);
+      tile.style.setProperty("--shadow-y", `${18 - tiltY * 14}px`);
     });
     tile.addEventListener("mouseleave", () => {
       tile.style.transform = "";
+      tile.style.removeProperty("--shadow-x");
+      tile.style.removeProperty("--shadow-y");
     });
   });
 }

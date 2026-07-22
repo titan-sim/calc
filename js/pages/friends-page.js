@@ -4,6 +4,12 @@
 
 let unsubscribeFriendRequestNotif = null;
 
+// 스탯 모달을 보다가 다른 탭/창에 갔다 브라우저가 이 탭을 백그라운드에서 통째로 새로고침해버리면
+// (모바일/크롬 절전 기능 등 - 앱 코드로는 막을 수 없음) 모달이 닫힌 채로 돌아와 다시 눌러야 하는
+// 게 불편하다는 피드백 반영 - 어떤 친구 모달이 열려있었는지만 세션 저장소에 남겨뒀다가 페이지가
+// 다시 마운트될 때 자동으로 재오픈함
+const FRIEND_STAT_REOPEN_KEY = "friendStatReopenFriendId";
+
 async function renderFriendsPage(container) {
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) {
@@ -79,6 +85,7 @@ function initFriendsPage(myId) {
 
   document.getElementById("friendStatClose").onclick = () => {
     document.getElementById("friendStatOverlay").style.display = "none";
+    sessionStorage.removeItem(FRIEND_STAT_REOPEN_KEY);
   };
 
   // 친구 페이지를 보고 있는 동안 새 요청이 오면 새로고침 없이 바로 목록을 다시 불러옴
@@ -87,7 +94,18 @@ function initFriendsPage(myId) {
     if (document.getElementById("friendsPanelReceived")) loadFriendsData(myId);
   });
 
-  loadFriendsData(myId);
+  // 최초 마운트 때만 "직전에 열려있던 스탯 모달" 복구를 시도(그 외 loadFriendsData 호출은
+  // 요청 알림/수락 등으로 목록만 새로고침하는 것뿐이라 매번 재오픈을 시도하면 사용자가 방금
+  // 직접 닫은 모달도 다시 열려버림)
+  loadFriendsData(myId).then((result) => {
+    const { nicknameOf, friends } = result || {};
+    if (!friends) return;
+    const reopenFriendId = sessionStorage.getItem(FRIEND_STAT_REOPEN_KEY);
+    if (!reopenFriendId) return;
+    const match = friends.find((r) => (r.from_user === myId ? r.to_user : r.from_user) === reopenFriendId);
+    if (match) showFriendStats(match, myId, nicknameOf);
+    else sessionStorage.removeItem(FRIEND_STAT_REOPEN_KEY);
+  });
 }
 
 async function sendFriendRequest(myId) {
@@ -195,6 +213,15 @@ async function loadFriendsData(myId) {
   document.getElementById("countSent").innerText = sent.length > 0 ? ` (${sent.length})` : "";
   document.getElementById("countFriends").innerText = friends.length > 0 ? ` (${friends.length})` : "";
 
+  // 뱃지 숫자가 채워지면서 탭 버튼 너비가 바뀌는데, 인디케이터는 페이지 최초 렌더 시(뱃지가
+  // 비어있던 시점) 잰 너비로 이미 고정돼있어서 그대로 두면 활성 탭과 밑줄 위치/너비가 어긋남
+  const activeTab = document.querySelector(".dino-tab.active");
+  const indicator = document.querySelector(".dino-tab-indicator");
+  if (activeTab && indicator) {
+    indicator.style.width = activeTab.offsetWidth + "px";
+    indicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+  }
+
   renderFriendList("friendsPanelReceived", received, (r) => [
     { label: "수락", onClick: () => respondToRequest(r.id, "accept", myId) },
     { label: "거절", onClick: () => respondToRequest(r.id, "decline", myId) }
@@ -208,6 +235,8 @@ async function loadFriendsData(myId) {
     { label: "스탯 확인", onClick: () => showFriendStats(r, myId, nicknameOf) },
     { label: "친구 끊기", onClick: () => respondToRequest(r.id, "decline", myId) }
   ], "아직 친구가 없습니다.", myId, nicknameOf);
+
+  return { nicknameOf, friends };
 }
 
 async function showFriendStats(row, myId, nicknameOf) {
@@ -218,6 +247,7 @@ async function showFriendStats(row, myId, nicknameOf) {
   document.getElementById("friendStatTitle").textContent = `${nickname}의 공룡 스탯`;
   body.innerHTML = `<div class="friend-picker-empty">불러오는 중...</div>`;
   overlay.style.display = "flex";
+  sessionStorage.setItem(FRIEND_STAT_REOPEN_KEY, friendId);
 
   const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "view" });
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
@@ -269,42 +299,36 @@ function renderFriendStatBreakdown(container, profile) {
     sections.push(friendStatHiddenSection("별자리"));
   }
 
-  if (profile.runes !== undefined) {
-    const slotsHtml = (profile.runes && profile.runes.length ? profile.runes : [null, null, null, null, null])
-      .map((rune) => {
-        if (rune && rune.name && RUNES_DATA[rune.name]) {
-          const r = RUNES_DATA[rune.name];
-          const lvClass = getLvClass(rune.lv);
-          return `<div class="slot slot-readonly"><img src="${getImgUrl(r.imgId)}" class="slot-img"><div class="slot-lv-tag ${lvClass}">${rune.lv}</div></div>`;
-        }
-        return `<div class="slot slot-readonly"><img src="./assets/rune slot image folder/RuneSprite_0.png" class="slot-plus-img"></div>`;
-      })
-      .join("");
-    sections.push(`
-      <div class="friend-stat-section">
-        <div class="friend-stat-section-title">룬</div>
-        <div class="readonly-slot-row friend-stat-slot-row">${slotsHtml}</div>
-      </div>
-    `);
+  // "룬"(현재 장착 중인 룬)과 "프리셋"(저장해둔 조합 목록)이 각자 룬 아이콘을 따로 보여주면
+  // 같은 걸 두 번 보는 것처럼 헷갈려서 한 칸으로 합침 - 대신 프리셋 버튼을 누르면 위 룬 아이콘
+  // 표시 자체가 그 프리셋의 룬 구성으로 바뀜(별도 미리보기 영역을 새로 만들지 않고 한 자리를 재사용)
+  const runesBlockHtml = profile.runes !== undefined
+    ? `<div class="readonly-slot-row friend-stat-slot-row" id="friendRuneSlots">${friendRuneSlotsHtml(profile.runes)}</div>`
+    : `<div class="friend-stat-hidden-text">비공개</div>`;
+
+  let presetBlockHtml;
+  if (profile.runePresets !== undefined) {
+    const presets = profile.runePresets || [];
+    presetBlockHtml = presets.length
+      ? `<div class="friend-preset-list" id="friendPresetList">${presets.map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`).join("")}</div>`
+      : `<span class="friend-stat-hidden-text">저장된 프리셋이 없습니다.</span>`;
   } else {
-    sections.push(friendStatHiddenSection("룬"));
+    presetBlockHtml = `<div class="friend-stat-hidden-text">비공개</div>`;
   }
 
-  if (profile.runePresets !== undefined) {
-    sections.push(`
-      <div class="friend-stat-section">
-        <div class="friend-stat-section-title">프리셋<span class="friend-stat-section-hint">눌러서 룬 구성 보기</span></div>
-        <div class="friend-preset-list" id="friendPresetList"></div>
-        <div class="readonly-slot-row friend-stat-slot-row friend-preset-detail-slots" id="friendPresetDetailSlots"></div>
-      </div>
-    `);
-  } else {
-    sections.push(friendStatHiddenSection("프리셋"));
-  }
+  sections.push(`
+    <div class="friend-stat-section">
+      <div class="friend-stat-section-title">룬<span class="friend-stat-section-hint">프리셋을 눌러 룬 구성 미리보기</span></div>
+      ${runesBlockHtml}
+      <div class="friend-stat-subrow">${presetBlockHtml}</div>
+    </div>
+  `);
 
   // 아레나 프리셋(5슬롯 배치)은 룬 프리셋의 인덱스를 참조하는 값이라 그쪽이 공개돼있을 때만 의미가
-  // 있음 - 서버 쪽에서도 showPresets를 끄면 둘 다 같이 가려서 내려옴
-  if (profile.arenaFormations !== undefined && profile.runePresets !== undefined) {
+  // 있음(서버 쪽에서도 showPresets를 끄면 둘 다 같이 가려서 내려옴) - arenaFormations 자체는 친구가
+  // 아직 한 번도 배치를 저장한 적 없으면 프로필에 필드 자체가 없을 수 있는데, 그때 섹션을 통째로
+  // 숨겨버리면 "이 기능이 아예 없나?"로 헷갈리니 프리셋이 보이는 한 항상 칸은 띄우고 빈 상태만 표시
+  if (profile.runePresets !== undefined) {
     sections.push(`
       <div class="friend-stat-section">
         <div class="friend-stat-section-title">아레나 프리셋<span class="friend-stat-section-hint">눌러서 배치 보기</span></div>
@@ -316,14 +340,28 @@ function renderFriendStatBreakdown(container, profile) {
 
   container.innerHTML = sections.join("");
 
-  // "프리셋" 섹션이 있으면(공개돼있으면) 눌러서 다른 프리셋의 룬 구성을 미리볼 수 있게 함(순수
-  // 조회용 - 아무것도 저장/전송하지 않고 이 모달 안에서만 어떤 프리셋을 보고 있는지 바뀜)
   if (profile.runePresets !== undefined) {
-    mountFriendPresetViewer(container, profile);
-  }
-  if (profile.arenaFormations !== undefined && profile.runePresets !== undefined) {
+    mountFriendPresetPreview(container, profile);
     mountFriendArenaFormationViewer(container, profile);
   }
+}
+
+// 프리셋 버튼을 누르면 위 "룬" 아이콘 표시를 그 프리셋의 룬 구성으로 바꿔치기함(순수 조회용 -
+// 아무것도 저장/전송하지 않고 이 모달 안에서만 어떤 프리셋을 보고 있는지 바뀜)
+function mountFriendPresetPreview(container, profile) {
+  const listEl = container.querySelector("#friendPresetList");
+  const slotsEl = container.querySelector("#friendRuneSlots");
+  if (!listEl || !slotsEl) return;
+  const presets = profile.runePresets || [];
+
+  listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
+    el.onclick = () => {
+      listEl.querySelectorAll(".friend-preset-item").forEach((other) => other.classList.remove("active"));
+      el.classList.add("active");
+      const preset = presets[Number(el.dataset.idx)];
+      slotsEl.innerHTML = friendRuneSlotsHtml(preset ? preset.runes : null);
+    };
+  });
 }
 
 function friendRuneSlotsHtml(runes) {
@@ -337,28 +375,6 @@ function friendRuneSlotsHtml(runes) {
       return `<div class="slot slot-readonly"><img src="./assets/rune slot image folder/RuneSprite_0.png" class="slot-plus-img"></div>`;
     })
     .join("");
-}
-
-function mountFriendPresetViewer(container, profile) {
-  const listEl = container.querySelector("#friendPresetList");
-  const slotsEl = container.querySelector("#friendPresetDetailSlots");
-  let selectedIdx = Number.isInteger(profile.activePresetIndex) ? profile.activePresetIndex : 0;
-
-  function render() {
-    const presets = profile.runePresets || [];
-    listEl.innerHTML = presets.length
-      ? presets.map((p, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`).join("")
-      : '<span class="friend-stat-hidden-text">저장된 프리셋이 없습니다.</span>';
-    listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
-      el.onclick = () => {
-        selectedIdx = Number(el.dataset.idx);
-        render();
-      };
-    });
-    const selected = presets[selectedIdx];
-    slotsEl.innerHTML = friendRuneSlotsHtml(selected ? selected.runes : null);
-  }
-  render();
 }
 
 // 아레나 배치 1개(5슬롯)를 룬 프리셋 인덱스 -> 실제 프리셋 이름/룬으로 풀어서 보여줌
@@ -379,11 +395,12 @@ function mountFriendArenaFormationViewer(container, profile) {
   const listEl = container.querySelector("#friendArenaFormationList");
   const detailEl = container.querySelector("#friendArenaFormationDetail");
   const runePresets = profile.runePresets || [];
-  const activeFormationIndex = Number.isInteger(profile.arenaFormations.activeFormationIndex) ? profile.arenaFormations.activeFormationIndex : 0;
+  const arenaFormations = profile.arenaFormations || {};
+  const activeFormationIndex = Number.isInteger(arenaFormations.activeFormationIndex) ? arenaFormations.activeFormationIndex : 0;
   let selectedIdx = activeFormationIndex;
 
   function render() {
-    const formations = profile.arenaFormations.formations || [];
+    const formations = arenaFormations.formations || [];
     listEl.innerHTML = formations.length
       ? formations.map((f, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === activeFormationIndex ? "★ " : ""}${f.name}</div>`).join("")
       : '<span class="friend-stat-hidden-text">저장된 배치가 없습니다.</span>';
