@@ -49,3 +49,60 @@ async function pullRemoteProfileOnLogin() {
 
   if (typeof renderRoute === "function") renderRoute();
 }
+
+// 타이탄 페이지의 전투 설정(레벨/제한시간/거리/연속전투), 타일 설정(자연의 포옹/부족의 축복/버프
+// 타워), 조합 찾기용 보유 룬 레벨을 하나로 묶어 user_data.titan_config에 동기화. 재생 속도
+// (dino_titan_speed_ms)는 빌드 정보가 아니라 순수 화면 재생 취향이라(다크모드처럼) 동기화 대상에서
+// 뺌. 패턴은 위 dino_profile 동기화와 동일(로그인 상태에서만, 800ms 디바운스).
+let titanSyncDebounceTimer = null;
+
+function queueRemoteTitanSync() {
+  clearTimeout(titanSyncDebounceTimer);
+  titanSyncDebounceTimer = setTimeout(async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const titanConfig = {
+      config: JSON.parse(localStorage.getItem(TITAN_CONFIG_KEY) || "null"),
+      tileSettings: JSON.parse(localStorage.getItem(TITAN_TILE_KEY) || "null"),
+      ownedRuneLevels: JSON.parse(localStorage.getItem(TITAN_OWNED_LEVELS_KEY) || "null")
+    };
+
+    const { error } = await supabaseClient
+      .from("user_data")
+      .upsert({ user_id: session.user.id, titan_config: titanConfig });
+    if (error) console.error("titan_config 동기화 실패:", error.message);
+  }, 800);
+}
+
+// dino_profile과 동일한 로직: 서버에 이미 값이 있으면 서버가 최신 소스로 로컬을 덮어쓰고,
+// 없으면(신규 로그인 등) 이 기기의 현재 값을 최초 업로드.
+async function pullRemoteTitanConfigOnLogin() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) return;
+
+  const { data, error } = await supabaseClient
+    .from("user_data")
+    .select("titan_config")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("titan_config 불러오기 실패:", error.message);
+    return;
+  }
+
+  if (data && data.titan_config) {
+    const { config, tileSettings, ownedRuneLevels } = data.titan_config;
+    if (config) localStorage.setItem(TITAN_CONFIG_KEY, JSON.stringify(config));
+    if (tileSettings) localStorage.setItem(TITAN_TILE_KEY, JSON.stringify(tileSettings));
+    if (ownedRuneLevels) localStorage.setItem(TITAN_OWNED_LEVELS_KEY, JSON.stringify(ownedRuneLevels));
+  } else {
+    const hasLocal = localStorage.getItem(TITAN_CONFIG_KEY)
+      || localStorage.getItem(TITAN_TILE_KEY)
+      || localStorage.getItem(TITAN_OWNED_LEVELS_KEY);
+    if (hasLocal) queueRemoteTitanSync();
+  }
+
+  if (typeof renderRoute === "function") renderRoute();
+}

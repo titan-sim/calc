@@ -48,6 +48,7 @@ function loadTitanTileSettings() {
 
 function saveTitanTileSettings(settings) {
   localStorage.setItem(TITAN_TILE_KEY, JSON.stringify(settings));
+  if (typeof queueRemoteTitanSync === "function") queueRemoteTitanSync();
 }
 
 function loadTitanOwnedLevels() {
@@ -67,6 +68,7 @@ function loadTitanOwnedLevels() {
 
 function saveTitanOwnedLevels(levels) {
   localStorage.setItem(TITAN_OWNED_LEVELS_KEY, JSON.stringify(levels));
+  if (typeof queueRemoteTitanSync === "function") queueRemoteTitanSync();
 }
 
 function titanGetSpeedMs() {
@@ -518,6 +520,7 @@ function initTitanPage() {
 
   function saveConfig() {
     localStorage.setItem(TITAN_CONFIG_KEY, JSON.stringify({ titanLevel, timeLimitMinutes, distanceTiles, continuousBattle }));
+    if (typeof queueRemoteTitanSync === "function") queueRemoteTitanSync();
   }
 
   function loadConfig() {
@@ -1049,7 +1052,10 @@ function initTitanPage() {
     // (이 global 정규화는 후보군을 "누구를 뽑을지" 고르는 용도이고, 2단계 정밀 계산 뒤 실제
     // 균형 조합을 "고르는" 정규화는 refined 안에서 따로 계산함 - 서로 다른 단계라 섞으면 안 됨)
     const maxDpsAll = bestDpsAll.dps;
-    const maxSurvivalAll = Math.max(...screened.map((s) => s.survivalEstimate));
+    // 보유 룬이 많으면(적합 룬을 거의 다 보유) combos가 수만~수십만 개까지 늘어날 수 있어서
+    // Math.max(...array) 스프레드는 V8 인자 스택 한도(약 6만5천개)를 넘겨 RangeError로 터짐 -
+    // reduce로 순회하며 최댓값을 구해야 배열 크기와 무관하게 안전함
+    const maxSurvivalAll = screened.reduce((m, s) => Math.max(m, s.survivalEstimate), 0);
     screened.forEach((s) => {
       s.balanceScore = Math.sqrt((s.dps / maxDpsAll) * (s.survivalEstimate / maxSurvivalAll));
     });

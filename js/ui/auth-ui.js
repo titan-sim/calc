@@ -86,6 +86,7 @@ supabaseClient.auth.onAuthStateChange((event, _session) => {
   renderAuthRow();
   if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
     pullRemoteProfileOnLogin();
+    pullRemoteTitanConfigOnLogin();
     // 친구 초대는 로그인 상태면 어느 페이지에 있든 받을 수 있어야 해서 여기서 한 번만 구독 시작
     getCurrentUser().then((user) => {
       if (user && user.username) initFriendNotifications(user.id, user.username);
