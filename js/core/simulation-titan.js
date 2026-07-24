@@ -94,6 +94,7 @@ function runTitanSimulation(cfg) {
         let firstDeathTick = null;
         let initialFullHp = 0;
         let tickEvents = []; // 1회차(i===0)에서만 채워지는 "주요 이벤트" 로그(치명타/사망/룬 발동/재소환)
+        let titanDefeated = false; // 이번 틱에 타이탄 체력이 0이 됐는지 - 로그를 남기고 나서 break하기 위함
 
         for (let t = 1; t <= limitSec; t++) {
           sessionTime = t;
@@ -212,12 +213,13 @@ function runTitanSimulation(cfg) {
               }
             });
 
-            if (tHp <= 0) { tHp = 0; break; }
+            if (tHp <= 0) { tHp = 0; titanDefeated = true; break; }
             if (d.giftSteps > 0 && --d.giftSteps === 0) d.giftAtk = 0;
           }
-          if (tHp <= 0) break;
 
-          if (t % 3 === 0) {
+          // 타이탄이 이미 죽었으면(위 공룡 공격 단계에서) 반격 없이 바로 이번 틱을 로그에 남기고
+          // 끝냄 - 죽은 타이탄이 그 턴에 다시 공격하면 안 되므로 !titanDefeated로 막음
+          if (!titanDefeated && t % 3 === 0) {
             let baseTDmg = targetTitan.atk;
             for (let d of dinos) {
               if (d.hp <= 0) continue;
@@ -255,7 +257,12 @@ function runTitanSimulation(cfg) {
                 }
               });
 
-              currentTDmg = Math.max(0, currentTDmg);
+              // 원본 게임 로직: 감소를 아무리 많이 쌓아도 최종 피해는 최소 1 - 완전 무피해(면역)는
+              // 존재하지 않음(사용자 확인). 여기를 0으로 클램프하면 "감소량 >= 상대 공격력"인
+              // 경우(예: 낮은 레벨 타이탄 상대로 단단한 피부를 여러 개 낀 경우) 시뮬레이션에서만
+              // 완전 면역(영구 생존)으로 잘못 계산되어, 실제로는 조금씩이라도 깎이는 게 맞는데도
+              // 회복형 룬(흡혈 등)과 비교할 때 "감소형" 쪽이 부당하게 유리해지는 문제가 있었음
+              currentTDmg = Math.max(1, currentTDmg);
               d.hp = Math.max(0, d.hp - currentTDmg);
 
               if (d.hp === 0) {
@@ -305,7 +312,7 @@ function runTitanSimulation(cfg) {
                 }
               }
             }
-            if (tHp <= 0) break;
+            if (tHp <= 0) titanDefeated = true;
           }
 
           if (collectLog && i === 0) {
@@ -331,12 +338,22 @@ function runTitanSimulation(cfg) {
           });
           timeSeriesHp[t] += tickHpSum / maxDino;
           timeSeriesCount[t]++;
+
+          // 로그/그래프에 이번 틱(타이탄 체력 0 포함) 기록을 다 남긴 뒤에 끝냄 - 예전엔 죽은 걸
+          // 확인하자마자 바로 break해서 정작 죽는 그 틱(체력 0인 순간)이 로그에 안 남았고, 그래서
+          // 리플레이가 체력이 0이 되기 "직전" 틱에서 멈춘 것처럼 보였음(실제 계산 자체는 항상
+          // 정확히 0까지 갔음 - 화면에 보여주는 로그만 그 마지막 틱을 빠뜨렸던 것)
+          if (titanDefeated) break;
         }
         totalTitanHp += Math.max(0, tHp);
         // "평균 전투 시간"은 전체 세션 길이가 아니라 "공룡이 처음 죽기까지 걸린 시간"의 평균.
         // 연속 전투 때문에 세션 자체는 90분까지 계속 이어질 수 있어서, 그 길이를 그대로 보여주면
-        // 정작 궁금한 "얼마나 버티는지"와 동떨어진 숫자가 됨. 한 번도 안 죽었으면 세션 길이로 대체.
-        totalTime += firstDeathTick !== null ? firstDeathTick : sessionTime;
+        // 정작 궁금한 "얼마나 버티는지"와 동떨어진 숫자가 됨. 한 번도 안 죽었으면 제한 시간(limitSec)
+        // 전체를 버틴 것으로 침(공룡이 안 죽었다면, 그게 타이탄이 먼저 죽어서 세션이 일찍 끝난 것이든
+        // 실제로 제한 시간을 다 채운 것이든 "이 조합으로는 안 죽는다"는 같은 사실을 말해줌 - 타이탄이
+        // 먼저 죽어 짧게 끝난 세션 길이(sessionTime)를 그대로 쓰면 오히려 딜이 약해서 전투가 길게
+        // 늘어진 조합이 "더 오래 버틴 것"처럼 보이는 역전 현상이 생김)
+        totalTime += firstDeathTick !== null ? firstDeathTick : limitSec;
         totalDead += deathEventCount;
         totalDmg += targetTitan.hp - Math.max(0, tHp);
       }

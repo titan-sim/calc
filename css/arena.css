@@ -12,18 +12,14 @@
   body[data-page="arena"] .container {
     width: min(96vw, 1760px);
   }
-  /* 좌우 진영 설정 패널(기본 스탯/별자리/둥지·알스킨/룬 조합 탭 + 소환 배치까지 있어 세로로 김)이
-     전투 카드보다 훨씬 길어서, 그리드의 기본 정렬(align-items:start)을 그대로 쓰면 전투 카드가
-     맨 위에 붙어 화면 위쪽으로 쏠려 보임 - 가운데 열만 위에서 살짝 띄워서 붕 뜬 느낌을 줄임.
-     원래는 align-self:center를 썼는데, 그 행의 "가장 큰 높이" 기준으로 매번 다시 계산되다 보니
-     좌우 패널 중 한쪽만 탭이 바뀌거나(예: 별자리 탭은 기본 스탯 탭보다 세로로 김) 헤더가 줄바꿈되면
-     (친구초대/설정불러오기 버튼이 있는 상대 쪽만 좁아지면 줄바꿈됨) 그 행 높이가 변해서 가운데
-     카드가 위아래로 슬쩍슬쩍 움직이는 버그가 있었음 - 좌우 패널 상태와 무관하게 항상 똑같은
-     고정 여백만 주는 고정 margin-top으로 바꿔서 흔들리지 않게 함(공룡 대전 페이지는 카드 구성이
-     달라 그대로 둠 - 아레나 스코프로만 한정) */
-  body[data-page="arena"] .battle-arena-wrap {
-    margin-top: clamp(16px, 3vw, 48px);
-  }
+  /* 예전엔 여기에 좌우 패널 대비 "붕 뜬 느낌"을 줄인다며 고정 margin-top(최대 48px)을 줬었는데,
+     좌우 패널이 전투 카드보다 별로 안 긴 상태(흔한 기본 상태)에서는 그 여백이 그냥 세 카드가
+     안 맞는 것처럼 보이는 버그로 인식됨 - 3단 그리드는 열마다 높이가 달라도 상단을 맞추는 게
+     기본이고 자연스러운 정렬이므로(align-items:start, .battle-layout 공용 규칙) 억지로 어긋나게
+     만들지 않음. 그 이전엔 align-self:center를 썼다가 좌우 패널 높이가 바뀔 때마다(탭 전환,
+     헤더 줄바꿈 등) 가운데 카드가 위아래로 슬쩍슬쩍 움직이는 버그가 있었는데, margin-top 없이
+     상단 정렬로 되돌아온 지금은 애초에 좌우 패널 높이와 무관한 고정 위치(항상 그리드 최상단)라
+     그 흔들림 버그도 같이 사라짐. */
   /* 전투 화면이 핵심인데 공룡 대전과 같은 1:1.15:1 비율(.battle-layout 공용 규칙)을 그대로 쓰면
      설정 패널과 크기 차이가 거의 없어서 안 부각됨 - 아레나만 가운데 열 비중을 크게 키움 */
   body[data-page="arena"] .battle-layout {
@@ -44,62 +40,47 @@
    공룡 대전보다 훨씬 일찍 좁아짐 - 실측 결과 뷰포트 1330px 부근(사이드 패널 폭 ~305px)에서 헤더가
    두 줄로 줄바꿈되기 시작하고, 그 순간 .battle-arena-wrap의 align-self:center 때문에(위 주석 참고)
    행 높이가 늘어난 만큼 가운데 전투 카드가 아래로 처지는 게 눈에 띄었음. 이 좁은 중간 구간에서
-   찌그러진 3단을 억지로 보여주는 대신, 위 데스크톱 규칙 시작점(1400px)까지는 그냥 미리
-   모바일과 똑같이 좌우 패널을 수납해버림(공용 max-width:1099px 규칙을 아레나만 1399px까지 확장) */
-@media (min-width: 1100px) and (max-width: 1399px) {
+   찌그러진 3단을 억지로 보여주는 대신, 전투 카드는 위에 풀 폭으로 두고 좌우 설정 패널은 그 아래
+   2열로 나란히 배치함(수납 안 함 - 화면 아래쪽에 남는 공간을 활용). 각 패널이 반 폭이 돼도
+   확실히 여유 있게 쓸 수 있는 폭(700px, 패널 하나당 대략 340px 안팎)까지만 이 레이아웃을 쓰고,
+   그보다 더 좁아지면 공용 모바일 오프캔버스 방식(battle-shared.css의 max-width:1099px 규칙)으로
+   자연히 넘어감 - 이 블록은 그 구간(700px 미만)엔 매치 안 되므로 별도 처리 필요 없음 */
+@media (min-width: 700px) and (max-width: 1399px) {
+  /* 기본 .container는 min(100%, 600px)로 좁게 고정돼 있어서(base.css) - 이 구간 전용으로 안
+     넓혀주면 850px든 1200px든 똑같이 600px로 눌려버려 2열 레이아웃이 무의미하게 좁아짐(실측:
+     둘 다 패널 폭이 268px로 동일하게 나와서 발견함). 뷰포트 폭을 그대로 최대한 활용하되
+     1400px(위 데스크톱 규칙 시작점) 근처에서 부자연스럽게 넓어지지 않도록 상한만 둠 */
+  body[data-page="arena"] .container {
+    width: min(96vw, 1320px);
+  }
   body[data-page="arena"] .battle-layout {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "battle battle"
+      "my opp";
+    gap: 16px;
   }
+  body[data-page="arena"] .battle-arena-wrap {
+    grid-area: battle;
+  }
+  /* 공용 모바일 오프캔버스 스타일(position:fixed + transform 슬라이드)을 취소하고 그리드 안에
+     제자리 배치되는 평범한 카드로 되돌림 */
   body[data-page="arena"] .battle-side-panel {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    width: min(88vw, 400px);
-    background: var(--bg-color);
-    z-index: 2050;
-    overflow-y: auto;
-    padding: 16px;
-    box-sizing: border-box;
-    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.45);
+    position: static;
+    width: auto;
+    box-shadow: none;
+    z-index: auto;
+    transform: none;
+    transition: none;
   }
-  body[data-page="arena"] .battle-side-panel.my-side {
-    left: 0;
-    transform: translateX(-105%);
-  }
-  body[data-page="arena"] .battle-side-panel.opp-side {
-    right: 0;
-    transform: translateX(105%);
-  }
-  body[data-page="arena"] .battle-side-panel.open {
-    transform: translateX(0);
-  }
-  body[data-page="arena"] .battle-panel-close {
-    display: flex;
-  }
+  body[data-page="arena"] .battle-side-panel.my-side { grid-area: my; }
+  body[data-page="arena"] .battle-side-panel.opp-side { grid-area: opp; }
+  /* 더 이상 슬라이드 패널이 아니므로 열기/닫기 버튼 자체가 필요 없음 */
+  body[data-page="arena"] .battle-panel-close,
+  body[data-page="arena"] .battle-panel-overlay,
   body[data-page="arena"] .battle-peek-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 22px;
-    height: 64px;
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-sub);
-    font-size: 13px;
-    cursor: pointer;
-    z-index: 10;
-  }
-  body[data-page="arena"] .battle-peek-btn.my-peek {
-    left: 0;
-    border-radius: 0 10px 10px 0;
-  }
-  body[data-page="arena"] .battle-peek-btn.opp-peek {
-    right: 0;
-    border-radius: 10px 0 0 10px;
+    display: none;
   }
 }
 

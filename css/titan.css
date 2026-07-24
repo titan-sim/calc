@@ -353,16 +353,30 @@
 
 /* 아바타는 3D 변환이 전혀 없는 평면 요소 - 앵커(.titan-hex-anchor)가 이미 압축 좌표로 배치돼
    있으므로 여기서는 그냥 자기 위치(left/top)를 자기 자신의 아래쪽 중앙에 맞추기만 하면 됨.
-   3D 중첩 변환이 없어서 z-fighting/반투명 렌더링 아티팩트가 구조적으로 생길 수 없음 */
+   3D 중첩 변환이 없어서 z-fighting/반투명 렌더링 아티팩트가 구조적으로 생길 수 없음.
+   이 요소 자체는 위치만 잡는 투명한 틀이고, 실제 공 모양(배경/그림자/둥근모서리)과 피격 흔들림은
+   전부 안쪽 자식 .titan-hex-avatar-ball로 옮겨져 있음 - 체력바(.titan-hex-avatar-hpbar)는 이
+   틀의 형제가 아니라 자식으로 같이 들어있지만, 흔들림 애니메이션이 ball에만 걸리므로 체력바는
+   대상이 흔들려도 같이 흔들리지 않음(피격 시 숫자를 읽기 힘들어진다는 피드백으로 분리함) */
 .titan-hex-avatar {
   position: absolute;
   top: 50%;
   width: 26%;
   aspect-ratio: 1;
-  border-radius: 50%;
   transform: translate(-50%, -80%);
   transform-origin: 50% 100%;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+.titan-hex-avatar-ball {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  /* 흔들림 회전의 중심을 바닥(아래쪽)에 둠 - 리팩터 전에는 이 요소(공 모양+흔들림)가 위치
+     지정용 바깥 틀과 분리돼 있지 않아서 자연스럽게 바닥 중심으로 흔들렸는데, 분리하면서
+     기본값(가운데 중심)으로 바뀌어 제자리에서 팽이처럼 도는 것처럼 보였음(사용자 피드백으로
+     발견) - 원래처럼 바닥에 뿌리내린 채 좌우로 기우뚱하는 느낌으로 되돌림 */
+  transform-origin: 50% 100%;
 }
 
 /* 아바타 삼각 대형(뒤 2 + 앞 1) - 무게중심이 앵커 중앙(50%,50% = 육각형 타일 중심)에 오도록
@@ -381,26 +395,26 @@
   width: 36%;
 }
 
-.titan-hex-avatar-mine {
+.titan-hex-avatar-mine .titan-hex-avatar-ball {
   background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white), var(--accent-strong) 75%);
   box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-.titan-hex-avatar-boss {
+.titan-hex-avatar-boss .titan-hex-avatar-ball {
   background: radial-gradient(circle at 35% 30%, #ff8a80, #a4241f 75%);
   box-shadow: 0 0 14px rgba(224, 71, 63, 0.55);
 }
 
-.titan-hex-avatar.dummy-shaking {
+.titan-hex-avatar.dummy-shaking .titan-hex-avatar-ball {
   animation: titan-hex-shake 0.35s ease-in-out;
 }
 
 @keyframes titan-hex-shake {
-  0%, 100% { transform: translate(-50%, -80%) rotate(0deg); }
-  20% { transform: translate(-50%, -80%) rotate(-6deg); }
-  40% { transform: translate(-50%, -80%) rotate(5deg); }
-  60% { transform: translate(-50%, -80%) rotate(-4deg); }
-  80% { transform: translate(-50%, -80%) rotate(2deg); }
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-6deg); }
+  40% { transform: rotate(5deg); }
+  60% { transform: rotate(-4deg); }
+  80% { transform: rotate(2deg); }
 }
 
 /* 앞 3자리(삼각 대형) 각자의 체력바 - 아바타 원 바로 위에 붙임(대상 위쪽이 더 상식적인 위치) */
@@ -421,6 +435,38 @@
   height: 100%;
   transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   border-radius: 999px;
+}
+
+/* 타이탄(보스) 체력바만 다른 공룡 체력바보다 두껍고 넓게(공룡 쪽은 요청이 없어서 기본 5px/90%
+   그대로) - 안에 "현재/최대" 수치 글자가 들어갈 공간을 만들기 위함. 다른 게임들의 보스 체력바를
+   참고해서 "얇고 긴 띠" 형태로(54px까지 두꺼웠던 이전 버전은 사용자 피드백으로 너무 두껍다고
+   판단해서 되돌림) - 두께보다는 폭으로 여유를 확보함. 아바타 원보다 넓어져도(180%) 겹치는
+   요소가 없어서 괜찮음. 위치(top)도 두께에 맞춰 다시 잡음 */
+.titan-hex-avatar-hpbar-boss {
+  width: 180%;
+  height: 20px;
+  top: -38%;
+}
+
+/* 현재/최대 수치를 체력바 안쪽 정중앙에 표시 - 부모(.titan-hex-avatar-hpbar-boss)가
+   이미 absolute라 이 안에서 inset:0으로 꽉 채우면 그 좌표계 기준으로 깔림. 좌우 padding은
+   막대가 둥근 알약 모양(border-radius:999px)이라 양 끝 곡선 부분까지 글자가 닿지 않게 하는
+   최소한의 여유만 둠(예전엔 8%로 과했다는 피드백 - 4%로 줄임). 큰 수(수백만~수억)라도 줄바꿈
+   없이 한 줄로 보이게 white-space:nowrap + 카드 폭 비례 스케일링(cqw) 적용, 채워진 바 색
+   위에서도 읽히도록 흰 글씨 + 그림자 처리 */
+.titan-hex-avatar-hp-text {
+  position: absolute;
+  inset: 0;
+  padding: 0 4%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: clamp(6px, 1.6cqw, 10px);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
 }
 
 /* 표시 중인 3마리 각자의 피격/회복/공격 기여를 그 공룡 아바타 위에 개별적으로 띄움(.battle-dmg-popup

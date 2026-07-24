@@ -82,9 +82,26 @@ async function handleDeleteAccount() {
 // 로그인/로그아웃/토큰 갱신 등 세션 상태가 바뀔 때마다 자동으로 화면을 다시 그림.
 // 새로 로그인한 시점(SIGNED_IN)과 페이지 로드시 기존 세션이 있던 경우(INITIAL_SESSION)에만
 // 서버 데이터를 끌어와 localStorage에 반영함(토큰 자동 갱신마다 매번 다시 불러오지 않도록).
-supabaseClient.auth.onAuthStateChange((event, _session) => {
+//
+// 주의: supabase-js는 탭이 백그라운드에 있다가 다시 보일 때(visibilitychange)도 세션을
+// 재확인하면서 SIGNED_IN/INITIAL_SESSION을 다시 발화시킬 수 있음(진짜 로그인이 아니라 그냥
+// 기존 세션 재확인인데도) - 이걸 그대로 pullRemote...()의 renderRoute() 호출까지 이어지게
+// 두면, 탭을 잠깐 백그라운드에 뒀다 돌아올 때마다 #app 전체가 처음부터 다시 그려지면서
+// 조합 찾기 결과·친구 세션 패널처럼 그 화면에만 있던 상태가 전부 날아감(실제 사용자 리포트로
+// 확인된 문제 - "백그라운드 들어가는 순간 결과창이 닫힘"). 같은 유저 ID로 이미 한 번 처리한
+// SIGNED_IN/INITIAL_SESSION은 다시 처리하지 않도록 마지막으로 처리한 유저 ID를 기억해뒀다가,
+// 유저가 실제로 바뀌었을 때만(로그아웃 후 다른 계정으로 로그인 등) 다시 pull+렌더함.
+let lastHandledAuthUserId = null;
+supabaseClient.auth.onAuthStateChange((event, session) => {
   renderAuthRow();
+  if (event === "SIGNED_OUT") {
+    lastHandledAuthUserId = null;
+    return;
+  }
   if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+    const userId = session && session.user ? session.user.id : null;
+    if (!userId || userId === lastHandledAuthUserId) return;
+    lastHandledAuthUserId = userId;
     pullRemoteProfileOnLogin();
     pullRemoteTitanConfigOnLogin();
     // 친구 초대는 로그인 상태면 어느 페이지에 있든 받을 수 있어야 해서 여기서 한 번만 구독 시작

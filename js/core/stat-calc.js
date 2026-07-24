@@ -240,8 +240,39 @@ function getTitanCombatMetrics({
 // 1초 주기라 나누는 분모가 다르다. 보호막(일회성 방어)과 사망 트리거 룬(마지막 선물/희생/
 // 죽을 준비), 연속 전투 재소환은 정의상 "첫 사망 시각"에 영향을 줄 수 없어 여기서는 반영하지
 // 않아도 오차가 없다(runTitanSimulation의 avgTimeSec도 첫 사망 시각의 평균).
-function estimateTitanSurvivalSec(metrics, targetTitan, timeLimitSec) {
-  const netDrainPerSec = Math.max(0, targetTitan.atk - metrics.reductionTotal) / 3
+//
+// "시간 제한 안에 죽는지"와 "시간 제한까지 버티는지"를 다른 방식으로 채점한다:
+// - 제한 시간 전에 죽는 경우(rawEstimate < timeLimitSec): 그 추정치 자체가 "몇 초 버티는지"라
+//   그대로 의미 있는 값이라 그대로 씀.
+// - 제한 시간까지 버티는 경우(rawEstimate >= timeLimitSec, 또는 순회복이 소모보다 많아 무한대인
+//   경우): 실제로는 다들 timeLimitSec에서 캡되므로 "얼마나 여유있게 버티는지"만 비교하면 되는데,
+//   예전엔 여기서 "finalHp/소모율"을 그대로 써서 소모율이 0에 가까울수록(방어 룬을 하나도 안
+//   써도 될 만큼 상대가 약한 경우) 값이 무한정 커지는 버그가 있었음 - 그 결과 순수 체력빨(finalHp)만
+//   큰 조합이, 실제로 확률형 변동에도 안전한 확정 회복/완화 조합보다 부당하게 훨씬 높은 점수를
+//   받아서 후보에서 밀어냄(실측 재현: 타이탄 레벨 1에서 흡혈 하나만 넣은 조합보다, 방어 룬을
+//   하나도 안 쓰고 체력만 잔뜩 올린 조합이 "생존 시간 최고"로 잘못 뽑힘 - 소모율이 아주 작은
+//   수라서 나누는 순간 값이 수십 배로 부풀려졌던 것). 대신 "제한 시간에 정확히 맞춰 죽으려면
+//   초당 얼마나 깎여야 하는지"(finalHp/timeLimitSec, HP/초 단위)를 기준선 삼아, 실제 소모율이
+//   그보다 얼마나 낮은지(음수면 오히려 차오르는 중)를 마진으로 씀 - finalHp가 분모가 아니라
+//   timeLimitSec로 나눈 뒤 분자 쪽에 들어가므로, 체력을 아무리 불려도 마진이 무한정 커지지
+//   않고 "제한 시간 기준" 회복/완화량과 같은 눈금으로 비교됨. 확정 감소가 확률 감소보다 항상
+//   마진이 크거나 같으므로(기댓값이 더 높음) 여전히 올바른 방향으로 줄세움(직접 비교 계산으로
+//   재확인함).
+function estimateTitanSurvivalSec(metrics, targetTitan, timeLimitSec, dps) {
+  // 원본 게임 로직: 감소를 아무리 많이 쌓아도 최종 피해는 최소 1(완전 무피해/면역은 없음,
+  // simulation-titan.js의 실제 틱 계산과 동일한 규칙 - 사용자 확인). 여기를 0으로 두면 상대
+  // 공격력보다 감소량이 큰 경우 순소모가 항상 음수(무조건 생존)로 잘못 계산돼서, 감소형 조합이
+  // 실제로는 조금씩 깎이는데도 회복형 조합보다 부당하게 유리해짐
+  const netDrainPerSec = Math.max(1, targetTitan.atk - metrics.reductionTotal) / 3
     - metrics.healAvg / 3 - metrics.vampAvg;
-  return netDrainPerSec <= 0 ? timeLimitSec : metrics.finalHp / netDrainPerSec;
+  const rawDeathEstimate = netDrainPerSec <= 0 ? Infinity : metrics.finalHp / netDrainPerSec;
+  // 공룡이 죽기 전에(같은 시점 포함) 타이탄이 먼저 죽으면 실제 tick 루프(simulation-titan.js)에서도
+  // 그 조합은 "안 죽는다"로 집계됨(사용자 확인: 생존이 의미 없어지므로 딜을 더 채우는 쪽이 좋은
+  // 방향) - 그래서 소모 공식만으로 나온 rawDeathEstimate를 그대로 쓰면 안 되고, 이미 DPS 계산에서
+  // 구해둔 dps/targetTitan.hp만으로(추가 계산 없이) "타이탄까지 걸리는 시간"과 비교해서 방어가
+  // 약해도 딜이 세서 먼저 이기는 조합이 부당하게 낮은 생존 점수를 받지 않게 함
+  const timeToKillTitan = dps > 0 ? targetTitan.hp / dps : Infinity;
+  const isSafe = timeToKillTitan <= rawDeathEstimate;
+  if (!isSafe && rawDeathEstimate < timeLimitSec) return rawDeathEstimate;
+  return timeLimitSec + (metrics.finalHp / timeLimitSec - netDrainPerSec);
 }
