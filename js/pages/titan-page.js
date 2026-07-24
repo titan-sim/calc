@@ -323,6 +323,17 @@ function renderTitanPage(container) {
         </div>
       </div>
     </div>
+
+    <div class="friend-picker-overlay" id="titanApplyPresetOverlay" style="display:none;">
+      <div class="friend-picker-modal">
+        <div class="friend-picker-header">
+          <span>어느 프리셋에 장착할까요?</span>
+          <button class="close-btn" id="titanApplyPresetClose">✕</button>
+        </div>
+        <div class="arena-preset-row" id="titanApplyPresetList"></div>
+        <button class="btn-apply" id="titanApplyPresetConfirmBtn" disabled>확인</button>
+      </div>
+    </div>
   `;
 
   initTitanPage();
@@ -331,12 +342,65 @@ function renderTitanPage(container) {
 function initTitanPage() {
   let lastMetrics = null;
   let activeMetricKey = null;
+  let applyPresetPendingRunes = null; // 조합 찾기 결과에서 클릭한 조합의 {name, lv} 배열 - 모달 확인 시 이걸 프리셋에 씀
+  let applyPresetSelectedIdx = null;
 
-  renderMyDinoPage(document.getElementById("myDinoSection"), {
-    unsuitableList: UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "타이탄에 적합하지 않은 룬입니다",
-    onChange: () => { refreshMetricsCard(); titanResetAllCalc(); }
-  });
+  function titanOpenApplyPresetModal(runes) {
+    applyPresetPendingRunes = runes;
+    applyPresetSelectedIdx = null;
+    titanRenderApplyPresetList();
+    document.getElementById("titanApplyPresetConfirmBtn").disabled = true;
+    document.getElementById("titanApplyPresetOverlay").style.display = "flex";
+  }
+
+  function titanRenderApplyPresetList() {
+    const row = document.getElementById("titanApplyPresetList");
+    const profile = loadMyDinoProfile();
+    row.innerHTML = "";
+    profile.runePresets.forEach((preset, idx) => {
+      const btn = document.createElement("div");
+      btn.className = "arena-preset-btn" + (idx === applyPresetSelectedIdx ? " active" : "");
+      btn.textContent = preset.name;
+      btn.onclick = () => {
+        applyPresetSelectedIdx = idx;
+        titanRenderApplyPresetList();
+        document.getElementById("titanApplyPresetConfirmBtn").disabled = false;
+      };
+      row.appendChild(btn);
+    });
+  }
+
+  function titanCloseApplyPresetModal() {
+    document.getElementById("titanApplyPresetOverlay").style.display = "none";
+    applyPresetPendingRunes = null;
+    applyPresetSelectedIdx = null;
+  }
+
+  function titanConfirmApplyPreset() {
+    if (applyPresetSelectedIdx === null || !applyPresetPendingRunes) return;
+    const idx = applyPresetSelectedIdx;
+    const runes = applyPresetPendingRunes.map((r) => ({ ...r }));
+    const profile = loadMyDinoProfile();
+    profile.runePresets[idx].runes = runes;
+    profile.activePresetIndex = idx;
+    profile.runes = runes.map((r) => ({ ...r }));
+    saveMyDinoProfile(profile);
+    const presetName = profile.runePresets[idx].name;
+    titanCloseApplyPresetModal();
+    titanRenderMyDinoSection();
+    refreshMetricsCard();
+    titanResetAllCalc();
+    showToast(`"${presetName}"에 조합을 장착했습니다`);
+  }
+
+  function titanRenderMyDinoSection() {
+    renderMyDinoPage(document.getElementById("myDinoSection"), {
+      unsuitableList: UNSUITABLE_RUNE_LIST,
+      unsuitableLabel: "타이탄에 적합하지 않은 룬입니다",
+      onChange: () => { refreshMetricsCard(); titanResetAllCalc(); }
+    });
+  }
+  titanRenderMyDinoSection();
 
   function initMetricsCard() {
     document.querySelectorAll(".metric-tile").forEach((tile) => {
@@ -484,7 +548,7 @@ function initTitanPage() {
   const titanList = document.getElementById("titanList");
   const titanSelectedValue = document.getElementById("titanSelectedValue");
   let titanLevel = 1;
-  for (let lv = 1; lv <= 120; lv++) {
+  for (let lv = 1; lv <= 140; lv++) {
     const { atk, hp } = TITAN_STATS[lv];
     const li = document.createElement("li");
     const label = `Lv. ${lv} (ATK ${atk} / HP ${hp.toLocaleString()})`;
@@ -664,8 +728,9 @@ function initTitanPage() {
 
   function titanResetQuickCalc() {
     titanRenderQuickSummary();
-    const optimizeResult = document.getElementById("titanOptimizeResult");
-    if (optimizeResult) optimizeResult.innerHTML = "";
+    // 조합 찾기 결과(#titanOptimizeResult)는 여기서 지우지 않음 - 룬/설정을 바꿀 때마다(심지어
+    // 조합 찾기 결과의 조합을 프리셋에 장착만 해도) 매번 사라지면 방금 찾은 결과를 다시 볼 수 없어
+    // 불편하다는 사용자 피드백. 조합 찾기는 "다시 찾기" 버튼을 눌러야만 갱신되는 스냅샷으로 취급함
     const rep = document.getElementById("battleReport");
     if (rep) rep.style.display = "none";
   }
@@ -1083,16 +1148,22 @@ function initTitanPage() {
         const metrics = getTitanCombatMetrics({ ...dino, selectedRunes }, tileCfg);
         const dps = (metrics.avgHitDamage + metrics.skillDmgTotal) * dino.count;
         const survivalEstimate = estimateTitanSurvivalSec(metrics, targetTitan, timeLimitSec, dps);
-        // "확정형" 감소(단단한 피부/타이탄 가드처럼 확률 없이 항상 적용되는 것)만 따로 합산 -
-        // survivalEstimate의 마진 기반 점수는 분산이 다른 조합끼리 비교할 때 큰 마진을 가진
-        // 확률형 조합이 작은 마진의 확정형 조합보다 부당하게 높게 나올 수 있어서(둘 다 룬 자체
-        // 계산은 정확해도, "마진이 크다"가 항상 "더 안전하다"인 건 아님 - 분산까지 반영한 완전한
-        // 확률 모델은 너무 복잡해서 만들지 않음), 이 값이 높은 조합을 후보군에 별도로 승격시켜
-        // 마진 점수가 어떻게 나오든 최소한 후보에서 완전히 탈락하지는 않게 안전망을 둠
+        // "확률에 하나도 안 기대도 최소 이만큼은 버틴다"는 확정 하한선 - 흡혈/힐/피해 저항 같은
+        // 확률형 효과가 전부 한 번도 안 터진다고 가정하고, 확정 감소(단단한 피부/타이탄 가드)와
+        // 확정 체력(방어벽/체력 증가 등 hp% 증가는 이미 finalHp에 반영돼 있음)만으로 계산함.
+        // survivalEstimate(평균 기반 마진 점수)는 확률형 효과의 "기댓값"만 보고 분산(운이 얼마나
+        // 크게 갈릴 수 있는지)을 전혀 반영 못 해서, 평균은 비슷해도 실제로는 훨씬 더 안정적인
+        // 확정형 위주 조합이 후보군에서 밀려날 수 있음(실측 확인: 흡혈 평균 회복량이 워낙 커서
+        // 방어 룬 조합끼리 비교할 때 마진 점수 차이가 실제 생존율 차이와 반대로 나온 사례 있었음) -
+        // 이 하한선이 높은 조합을 후보군에 별도로 승격시켜, 마진 점수가 어떻게 나오든 확정적으로
+        // 안전한 조합이 후보에서 완전히 탈락하지는 않게 안전망을 둠. 분모가 항상 1/3 이상이라
+        // survivalEstimate와 달리 무한대로 발산하지 않음(정렬 기준으로 바로 쓸 수 있음).
         const deterministicReduction = metrics.reductions
           .filter((r) => r.type === "flat")
           .reduce((sum, r) => sum + r.avg, 0);
-        screened.push({ names, dps, survivalEstimate, deterministicReduction });
+        const deterministicNetDrainPerSec = Math.max(1, targetTitan.atk - deterministicReduction) / 3;
+        const deterministicSurvivalEstimate = metrics.finalHp / deterministicNetDrainPerSec;
+        screened.push({ names, dps, survivalEstimate, deterministicSurvivalEstimate });
       }
       if (end < combos.length) {
         btn.textContent = `1단계 계산 중 (${end.toLocaleString()}/${combos.length.toLocaleString()})...`;
@@ -1126,7 +1197,7 @@ function initTitanPage() {
     const byDps = [...screened].sort((a, b) => b.dps - a.dps).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
     const bySurvival = [...screened].sort((a, b) => b.survivalEstimate - a.survivalEstimate).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
     const byBalance = [...screened].sort((a, b) => b.balanceScore - a.balanceScore).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
-    const byDeterministicSafety = [...screened].sort((a, b) => b.deterministicReduction - a.deterministicReduction).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
+    const byDeterministicSafety = [...screened].sort((a, b) => b.deterministicSurvivalEstimate - a.deterministicSurvivalEstimate).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
     const candidateMap = new Map();
     [...byDps, ...bySurvival, ...byBalance, ...byDeterministicSafety].forEach((c) => candidateMap.set(c.names.join("|"), c));
     const candidates = [...candidateMap.values()];
@@ -1141,7 +1212,7 @@ function initTitanPage() {
         collectLog: false,
         batchSize: 10
       });
-      refined.push({ names: c.names, dps: c.dps, survival: fineResult.avgTimeSec });
+      refined.push({ names: c.names, dps: c.dps, survival: fineResult.avgTimeSec, survivalRate: fineResult.survivalRate });
       btn.textContent = `2단계 정밀 계산 중 (${i + 1}/${candidates.length})...`;
       btn.style.setProperty("--progress", String(10 + ((i + 1) / candidates.length) * 60));
     }
@@ -1152,9 +1223,17 @@ function initTitanPage() {
     // 최종 승자를 정함(회차를 늘릴수록 평균이 진짜 기댓값에 가까워지므로, 시드로 결과를
     // "재현 가능하게" 고정하는 방법 대신 표본 자체를 늘려 "더 정확하게" 만드는 쪽을 선택함).
     const preMaxDps = Math.max(...refined.map((r) => r.dps));
-    const preMaxSurvival = Math.max(...refined.map((r) => r.survival));
-    const balanceScoreOf = (r) => Math.sqrt((r.dps / preMaxDps) * (r.survival / preMaxSurvival));
-    const byRefinedSurvival = [...refined].sort((a, b) => b.survival - a.survival).slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
+    // 균형 점수의 "생존" 축은 survivalRate(0~1, 몇 %가 안 죽고 버텼는지)를 씀 - avgTimeSec는
+    // 평균이라 "가끔 죽는" 조합도 대부분 시행이 제한 시간을 채우면 평균이 별로 안 낮아져서
+    // survival/preMaxSurvival로 정규화해봐야 안정성 차이가 거의 안 드러남. survivalRate는 이미
+    // 0~1로 정규화돼 있어서 preMaxSurvival 같은 별도 기준값도 필요 없음.
+    const balanceScoreOf = (r) => Math.sqrt((r.dps / preMaxDps) * r.survivalRate);
+    // 생존 후보 선정도 survivalRate를 1순위로 함(같으면 평균 생존 시간으로 2차 정렬) - 안 그러면
+    // "15회 중 15회 다 생존"과 "15회 중 9회만 생존, 나머지는 늦게 죽어서 평균은 비슷"이 섞여서
+    // 진짜 안정적인 조합이 3단계 최종 후보(top N)에도 못 들 수 있음
+    const byRefinedSurvival = [...refined]
+      .sort((a, b) => (b.survivalRate !== a.survivalRate ? b.survivalRate - a.survivalRate : b.survival - a.survival))
+      .slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
     const byRefinedBalance = [...refined].sort((a, b) => balanceScoreOf(b) - balanceScoreOf(a)).slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
     const finalistMap = new Map();
     [...byRefinedSurvival, ...byRefinedBalance].forEach((c) => finalistMap.set(c.names.join("|"), c));
@@ -1183,7 +1262,7 @@ function initTitanPage() {
         });
         if (capCheckResult.avgTimeSec >= timeLimitSec - 0.001) {
           // 저렴한 확인 회차도 전부 생존 - 캡 도달로 확정, 300회 전체 검증은 생략
-          verified.push(f);
+          verified.push({ ...f, survivalRate: capCheckResult.survivalRate });
           btn.style.setProperty("--progress", String(70 + ((i + 1) / finalists.length) * 30));
           continue;
         }
@@ -1196,28 +1275,31 @@ function initTitanPage() {
         collectLog: false,
         batchSize: 20
       });
-      verified.push({ names: f.names, dps: f.dps, survival: verifyResult.avgTimeSec });
+      verified.push({ names: f.names, dps: f.dps, survival: verifyResult.avgTimeSec, survivalRate: verifyResult.survivalRate });
       btn.textContent = `3단계 최종 후보 검증 중 (${i + 1}/${finalists.length})...`;
       btn.style.setProperty("--progress", String(70 + ((i + 1) / finalists.length) * 30));
     }
 
-    // 생존 시간이 동점(주로 제한 시간까지 다 버텨서 5번째 슬롯이 뭐든 상관없어지는 경우)이면
-    // 그 중 대미지가 더 높은 조합을 우선함 - 확정적으로 다 버티는 상황이라면 나머지 룬은 딜이
-    // 제일 잘 나오는 걸 넣는 게 맞음(생존은 전혀 손해 안 보면서 대미지만 덤으로 챙기는 셈).
-    // 이 규칙이 없으면 동점 후보 중 배열에 먼저 들어온 걸 우연히 골라서, 보스 슬레이어처럼
-    // 생존에는 전혀 기여 안 하는 룬이 이유 없이 "생존 시간 최고"에 낄 수 있었음.
+    // "생존 시간 최고"는 survivalRate(300회 중 몇 %가 안 죽고 버텼는지)를 1순위로 함 - avgTimeSec는
+    // 평균이라 예전엔 "가끔 죽는" 조합도 대부분 시행이 제한 시간을 채우면 평균이 별로 안 낮아져서,
+    // 확률형 회복(흡혈 등) 위주라 평균은 비슷해 보이지만 실제로는 훨씬 자주 죽는 조합이 뽑히는
+    // 문제가 있었음(사용자 실측 리포트로 확인 - 사망률 42.7% 조합이 0.7% 조합보다 "생존 시간
+    // 최고"로 잘못 뽑힌 사례). survivalRate가 같으면(둘 다 전멸 없이 다 버틴 경우가 흔함) 평균
+    // 생존 시간, 그다음 대미지로 2·3차 정렬 - 확정적으로 다 버티는 상황이라면 나머지는 딜이 제일
+    // 잘 나오는 걸 넣는 게 맞음(생존은 전혀 손해 안 보면서 대미지만 덤으로 챙기는 셈).
     const bestSurvival = verified.reduce((a, b) => {
+      if (b.survivalRate !== a.survivalRate) return b.survivalRate > a.survivalRate ? b : a;
       if (b.survival !== a.survival) return b.survival > a.survival ? b : a;
       return b.dps > a.dps ? b : a;
     });
-    // 균형 조합: DPS/생존시간을 검증된 최종 후보군 내 최댓값 기준 0~1로 정규화한 뒤 기하평균이
-    // 가장 높은 조합(한쪽에 극단적으로 치우친 조합은 다른 쪽 점수가 낮아져 기하평균이 낮게 나옴).
-    // maxDps는 finalists에 항상 bestDpsAll(전체 조합 중 진짜 DPS 최댓값)이 포함돼 있어 정확한 값.
+    // 균형 조합도 같은 이유로 "생존" 축을 survivalRate로 씀(이미 0~1이라 별도 정규화 불필요) -
+    // DPS만 검증된 최종 후보군 내 최댓값 기준으로 정규화한 뒤 기하평균(한쪽에 극단적으로 치우친
+    // 조합은 다른 쪽 점수가 낮아져 기하평균이 낮게 나옴). maxDps는 finalists에 항상 bestDpsAll
+    // (전체 조합 중 진짜 DPS 최댓값)이 포함돼 있어 정확한 값.
     const maxDps = Math.max(...verified.map((r) => r.dps));
-    const maxSurvival = Math.max(...verified.map((r) => r.survival));
     const bestBalance = verified.reduce((a, b) => {
-      const scoreA = Math.sqrt((a.dps / maxDps) * (a.survival / maxSurvival));
-      const scoreB = Math.sqrt((b.dps / maxDps) * (b.survival / maxSurvival));
+      const scoreA = Math.sqrt((a.dps / maxDps) * a.survivalRate);
+      const scoreB = Math.sqrt((b.dps / maxDps) * b.survivalRate);
       return scoreB > scoreA ? b : a;
     });
     const bestDpsEntry = verified.find((r) => r.names.join("|") === bestDpsAll.names.join("|"));
@@ -1228,6 +1310,7 @@ function initTitanPage() {
     btn.style.removeProperty("--progress");
 
     const fmtTime = (sec) => `${Math.floor(sec / 60)}분 ${Math.floor(sec % 60)}초`;
+    const fmtRate = (rate) => `${(rate * 100).toFixed(1)}%`;
     const comboLine = (names) => names.map((n) => `${n} Lv.${levels[n]}`).join(" · ");
 
     resultEl.innerHTML = `
@@ -1236,9 +1319,10 @@ function initTitanPage() {
         <div class="report-grid">
           <div class="report-tile dummy-optimize-best-tile">
             <div class="metric-label">생존 시간(공룡 1마리당) 최고 조합</div>
-            <div class="dummy-optimize-best-combo">${comboLine(bestSurvival.names)}</div>
+            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestSurvival.names)}</div>
           </div>
-          <div class="report-tile"><div class="metric-label">예상 생존 시간</div><div class="metric-value accent">${fmtTime(bestSurvival.survival)}</div></div>
+          <div class="report-tile"><div class="metric-label">생존율(한 마리도 안 죽을 확률)</div><div class="metric-value accent">${fmtRate(bestSurvival.survivalRate)}</div></div>
+          <div class="report-tile"><div class="metric-label">평균 생존 시간</div><div class="metric-value">${fmtTime(bestSurvival.survival)}</div></div>
           <div class="report-tile"><div class="metric-label">이 조합의 예상 초당 대미지</div><div class="metric-value">${Math.round(bestSurvival.dps).toLocaleString()}</div></div>
         </div>
       </div>
@@ -1246,24 +1330,38 @@ function initTitanPage() {
         <div class="report-grid">
           <div class="report-tile dummy-optimize-best-tile">
             <div class="metric-label">시간당 대미지 최고 조합</div>
-            <div class="dummy-optimize-best-combo">${comboLine(bestDpsEntry.names)}</div>
+            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestDpsEntry.names)}</div>
           </div>
           <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value accent">${Math.round(bestDpsEntry.dps).toLocaleString()}</div></div>
-          <div class="report-tile"><div class="metric-label">이 조합의 예상 생존 시간</div><div class="metric-value">${fmtTime(bestDpsEntry.survival)}</div></div>
+          <div class="report-tile"><div class="metric-label">이 조합의 생존율</div><div class="metric-value">${fmtRate(bestDpsEntry.survivalRate)}</div></div>
+          <div class="report-tile"><div class="metric-label">이 조합의 평균 생존 시간</div><div class="metric-value">${fmtTime(bestDpsEntry.survival)}</div></div>
         </div>
       </div>
       <div class="dummy-optimize-result-box">
         <div class="report-grid">
           <div class="report-tile dummy-optimize-best-tile">
             <div class="metric-label">균형 조합 (생존·대미지 둘 다 준수)</div>
-            <div class="dummy-optimize-best-combo">${comboLine(bestBalance.names)}</div>
+            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestBalance.names)}</div>
           </div>
-          <div class="report-tile"><div class="metric-label">예상 생존 시간</div><div class="metric-value accent">${fmtTime(bestBalance.survival)}</div></div>
+          <div class="report-tile"><div class="metric-label">생존율</div><div class="metric-value accent">${fmtRate(bestBalance.survivalRate)}</div></div>
+          <div class="report-tile"><div class="metric-label">평균 생존 시간</div><div class="metric-value">${fmtTime(bestBalance.survival)}</div></div>
           <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value accent">${Math.round(bestBalance.dps).toLocaleString()}</div></div>
         </div>
       </div>
     `;
+
+    const comboEntries = [bestSurvival, bestDpsEntry, bestBalance];
+    resultEl.querySelectorAll(".dummy-optimize-best-combo").forEach((el, i) => {
+      el.onclick = () => {
+        const runes = comboEntries[i].names.map((name) => ({ name, lv: levels[name] }));
+        titanOpenApplyPresetModal(runes);
+      };
+    });
   }
+
+  document.getElementById("titanApplyPresetClose").onclick = titanCloseApplyPresetModal;
+  document.getElementById("titanApplyPresetConfirmBtn").onclick = titanConfirmApplyPreset;
+  enableDragScroll(document.getElementById("titanApplyPresetList"));
 
   titanInitModeTabs();
   titanInitSpeedDropdown();

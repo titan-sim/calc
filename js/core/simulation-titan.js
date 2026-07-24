@@ -52,7 +52,7 @@ function runTitanSimulation(cfg) {
     const batchSize = Math.max(1, batchSizeCfg);
     let completed = 0;
     const detailedLogs = [];
-    let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0;
+    let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0, survivedCount = 0;
 
     const limitSec = timeLimitMinutes * 60;
     let timeSeriesHp = new Array(limitSec + 1).fill(0);
@@ -354,6 +354,7 @@ function runTitanSimulation(cfg) {
         // 먼저 죽어 짧게 끝난 세션 길이(sessionTime)를 그대로 쓰면 오히려 딜이 약해서 전투가 길게
         // 늘어진 조합이 "더 오래 버틴 것"처럼 보이는 역전 현상이 생김)
         totalTime += firstDeathTick !== null ? firstDeathTick : limitSec;
+        if (firstDeathTick === null) survivedCount++;
         totalDead += deathEventCount;
         totalDmg += targetTitan.hp - Math.max(0, tHp);
       }
@@ -403,6 +404,11 @@ function runTitanSimulation(cfg) {
         avgTotalDmg: totalDmg / iterations,
         avgRemainingTitanHp: Math.max(0, totalTitanHp / iterations),
         avgTimeSec: totalTime / iterations,
+        // 공룡이 한 마리도 안 죽은 시행의 비율(0~1). avgTimeSec는 평균이라 "가끔 죽는" 조합도
+        // 대부분 시행에서 시간 제한을 채우면 평균이 크게 안 낮아져서 안정성 차이가 묻힘 -
+        // 확률형 방어/회복 룬이 섞인 조합끼리 비교할 때는 이 값이 실제 "얼마나 믿을 만한지"를
+        // 훨씬 정확히 보여줌(균형/생존 랭킹에서 이 값을 우선 기준으로 씀 - titan-page.js 참고)
+        survivalRate: survivedCount / iterations,
         avgDeadCount: totalDead / iterations,
         avgSurvivalPercent: finalRollingAvg,
         chartData: displayChartData,

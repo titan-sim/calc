@@ -536,3 +536,27 @@
   margin-top: 16px;
 }
 
+/* 조합 찾기 결과의 룬 나열 줄을 누르면 프리셋에 바로 장착할 수 있음 - dummy.css의
+   .dummy-optimize-best-combo는 훈련 타겟 페이지(dummy-page.js)와 공유하는 클래스라 거기엔 이
+   기능이 없으므로, 클릭 가능해 보이는 스타일은 타이탄 페이지 범위로만 한정함 */
+#titanOptimizeResult .dummy-optimize-best-combo {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin-left: -4px;
+  transition: background 0.15s;
+}
+
+#titanOptimizeResult .dummy-optimize-best-combo:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+#titanApplyPresetOverlay .btn-apply {
+  margin-top: 10px;
+}
+
+#titanApplyPresetOverlay .btn-apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
