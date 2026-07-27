@@ -117,10 +117,13 @@ function arenaSanitizeFormationsData(saved) {
 
 function arenaLoadFormationsData(sideKey) {
   // 상대 진영이 친구의 것(실시간 세션/스냅샷)이면 로컬 저장소 대신 메모리상의 임시 배치를 씀 -
-  // 내가 직접 만들어둔 상대 진영 배치(로컬 저장소)는 절대 안 건드림
+  // 내가 직접 만들어둔 상대 진영 배치(로컬 저장소)는 절대 안 건드림. arenaFriendFormations가 아직
+  // null이면(친구의 진짜 배치가 아직 도착 전) 여기서 캐싱하지 않고 매번 새 빈 기본값만 임시로
+  // 돌려줌 - 여기서 캐싱해버리면 실시간 세션에서 진짜 배치(friend-profile 이벤트)가 도착하기 전에
+  // 렌더링이 먼저 일어날 때 빈 기본값이 그대로 굳어버려서, 나중에 도착한 진짜 배치로 채우는 동기화
+  // 로직(arenaSyncOppFormationsFromFriend)이 "이미 채워진 것"으로 오판해 건너뛰게 됨
   if (sideKey === "opp" && arenaIsOppRunePresetsForeign()) {
-    if (!arenaFriendFormations) arenaFriendFormations = arenaDefaultFormationsData();
-    return arenaFriendFormations;
+    return arenaFriendFormations || arenaDefaultFormationsData();
   }
   if (sideKey === "my") {
     // 내 아레나 배치는 로컬 전용 저장소가 아니라 "내 공룡" 프로필 자체의 필드(runePresets와 같은
@@ -191,11 +194,15 @@ function arenaIsOppRunePresetsForeign() {
 }
 
 // 친구 설정을 새로 불러올 때(스냅샷 로드 / 실시간 세션 시작) "상대 진영"의 아레나 배치(5슬롯 배정)를
-// 항상 빈 상태로 리셋함 - 슬롯 배정 자체는 서버에 동기화되는 데이터가 아니라서(로컬 전용) 그 친구가
-// 실제로 어떻게 배치해뒀는지 알 방법이 없음. 예전엔 내가 이전에 로컬로 만들어둔 테스트용 배치가
-// 그대로 남아있어서 마치 그게 친구의 실제 배치인 것처럼 오해할 수 있었음
-function arenaResetOppFormationsToDefault() {
-  arenaSaveFormationsData("opp", arenaDefaultFormationsData());
+// 그 친구가 실제로 저장해둔 배치로 채움 - arenaFormations는 runePresets와 마찬가지로 계정에 동기화되는
+// 필드라(arenaSaveFormationsData의 "my" 분기, supabase_schema.sql의 get_friend_dino_profile
+// purpose:'battle' 응답 참고) 친구 프로필 안에 이미 실제 배치가 들어있음. 저장한 적이 없으면
+// arenaSanitizeFormationsData가 알아서 빈 기본값으로 처리함. 예전엔 여기서 무조건 빈 기본값으로
+// 리셋해버려서(당시 주석은 "슬롯 배정은 서버 동기화 대상이 아니라 알 방법이 없음"이라 했지만 실제로는
+// arenaFormations가 이미 동기화되는 필드였음), 친구가 배치를 저장해뒀어도 "상대 진영"엔 아무것도
+// 없는 것처럼 보이는 버그가 있었음
+function arenaSyncOppFormationsFromFriend(friendProfile) {
+  arenaFriendFormations = arenaSanitizeFormationsData(friendProfile && friendProfile.arenaFormations);
 }
 
 // "내 진영"/"상대 진영" 패널 헤더 타이틀을 세션/스냅샷 상태에 맞게 실제 닉네임으로 바꿈
@@ -396,7 +403,7 @@ async function arenaLoadFriendSnapshot(friendId, friendNickname) {
   }
   arenaFriendSnapshotProfile = data;
   arenaFriendSnapshotNickname = friendNickname;
-  arenaResetOppFormationsToDefault();
+  arenaSyncOppFormationsFromFriend(data);
   renderArenaOppPanel();
   arenaUpdateFriendLabels();
   arenaResetDisplay();
@@ -410,13 +417,21 @@ function arenaHandleFriendSessionEvent(event) {
   if (!document.getElementById("arenaMainCard")) return;
 
   if (event.type === "joined" || event.type === "friend-joined") {
-    // 세션이 막 시작된 시점에만 리셋 - 이후 세션 도중 친구가 자기 설정을 바꿔서 오는
-    // "friend-profile" 갱신마다 리셋하면 내가 방금 만들어둔 슬롯 배정이 계속 날아가 버림
-    arenaResetOppFormationsToDefault();
+    // 세션이 막 시작된 시점엔 이전 친구(스냅샷 등)의 배치가 남아있지 않도록 일단 비워둠 - 이 친구의
+    // 진짜 배치는 아직 도착 전이라(profile 메시지는 join 메시지 바로 다음에, 같은 채널로 순서 보장되어
+    // 오므로 항상 이 이벤트 다음에 friend-profile 이벤트로 옴) 여기서 곧바로 채울 수는 없음
+    arenaFriendFormations = null;
     renderArenaOppPanel();
     arenaUpdateFriendLabels();
     arenaResetDisplay();
   } else if (event.type === "friend-profile") {
+    // 이 세션에서 친구의 실제 배치를 아직 못 받아왔으면(막 시작된 시점) 지금 도착한 프로필로 채움 -
+    // 이후 세션 도중 친구가 자기 설정을 바꿔서 오는 추가 갱신마다 매번 덮어쓰면 내가 방금 로컬로
+    // 조정해둔 슬롯 배정이 계속 날아가 버리므로, 딱 한 번만 채움
+    if (!arenaFriendFormations) {
+      const session = getActiveSession();
+      arenaSyncOppFormationsFromFriend(session && session.friendProfile);
+    }
     renderArenaOppPanel();
     arenaUpdateFriendLabels();
     arenaResetDisplay();

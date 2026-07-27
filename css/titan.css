@@ -83,11 +83,11 @@
   margin-bottom: 8px;
 }
 
+/* 행 자체는 세로 스택(주 내용 + 선택적 서브라인) - 서브라인이 없는 행은 기존과 똑같이 한 줄로 보임 */
 .metric-detail-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 2px;
   padding: 7px 0;
   border-top: 1px solid var(--border-color);
   font-size: 13px;
@@ -96,6 +96,19 @@
 
 .metric-detail-row:first-of-type {
   border-top: none;
+}
+
+.metric-detail-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* 확률/원래 값처럼 평균값 계산에 쓰인 원본 수치를 보여주는 보조 줄(예: "원래 대미지 1,234") */
+.metric-detail-row-sub {
+  font-size: 11px;
+  color: var(--text-sub);
 }
 
 .metric-detail-empty {
@@ -558,5 +571,51 @@
 #titanApplyPresetOverlay .btn-apply:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 조합 찾기: 보유 룬 레벨 입력 목록(dummy-owned-rune-grid, 적합 룬 전부라 세로로 김) 접기/펼치기 -
+   버튼은 우측에 작게 */
+.titan-owned-rune-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.titan-owned-rune-header-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.titan-owned-rune-collapse-btn {
+  appearance: none;
+  font-family: inherit;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.titan-owned-rune-collapse-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
+  background: color-mix(in srgb, var(--accent) 8%, var(--input-bg));
+}
+
+.titan-owned-rune-collapse-icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* 접힌 상태 - display만 끔(DOM/입력값은 그대로 남아있어서 다시 펼치면 입력한 레벨이 그대로 보임) */
+.dummy-owned-rune-grid.titan-owned-rune-grid-collapsed {
+  display: none;
 }
 

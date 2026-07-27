@@ -144,6 +144,10 @@
   gap: 8px;
   padding: 6px 0;
   border-bottom: 1px solid var(--border-color);
+  /* grid/flex 아이템은 기본적으로 내용물(nowrap 텍스트) 너비 밑으로 안 줄어듦 - 좁은 화면(약
+     330px 이하)에서 이 행이 grid 칸보다 넓어져 카드 전체가 가로로 밀려나며 스크롤이 생기던 원인.
+     min-width:0으로 줄어들 수 있게 해야 아래 이름의 ellipsis도 실제로 작동함 */
+  min-width: 0;
 }
 
 .dummy-owned-rune-name {
@@ -152,6 +156,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .dummy-owned-rune-level {

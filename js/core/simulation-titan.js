@@ -42,8 +42,9 @@ function runTitanSimulation(cfg) {
   const atkTowerP = (atkTowerLevel !== null && atkTowerLevel !== undefined) ? BUFF_TOWER_PERCENTS[atkTowerLevel] : 0;
   const hpTowerP = (hpTowerLevel !== null && hpTowerLevel !== undefined) ? BUFF_TOWER_PERCENTS[hpTowerLevel] : 0;
 
-  // 재소환 딜레이(1.5초 고정) + 둥지<->타이탄 이동 시간(거리 × 타일당 이동시간)
-  const respawnDelaySec = 1.5 + distanceTiles * getTileMoveSeconds(moveSpeed);
+  // 재소환 딜레이(1.5초 고정) + 둥지<->타이탄 이동 시간(거리 × 타일당 이동시간) - stat-calc.js의
+  // estimateTitanExpectedDeaths도 같은 공식을 써야 해서 공용 헬퍼로 뽑아둠(getRespawnDelaySec)
+  const respawnDelaySec = getRespawnDelaySec(moveSpeed, distanceTiles);
 
   return new Promise((resolve) => {
     // onProgress를 안 쓰는 호출(조합 찾기 최적화기 내부)은 batchSize를 키워서 반복마다

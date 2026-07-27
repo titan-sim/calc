@@ -12,17 +12,18 @@ const TITAN_TILE_KEY = "dino_titan_tile_settings"; // {natureAdjacent, tribeCont
 const TITAN_OWNED_LEVELS_KEY = "dino_titan_owned_rune_levels";
 const TITAN_SPEED_KEY = "dino_titan_speed_ms";
 // 조합 찾기는 조합 수가 많으면(보유 룬이 많을수록 기하급수적으로 늘어남) 매번 정밀 시뮬레이션을
-// 돌리기엔 너무 느려서 3단계로 나눔: 1단계는 모든 조합의 DPS/생존 시간/균형 점수를 시뮬레이션 없이
-// estimateTitanSurvivalSec()(js/core/stat-calc.js)로 즉시 계산해 후보만 추리고, 2단계는 그 후보만
-// 실제 시뮬레이션으로 재계산, 3단계는 2단계 결과 상위권(최종 후보) 몇 개만 회차를 훨씬 더 높여
-// 다시 검증함 - 2단계의 표본이 우연히 좋게(또는 나쁘게) 나온 조합이 승자로 잘못 뽑히는 걸 막기
-// 위함(표본 수가 적을수록 우연히 뽑힌 평균이 진짜 기댓값과 크게 벗어날 가능성이 커짐 - 시드를
-// 고정해 결과를 재현 가능하게 만드는 방법도 검토했었지만, 그건 "우연히 나쁜 표본"을 매번 똑같이
-// 재현할 뿐 진짜 값에 더 가까워지는 게 아니라서 기각함).
+// 돌리기엔 너무 느려서 3단계로 나눔: 1단계는 모든 조합의 DPS/기대 사망 횟수/균형 점수를
+// 시뮬레이션 없이 estimateTitanExpectedDeaths()(js/core/stat-calc.js, 연속 전투 기준 재생 이론
+// 모델)로 즉시 계산해 후보만 추리고, 2단계는 그 후보만 실제 시뮬레이션으로 재계산, 3단계는 2단계
+// 결과 상위권(최종 후보) 몇 개만 회차를 훨씬 더 높여 다시 검증함 - 2단계의 표본이 우연히 좋게(또는
+// 나쁘게) 나온 조합이 승자로 잘못 뽑히는 걸 막기 위함(표본 수가 적을수록 우연히 뽑힌 평균이 진짜
+// 기댓값과 크게 벗어날 가능성이 커짐 - 시드를 고정해 결과를 재현 가능하게 만드는 방법도
+// 검토했었지만, 그건 "우연히 나쁜 표본"을 매번 똑같이 재현할 뿐 진짜 값에 더 가까워지는 게
+// 아니라서 기각함).
 //
-// 실측 결과 가장 느린 경우는 "다들 제한 시간까지 안 죽고 버티는" 시나리오(매 회차가 최대
-// 5400틱까지 통째로 도는 데다 회차 수도 많아서 몇십~백초까지 걸림) - 이 경우를 겨냥해 3단계에서
-// "2단계 표본이 이미 전부(예외 없이) 제한 시간까지 버틴 게 확인된 조합"은 300회 전체 검증 대신
+// 실측 결과 가장 느린 경우는 "다들 안 죽고 버티는" 시나리오(매 회차가 최대 5400틱까지 통째로
+// 도는 데다 회차 수도 많아서 몇십~백초까지 걸림) - 이 경우를 겨냥해 3단계에서
+// "2단계 표본이 이미 전부(예외 없이) 무사망으로 확인된 조합"은 300회 전체 검증 대신
 // 훨씬 저렴한 확인 회차(TITAN_OPTIMIZER_CAP_CHECK_ITERATIONS)만 먼저 돌려봄. 2단계 15회가 전부
 // 캡에 도달했다고 무조건 믿고 완전히 생략하지는 않음 - 예를 들어 진짜 사망 확률이 5%인 조합이어도
 // 15회 독립 시행이 전부 우연히 살아남을 확률은 약 46%(0.95^15)로 결코 무시할 수 없는 수치라,
@@ -33,10 +34,58 @@ const TITAN_SPEED_KEY = "dino_titan_speed_ms";
 // 않고 원래대로 300회 전체 검증을 마저 돌려 정확한 값을 구함(이 경우엔 50+300회를 다 쓰게 되지만,
 // 애초에 진짜 안전한 조합이라면 이 분기를 안 타므로 흔치 않은 경우임).
 const TITAN_OPTIMIZER_FINAL_ITERATIONS = 15;
-const TITAN_OPTIMIZER_VERIFY_ITERATIONS = 300;
-const TITAN_OPTIMIZER_VERIFY_TOP_N = 5;
+// avgDeadCount(연속 전투 하 평균 사망 횟수)는 대부분의 "안전한" 후보끼리 비교할 때 값 자체가
+// 0에 가까운 희귀 사건 통계라, 옛날 방식(avgTimeSec, 제한 시간에 캡되는 값)보다 표본 노이즈에
+// 훨씬 민감함. 1500회까지 올려봤지만 1회당 최대 120분(제한 시간) 통짜 시뮬레이션이라 조합당
+// 비용이 커서, 최종 후보(TOP_N)를 넓게 잡은 상태에서는 3단계 전체 소요 시간의 대부분을 차지함
+// (극단 시나리오 실측: 3단계가 전체 소요 시간의 90%). 500회로 낮춰 균형을 맞춤
+const TITAN_OPTIMIZER_VERIFY_ITERATIONS = 500;
+// 실측(사용자 리포트 + Node 재현) 확인: 1단계 후보군(최대 120개)엔 진짜 좋은 조합이 이미 들어와
+// 있어도, 2단계(15회 실측)의 표본 노이즈 때문에 정밀 검증(3단계) 대상으로 못 넘어가는 경우가
+// 있었음(예: 해석적으로 DPS가 훨씬 높고 위험도는 사실상 동률인 조합이, 15회 우연히 나쁘게 나온
+// 다른 조합에 밀려 3단계 문턱을 못 넘음). 5 -> 10으로 넓혀서 이 병목을 완화했었음(묶음19).
+// 이후(묶음21) 1단계 자체의 버킷 해상도를 후보군에 한해 정밀화(TITAN_SURVIVAL_REFINE_BUCKETS)한
+// 덕에, 이 문제를 노리는 세 번째 갈래(byAnalyticBalance, 노이즈 없는 해석적 균형 점수 기준)가
+// 훨씬 정확해져서 10까지 넓힐 필요가 줄어듦. 3단계가 전체 소요 시간의 대부분을 차지하는 게
+// 확인돼서(묶음21) 6으로 다시 좁힘 - byAnalyticBalance가 여전히 별도 갈래로 남아있어 노이즈로
+// 억울하게 떨어지는 후보를 잡아주는 역할은 그대로 유지됨
+const TITAN_OPTIMIZER_VERIFY_TOP_N = 6;
 const TITAN_OPTIMIZER_CAP_CHECK_ITERATIONS = 50;
 const TITAN_OPTIMIZER_CANDIDATE_COUNT = 30;
+// 3단계 예비 검증(prescan) 회차 - 최종 후보(finalists) 전부를 무조건 500회씩 검증하면 그게 전체
+// 소요 시간의 대부분(실측 90%)을 차지하는데, 최종 후보끼리도 이미 확실히 갈리는 경우(한쪽이
+// 생존도 딜도 둘 다 확실히 밀림)엔 500회까지 안 가도 결론이 안 바뀜. 그래서 먼저 이 저렴한
+// 회차로 다들 가볍게 재보고, 진짜 경합 중인 후보(titanEscalateFromPrescan 판정)만 500회까지
+// 마저 검증함 - 근사가 아니라 "이길 가능성이 통계적으로 없는 후보에 500회를 안 쓸 뿐"이라
+// 최종 정확도는 그대로 유지됨.
+const TITAN_OPTIMIZER_PRESCAN_ITERATIONS = 60;
+// 예비 검증에서 대미지가 최댓값의 이 비율 이상이면(생존 판정과 별개로) 항상 500회까지 승격 -
+// "균형/대미지" 축에서 이길 가능성을 안전하게 남겨두기 위한 관대한 여유값(대미지 최댓값을
+// 가진 조합은 이 조건에 100% 걸려 항상 승격되므로 "최대 대미지 조합"의 실측치는 항상 정밀함)
+const TITAN_OPTIMIZER_CONTENDER_DPS_RATIO = 0.85;
+// "균형" 점수 = dpsNorm^w * survivalQuality^(1-w) (가중 기하평균). w=0.5(동일 가중치)였을 때 실측
+// 확인 결과, 힐처럼 대미지 기여가 0인 순수 생존형 룬이 사망 횟수를 크게 낮춰준다는 이유만으로
+// 낙뢰/압축된 힘처럼 대미지가 뚜렷이 높은 룬보다 항상 우선시됨(예: 평균 사망 0.04 vs 0.8 정도
+// 차이면 대미지가 28% 더 높아도 후자가 밀림) - 사용자 피드백: "균형 조합에서는 대미지도 상당히
+// 중요하다"는 기준에 비해 생존 쪽에 너무 치우쳐 있었음. w를 0.7로 올려 대미지 비중을 늘림
+const TITAN_BALANCE_DPS_WEIGHT = 0.7;
+function titanBalanceScore(dpsNorm, survivalQuality) {
+  return Math.pow(dpsNorm, TITAN_BALANCE_DPS_WEIGHT) * Math.pow(survivalQuality, 1 - TITAN_BALANCE_DPS_WEIGHT);
+}
+
+// 두 후보의 관측된 사망 횟수(count, 표본수 n)가 통계적으로 구분 안 되는 동률인지 판정 - "두 후보의
+// 진짜 위험률이 같다"는 가정 하에 합산 사망 횟수 중 A가 차지할 비율은 노출 비율(nA/(nA+nB))을
+// 따르는 이항분포이므로, 실제 관측치가 그 기댓값의 ±2표준편차 안이면 동률로 취급함(관찰 횟수가
+// 서로 다른 두 표본도 공정하게 비교 가능). 3단계 최종 승자 선정(bestSurvival)과 예비 검증 단계의
+// "이 후보가 아직 1등을 이길 가능성이 있는지" 판정 둘 다 이 함수를 씀(묶음23에서 검증된 로직을
+// 그대로 재사용).
+function titanDeathCountsStatisticallyTied(countA, nA, countB, nB) {
+  const total = countA + countB;
+  if (total === 0) return true;
+  const p = nA / (nA + nB);
+  const sd = Math.sqrt(total * p * (1 - p));
+  return Math.abs(countA - total * p) < 2 * sd;
+}
 
 const TITAN_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
 
@@ -238,7 +287,14 @@ function renderTitanPage(container) {
       <div class="battle-mode-panel" id="titanOptimizeModeCard" style="display:none;">
         <div class="dummy-optimizer">
           <h3 class="dummy-optimizer-title">내 룬 레벨로 최적 조합 찾기</h3>
-          <p class="quickcalc-desc">적합 룬 중 보유한 룬의 레벨을 입력하세요(0 = 미보유). 지금 전투 설정 기준으로 "공룡 1마리당 생존 시간이 가장 긴 조합", "시간당 대미지가 가장 높은 조합", "둘의 균형이 가장 좋은 조합"을 찾아줍니다. 조합 수가 많으면 시간이 걸릴 수 있습니다.</p>
+          <p class="quickcalc-desc">적합 룬 중 보유한 룬의 레벨을 입력하세요(0 = 미보유). 지금 전투 설정 기준으로(연속 전투는 항상 켠 상태로 계산) "가장 안 죽는 조합", "시간당 대미지가 가장 높은 조합", "둘의 균형이 가장 좋은 조합"을 찾아줍니다. 조합 수가 많으면 시간이 걸릴 수 있습니다.</p>
+          <div class="titan-quick-summary" id="titanOptimizeQuickSummary"></div>
+          <div class="titan-owned-rune-header">
+            <span class="titan-owned-rune-header-label">보유 룬 레벨 입력</span>
+            <button type="button" class="titan-owned-rune-collapse-btn" id="titanOwnedRuneCollapseBtn" aria-expanded="true" title="목록 접기/펼치기">
+              <span class="titan-owned-rune-collapse-icon">▲</span>
+            </button>
+          </div>
           <div class="dummy-owned-rune-grid" id="titanOwnedRuneGrid"></div>
           <button class="btn-simulate" id="titanOptimizeBtn">조합 찾기 시작</button>
           <div id="titanOptimizeResult"></div>
@@ -460,7 +516,11 @@ function initTitanPage() {
       }
     } else if (activeMetricKey === "skillDmg") {
       title = "스킬 대미지 내역";
-      rows = m.skillDetails.map((d) => ({ label: d.name, value: Math.round(d.avgDmg).toLocaleString() }));
+      rows = m.skillDetails.map((d) => ({
+        label: d.prob !== undefined ? `${d.name} (${d.prob}% 확률)` : `${d.name} (3타마다 확정 발동)`,
+        value: Math.round(d.avgDmg).toLocaleString(),
+        sub: `원래 대미지 ${Math.round(d.rawDmg).toLocaleString()}`
+      }));
     } else if (activeMetricKey === "finalAvgDmg") {
       title = "최종 평균 대미지 계산 내역";
       rows = [
@@ -473,16 +533,21 @@ function initTitanPage() {
         if (r.type === "shield") {
           return { label: `${r.name} (${r.turn}회 ${r.red_p}% 감소)`, value: "-" };
         }
-        return {
-          label: r.type === "flat" ? r.name : `${r.name} (${r.prob}% 확률)`,
-          value: Math.round(r.avg).toLocaleString()
-        };
+        if (r.type === "prob") {
+          return {
+            label: `${r.name} (${r.prob}% 확률)`,
+            value: Math.round(r.avg).toLocaleString(),
+            sub: `원래 감소량 ${Math.round(r.value).toLocaleString()}`
+          };
+        }
+        return { label: r.name, value: Math.round(r.avg).toLocaleString() };
       });
     } else if (activeMetricKey === "recovery") {
       title = "회복량 내역";
       rows = m.recoveries.map((r) => ({
         label: `${r.name} (${r.prob}% 확률)`,
-        value: Math.round(r.avg).toLocaleString()
+        value: Math.round(r.avg).toLocaleString(),
+        sub: `원래 회복량 ${Math.round(r.rawAmount).toLocaleString()}`
       }));
     }
 
@@ -490,7 +555,7 @@ function initTitanPage() {
       box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">장착된 관련 룬이 없습니다</div>`;
     } else {
       box.innerHTML = `<div class="metric-detail-title">${title}</div>${rows
-        .map((r) => `<div class="metric-detail-row"><span>${r.label}</span><span>${r.value}</span></div>`)
+        .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${r.sub ? `<div class="metric-detail-row-sub">${r.sub}</div>` : ""}</div>`)
         .join("")}`;
     }
     box.style.display = "block";
@@ -681,6 +746,15 @@ function initTitanPage() {
     });
     document.getElementById("titanQcBtn").onclick = titanRunQuickCalc;
     document.getElementById("titanOptimizeBtn").onclick = titanRunOptimizer;
+    // 보유 룬 레벨 입력 목록 접기/펼치기 - 룬 종류가 많아(적합 룬 전부) 목록이 길어서, 레벨을 이미
+    // 입력해둔 뒤엔 접어서 결과 쪽으로 화면을 아낄 수 있게 함
+    document.getElementById("titanOwnedRuneCollapseBtn").onclick = () => {
+      const grid = document.getElementById("titanOwnedRuneGrid");
+      const btn = document.getElementById("titanOwnedRuneCollapseBtn");
+      const collapsed = grid.classList.toggle("titan-owned-rune-grid-collapsed");
+      btn.setAttribute("aria-expanded", String(!collapsed));
+      btn.querySelector(".titan-owned-rune-collapse-icon").textContent = collapsed ? "▼" : "▲";
+    };
   }
 
   // ===== 빠른 계산 =====
@@ -691,7 +765,7 @@ function initTitanPage() {
     const t = TITAN_STATS[titanLevel];
     // 진짜 2열 grid + 실선 구분(칸마다 border) - 가짜 중앙선(::before)은 4열 grid의 실제 폭이
     // 항상 정확히 반반은 아니라서 어긋나 보일 수 있어 대신 이 방식으로 확실하게 좌우를 나눔
-    document.getElementById("titanQuickSummary").innerHTML = `
+    const buildHtml = (continuousLabel) => `
       <div class="titan-quick-summary-grid">
         <div class="titan-quick-summary-col">
           <div class="titan-quick-summary-item"><span>공격력 버프타워</span><b>${atkLabel}</b></div>
@@ -701,10 +775,17 @@ function initTitanPage() {
         <div class="titan-quick-summary-col">
           <div class="titan-quick-summary-item"><span>체력 버프타워</span><b>${hpLabel}</b></div>
           <div class="titan-quick-summary-item"><span>전투 제한시간</span><b>${timeLimitMinutes}분</b></div>
-          <div class="titan-quick-summary-item"><span>연속 전투</span><b>${continuousBattle ? "ON" : "OFF"}</b></div>
+          <div class="titan-quick-summary-item"><span>연속 전투</span><b>${continuousLabel}</b></div>
         </div>
       </div>
     `;
+    const quickEl = document.getElementById("titanQuickSummary");
+    if (quickEl) quickEl.innerHTML = buildHtml(continuousBattle ? "ON" : "OFF");
+    // 조합 찾기는 전역 설정과 무관하게 항상 연속 전투 기준으로 계산하므로(아래
+    // titanRunOptimizer 참고), 여기 요약표는 실제 토글 값 대신 그 사실을 그대로 보여줌 -
+    // 안 그러면 토글이 꺼져 있을 때 "OFF"라고 표시되면서 실제 계산 기준과 달라 보임
+    const optimizeEl = document.getElementById("titanOptimizeQuickSummary");
+    if (optimizeEl) optimizeEl.innerHTML = buildHtml("ON (조합 찾기 전용 고정)");
   }
 
   // 빠른 계산 = 원래 이 페이지에 있던 통계 시뮬레이션(500회 평균 + 체력 추이 그래프 + 로그 다운로드)
@@ -1125,20 +1206,21 @@ function initTitanPage() {
     btn.style.setProperty("--progress", "0");
     resultEl.innerHTML = "";
 
-    // 1단계: DPS와 생존 시간 둘 다 시뮬레이션 없이 closed form으로 즉시 계산(getTitanCombatMetrics가
-    // 이미 DPS 계산용으로 구해둔 finalHp/reductionTotal/healAvg/vampAvg만으로 estimateTitanSurvivalSec가
-    // 노이즈 없는 생존 시간 추정치를 만들어냄) - 예전엔 생존 시간만 2회짜리 몬테카를로로 훑었는데,
-    // 표본이 적으면 확률형 완화/회복 룬(피해 저항·흡혈 등)이 확정형 룬(단단한 피부 등)보다 분산이
-    // 커서 억울하게 후보에서 탈락하는 문제가 있었음. 이제 시뮬레이션을 전혀 안 돌리니 그 문제 자체가 없음.
+    // 1단계: DPS와 "기대 사망 횟수" 둘 다 시뮬레이션(RNG 반복) 없이 계산(estimateTitanExpectedDeaths -
+    // 연속 전투 하에서 재생 이론으로 유도한 노이즈 없는 해석적 모델, js/core/stat-calc.js 참고).
+    // 예전엔 평균 net 소모율만 보는 수식이라 오버힐(체력 캡 근처에서 회복이 낭비되는 것)과 공룡
+    // count마리 중 최솟값 위험을 둘 다 놓쳤는데, 이 모델은 마르코프 체인으로 그 둘을 정확히 반영함.
     //
     // await 없는 완전 동기 루프라 조합 수가 아주 많으면(적합 룬을 거의 다 보유한 경우) 브라우저가
-    // 그동안 완전히 멈춤(실측: 적합 룬 32개 전부 보유 시 약 711ms) - 청크 단위로 나눠서 매 청크
-    // 사이에 한 번씩 이벤트 루프에 양보(setTimeout 0)하고 진행률도 갱신해서, 계산 자체는 똑같이
-    // 걸리더라도 화면이 안 멈추고 "계산 중"이라는 게 계속 보이게 함(2·3단계에서 이미 쓰는 것과
-    // 같은 패턴).
+    // 그동안 완전히 멈춤 - 청크 단위로 나눠서 매 청크 사이에 한 번씩 이벤트 루프에 양보(setTimeout 0)
+    // 하고 진행률도 갱신해서, 계산 자체는 똑같이 걸리더라도 화면이 안 멈추고 "계산 중"이라는 게
+    // 계속 보이게 함(2·3단계에서 이미 쓰는 것과 같은 패턴). MTTF 계산이 예전 순수 수식보다 훨씬
+    // 무거워서(조합당 약 0.2ms) 청크 크기를 3000 -> 1000으로 줄여 청크당 250ms를 넘지 않게 함
+    // (Node 벤치마크로 확인 - dino_mutant_simulator_plan.md 참고).
     const targetTitan = TITAN_STATS[titanLevel];
     const timeLimitSec = timeLimitMinutes * 60;
-    const STAGE1_CHUNK_SIZE = 3000;
+    const respawnDelaySec = getRespawnDelaySec(dino.moveSpeed, distanceTiles);
+    const STAGE1_CHUNK_SIZE = 500;
     const screened = [];
     for (let i = 0; i < combos.length; i += STAGE1_CHUNK_SIZE) {
       const end = Math.min(i + STAGE1_CHUNK_SIZE, combos.length);
@@ -1147,23 +1229,22 @@ function initTitanPage() {
         const selectedRunes = names.map((name) => ({ name, lv: levels[name] }));
         const metrics = getTitanCombatMetrics({ ...dino, selectedRunes }, tileCfg);
         const dps = (metrics.avgHitDamage + metrics.skillDmgTotal) * dino.count;
-        const survivalEstimate = estimateTitanSurvivalSec(metrics, targetTitan, timeLimitSec, dps);
+        // 타이탄이 공룡보다 먼저 죽으면 그 뒤로는 아무 피해도 안 들어오므로, 실제 위험 구간은
+        // "제한 시간"과 "타이탄을 잡는 데 걸리는 시간" 중 짧은 쪽까지만(묶음16과 동일한 논리)
+        const effectiveHorizonSec = dps > 0 ? Math.min(timeLimitSec, targetTitan.hp / dps) : timeLimitSec;
+        const expectedDeathCount = estimateTitanExpectedDeaths(metrics, targetTitan, effectiveHorizonSec, respawnDelaySec) * dino.count;
         // "확률에 하나도 안 기대도 최소 이만큼은 버틴다"는 확정 하한선 - 흡혈/힐/피해 저항 같은
         // 확률형 효과가 전부 한 번도 안 터진다고 가정하고, 확정 감소(단단한 피부/타이탄 가드)와
-        // 확정 체력(방어벽/체력 증가 등 hp% 증가는 이미 finalHp에 반영돼 있음)만으로 계산함.
-        // survivalEstimate(평균 기반 마진 점수)는 확률형 효과의 "기댓값"만 보고 분산(운이 얼마나
-        // 크게 갈릴 수 있는지)을 전혀 반영 못 해서, 평균은 비슷해도 실제로는 훨씬 더 안정적인
-        // 확정형 위주 조합이 후보군에서 밀려날 수 있음(실측 확인: 흡혈 평균 회복량이 워낙 커서
-        // 방어 룬 조합끼리 비교할 때 마진 점수 차이가 실제 생존율 차이와 반대로 나온 사례 있었음) -
-        // 이 하한선이 높은 조합을 후보군에 별도로 승격시켜, 마진 점수가 어떻게 나오든 확정적으로
-        // 안전한 조합이 후보에서 완전히 탈락하지는 않게 안전망을 둠. 분모가 항상 1/3 이상이라
-        // survivalEstimate와 달리 무한대로 발산하지 않음(정렬 기준으로 바로 쓸 수 있음).
+        // 확정 체력(방어벽/체력 증가 등 hp% 증가는 이미 finalHp에 반영돼 있음)만으로 계산한 뒤
+        // 같은 재생 공식으로 "기대 사망 횟수" 단위로 통일함(위 expectedDeathCount와 눈금이 같아야
+        // byDps/bySurvival/byBalance와 나란히 비교 가능) - 계산 비용 거의 0(이미 있던 값을 감싸기만 함)
         const deterministicReduction = metrics.reductions
           .filter((r) => r.type === "flat")
           .reduce((sum, r) => sum + r.avg, 0);
         const deterministicNetDrainPerSec = Math.max(1, targetTitan.atk - deterministicReduction) / 3;
         const deterministicSurvivalEstimate = metrics.finalHp / deterministicNetDrainPerSec;
-        screened.push({ names, dps, survivalEstimate, deterministicSurvivalEstimate });
+        const deterministicExpectedDeathCount = effectiveHorizonSec / (deterministicSurvivalEstimate + respawnDelaySec);
+        screened.push({ names, dps, expectedDeathCount, deterministicExpectedDeathCount });
       }
       if (end < combos.length) {
         btn.textContent = `1단계 계산 중 (${end.toLocaleString()}/${combos.length.toLocaleString()})...`;
@@ -1175,32 +1256,47 @@ function initTitanPage() {
     const bestDpsAll = screened.reduce((a, b) => (b.dps > a.dps ? b : a));
 
     // 균형 점수도 후보군 전체 기준(global)으로 미리 계산 - 이래야 "균형" 자체가 좋은 조합이
-    // DPS나 생존 시간 어느 한쪽에서도 상위 30위 안에 못 들어서 후보군에서 아예 빠지는 일이 없음.
+    // DPS나 생존 어느 한쪽에서도 상위 30위 안에 못 들어서 후보군에서 아예 빠지는 일이 없음.
     // (이 global 정규화는 후보군을 "누구를 뽑을지" 고르는 용도이고, 2단계 정밀 계산 뒤 실제
     // 균형 조합을 "고르는" 정규화는 refined 안에서 따로 계산함 - 서로 다른 단계라 섞으면 안 됨)
     const maxDpsAll = bestDpsAll.dps;
-    // 보유 룬이 많으면(적합 룬을 거의 다 보유) combos가 수만~수십만 개까지 늘어날 수 있어서
-    // Math.max(...array) 스프레드는 V8 인자 스택 한도(약 6만5천개)를 넘겨 RangeError로 터짐 -
-    // reduce로 순회하며 최댓값을 구해야 배열 크기와 무관하게 안전함
-    const maxSurvivalAll = screened.reduce((m, s) => Math.max(m, s.survivalEstimate), 0);
     screened.forEach((s) => {
-      s.balanceScore = Math.sqrt((s.dps / maxDpsAll) * (s.survivalEstimate / maxSurvivalAll));
+      s.balanceScore = titanBalanceScore(s.dps / maxDpsAll, 1 / (1 + s.expectedDeathCount));
     });
 
     btn.textContent = "1단계 계산 완료, 2단계 정밀 계산 시작...";
     btn.style.setProperty("--progress", "10");
 
-    // 2단계: DPS 상위 + 해석적 생존 시간 상위 + 해석적 균형 점수 상위 + 확정형 감소 상위(4갈래,
+    // 2단계: DPS 상위 + 해석적 기대 사망 최저 + 해석적 균형 점수 상위 + 확정형 안전망 최저(4갈래,
     // 중복 제거)를 합쳐 실제 시뮬레이션으로 회차를 높여 정밀 재계산. 마지막 갈래(byDeterministicSafety)는
-    // 위 deterministicReduction 주석 참고 - 마진 기반 생존 점수가 분산을 반영 못 해서 확정형 방어
-    // 위주 조합을 부당하게 낮게 평가할 가능성에 대한 안전망
+    // 위 주석 참고 - 확률형 효과의 "기댓값"만 보는 모델도 완벽하진 않을 수 있어서, 확정형 방어
+    // 위주 조합을 부당하게 낮게 평가할 가능성에 대한 추가 안전망으로 남겨둠
     const byDps = [...screened].sort((a, b) => b.dps - a.dps).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
-    const bySurvival = [...screened].sort((a, b) => b.survivalEstimate - a.survivalEstimate).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
+    const bySurvival = [...screened].sort((a, b) => a.expectedDeathCount - b.expectedDeathCount).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
     const byBalance = [...screened].sort((a, b) => b.balanceScore - a.balanceScore).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
-    const byDeterministicSafety = [...screened].sort((a, b) => b.deterministicSurvivalEstimate - a.deterministicSurvivalEstimate).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
+    const byDeterministicSafety = [...screened].sort((a, b) => a.deterministicExpectedDeathCount - b.deterministicExpectedDeathCount).slice(0, TITAN_OPTIMIZER_CANDIDATE_COUNT);
     const candidateMap = new Map();
     [...byDps, ...bySurvival, ...byBalance, ...byDeterministicSafety].forEach((c) => candidateMap.set(c.names.join("|"), c));
     const candidates = [...candidateMap.values()];
+
+    // 후보(최대 120개)만 훨씬 높은 해상도(TITAN_SURVIVAL_REFINE_BUCKETS)로 기대 사망 횟수를 다시
+    // 계산함 - 전체 조합(수천~수십만 개) 스크리닝에는 빠른 기본 해상도(TITAN_SURVIVAL_BUCKETS)를
+    // 쓰지만, 그 정밀도로는 방어가 거의 없는 조합의 위험도가 실측 대비 수십 배까지 저평가될 수
+    // 있음이 확인됨(해상도가 낮으면 한 사이클에 여러 구간을 건너뛰는 조합에서 오차가 큼). 반대로
+    // 전체 조합에 처음부터 높은 해상도를 쓰면 계산량이 감당 안 될 만큼 늘어나므로, 후보로 추려진
+    // 소수에만 정밀 재계산을 적용하는 것 - 이미 2·3단계가 쓰는 "저렴하게 거르고 정밀하게
+    // 재검증"과 같은 패턴을 1단계 안에서 한 번 더 적용한 셈
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      const selectedRunes = c.names.map((name) => ({ name, lv: levels[name] }));
+      const metrics = getTitanCombatMetrics({ ...dino, selectedRunes }, tileCfg);
+      const effectiveHorizonSec = c.dps > 0 ? Math.min(timeLimitSec, targetTitan.hp / c.dps) : timeLimitSec;
+      c.expectedDeathCount = estimateTitanExpectedDeaths(metrics, targetTitan, effectiveHorizonSec, respawnDelaySec, TITAN_SURVIVAL_REFINE_BUCKETS) * dino.count;
+      if (i % 10 === 9) {
+        btn.textContent = `후보 정밀 재계산 중 (${i + 1}/${candidates.length})...`;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
 
     const refined = [];
     for (let i = 0; i < candidates.length; i++) {
@@ -1208,11 +1304,23 @@ function initTitanPage() {
       const selectedRunes = c.names.map((name) => ({ name, lv: levels[name] }));
       const fineResult = await runTitanSimulation({
         ...buildSimBaseCfg(selectedRunes),
+        // 조합 찾기는 전역 연속 전투 토글과 무관하게 항상 켠 상태로 계산함 - 죽어도 무한
+        // 재소환되는 게 실제 플레이 상황이라, "한 마리라도 죽으면 끝"이라는 전제 자체가 성립하지
+        // 않는 continuousBattle:false 기준으로 조합을 추천하면 안 됨(titanOptimizeQuickSummary에도
+        // 이 사실을 고정 표시함)
+        continuousBattle: true,
         iterations: TITAN_OPTIMIZER_FINAL_ITERATIONS,
         collectLog: false,
         batchSize: 10
       });
-      refined.push({ names: c.names, dps: c.dps, survival: fineResult.avgTimeSec, survivalRate: fineResult.survivalRate });
+      refined.push({
+        names: c.names, dps: c.dps, avgDeadCount: fineResult.avgDeadCount,
+        survivalQuality: 1 / (1 + fineResult.avgDeadCount),
+        // 1단계 해석적 점수도 같이 들고 다님(아래 byAnalyticBalance 안전망용) - 2단계는 15회짜리
+        // 표본이라 노이즈가 있으므로, "노이즈 없는 해석적 점수로는 최상위였는데 15회 우연히 나쁘게
+        // 나온" 조합을 구분하기 위해 필요
+        analyticBalanceScore: c.balanceScore
+      });
       btn.textContent = `2단계 정밀 계산 중 (${i + 1}/${candidates.length})...`;
       btn.style.setProperty("--progress", String(10 + ((i + 1) / candidates.length) * 60));
     }
@@ -1223,83 +1331,161 @@ function initTitanPage() {
     // 최종 승자를 정함(회차를 늘릴수록 평균이 진짜 기댓값에 가까워지므로, 시드로 결과를
     // "재현 가능하게" 고정하는 방법 대신 표본 자체를 늘려 "더 정확하게" 만드는 쪽을 선택함).
     const preMaxDps = Math.max(...refined.map((r) => r.dps));
-    // 균형 점수의 "생존" 축은 survivalRate(0~1, 몇 %가 안 죽고 버텼는지)를 씀 - avgTimeSec는
-    // 평균이라 "가끔 죽는" 조합도 대부분 시행이 제한 시간을 채우면 평균이 별로 안 낮아져서
-    // survival/preMaxSurvival로 정규화해봐야 안정성 차이가 거의 안 드러남. survivalRate는 이미
-    // 0~1로 정규화돼 있어서 preMaxSurvival 같은 별도 기준값도 필요 없음.
-    const balanceScoreOf = (r) => Math.sqrt((r.dps / preMaxDps) * r.survivalRate);
-    // 생존 후보 선정도 survivalRate를 1순위로 함(같으면 평균 생존 시간으로 2차 정렬) - 안 그러면
-    // "15회 중 15회 다 생존"과 "15회 중 9회만 생존, 나머지는 늦게 죽어서 평균은 비슷"이 섞여서
-    // 진짜 안정적인 조합이 3단계 최종 후보(top N)에도 못 들 수 있음
+    // 균형 점수의 "생존" 축은 survivalQuality(1/(1+평균 사망 횟수), 0~1로 이미 정규화돼 있음 -
+    // 연속 전투 하에서는 "몇 %가 한 번도 안 죽었는지"보다 "평균적으로 몇 번 죽는지"가 실제로
+    // 의미 있는 지표(죽어도 무한 재소환되므로 무사망 여부 자체는 이제 절대적 기준이 아님)
+    const balanceScoreOf = (r) => titanBalanceScore(r.dps / preMaxDps, r.survivalQuality);
+    // 생존 후보 선정도 avgDeadCount(평균 사망 횟수) 오름차순을 1순위로 함(같으면 DPS로 2차 정렬) -
+    // 안 그러면 "15회 평균 사망 0.1회"와 "15회 평균 사망 0.9회"가 섞여서 진짜 안정적인 조합이
+    // 3단계 최종 후보(top N)에도 못 들 수 있음
     const byRefinedSurvival = [...refined]
-      .sort((a, b) => (b.survivalRate !== a.survivalRate ? b.survivalRate - a.survivalRate : b.survival - a.survival))
+      .sort((a, b) => (a.avgDeadCount !== b.avgDeadCount ? a.avgDeadCount - b.avgDeadCount : b.dps - a.dps))
       .slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
     const byRefinedBalance = [...refined].sort((a, b) => balanceScoreOf(b) - balanceScoreOf(a)).slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
+    // 안전망: 2단계 실측(15회) 기준 순위가 아니라, 노이즈 없는 1단계 해석적 균형 점수 기준으로도
+    // 상위 N개를 따로 뽑아서 finalists에 합침 - byRefinedBalance만 쓰면 "해석적으로는 최상위인데
+    // 15회 표본이 우연히 나쁘게 나온" 조합이 정밀 검증(3단계) 기회 자체를 못 받고 영구히 탈락할
+    // 수 있음(실측 재현: 위험도가 사실상 동률(둘 다 사실상 0)인데 DPS가 훨씬 높은 조합이 이 문턱에서
+    // 걸러진 사례 확인)
+    const byAnalyticBalance = [...refined].sort((a, b) => b.analyticBalanceScore - a.analyticBalanceScore).slice(0, TITAN_OPTIMIZER_VERIFY_TOP_N);
     const finalistMap = new Map();
-    [...byRefinedSurvival, ...byRefinedBalance].forEach((c) => finalistMap.set(c.names.join("|"), c));
+    [...byRefinedSurvival, ...byRefinedBalance, ...byAnalyticBalance].forEach((c) => finalistMap.set(c.names.join("|"), c));
     // 대미지 최고 조합도 화면에 보여줄 "예상 생존 시간" 숫자의 정확도를 위해 같이 검증함 - byDps에
     // 전체 조합 중 진짜 DPS 최댓값(bestDpsAll)이 항상 포함되므로 refined 안에 그 실측값이 반드시
     // 있음(아래 cap-skip 판단에 쓸 survival 값도 같이 딸려오도록 refined의 실제 항목을 그대로 씀)
     finalistMap.set(bestDpsAll.names.join("|"), refined.find((r) => r.names.join("|") === bestDpsAll.names.join("|")));
     const finalists = [...finalistMap.values()];
 
-    const verified = [];
+    // 3-1단계: 최종 후보 전부를 곧바로 500회씩 검증하면 그게 전체 소요 시간의 대부분(실측 90%)을
+    // 차지함 - 그런데 최종 후보끼리도 이미 확실히 갈리는 경우(한쪽이 생존도 딜도 둘 다 확실히
+    // 밀림)엔 굳이 500회까지 안 가도 결론이 안 바뀜. 그래서 먼저 저렴한 예비 회차(prescan)로 다들
+    // 가볍게 재보고(단, 2단계가 이미 예외 없이 무사망 -> 저렴한 캡체크로 확정된 후보는 기존과
+    // 똑같이 그대로 씀 - capConfirmed, 이 지름길 자체는 건드리지 않음), 그 예비 결과를 놓고 다음
+    // 단계(3-2)에서 "진짜 경합 중인 후보만" 500회로 승격시킴.
+    const preResolved = [];
     for (let i = 0; i < finalists.length; i++) {
       const f = finalists[i];
       const selectedRunes = f.names.map((name) => ({ name, lv: levels[name] }));
+      btn.style.setProperty("--progress", String(70 + (i / finalists.length) * 15));
 
-      // 2단계 표본이 예외 없이 전부 제한 시간까지 살아남았다면(=avgTimeSec가 정확히 timeLimitSec)
-      // 곧바로 300회 전체 검증을 돌리는 대신, 훨씬 저렴한 회차로 한 번 더 확인해봄(위 상수 선언부
-      // 주석 참고 - 15회 전부 생존만으로는 신뢰도가 부족할 수 있어서 완전히 생략하지는 않음)
-      if (f.survival >= timeLimitSec - 0.001) {
-        btn.textContent = `3단계 최종 후보 검증 중 (${i + 1}/${finalists.length}, 제한 시간 도달 재확인 중)...`;
-        btn.style.setProperty("--progress", String(70 + (i / finalists.length) * 30));
+      // 2단계 표본이 예외 없이 전부 무사망(avgDeadCount===0)이었다면 곧바로 예비 검증을 돌리는
+      // 대신, 훨씬 저렴한 회차로 한 번 더 확인해봄(위 상수 선언부 주석 참고 - 15회 전부 무사망만
+      // 으로는 신뢰도가 부족할 수 있어서 완전히 생략하지는 않음)
+      if (f.avgDeadCount === 0) {
+        btn.textContent = `3단계 예비 검증 중 (${i + 1}/${finalists.length}, 무사망 재확인 중)...`;
         const capCheckResult = await runTitanSimulation({
           ...buildSimBaseCfg(selectedRunes),
+          continuousBattle: true, // 조합 찾기는 항상 연속 전투 기준 - 위 2단계 주석 참고
           iterations: TITAN_OPTIMIZER_CAP_CHECK_ITERATIONS,
           collectLog: false,
           batchSize: 25
         });
-        if (capCheckResult.avgTimeSec >= timeLimitSec - 0.001) {
-          // 저렴한 확인 회차도 전부 생존 - 캡 도달로 확정, 300회 전체 검증은 생략
-          verified.push({ ...f, survivalRate: capCheckResult.survivalRate });
-          btn.style.setProperty("--progress", String(70 + ((i + 1) / finalists.length) * 30));
+        if (capCheckResult.avgDeadCount === 0) {
+          // 저렴한 확인 회차도 전부 무사망 - 확정, 500회 전체 검증은 생략(기존 최적화 그대로 -
+          // capConfirmed는 아래 3-2단계에서 다시는 승격시키지 않을 신호로 씀). 단 이 "확정 0"은
+          // TITAN_OPTIMIZER_VERIFY_ITERATIONS(500)회가 아니라 2단계(15) + 이 확인(50) = 65회만
+          // 관찰한 결과라, n을 실제 관찰 횟수(65)로 정직하게 남겨둠(통계적 동률 판정에서 500회
+          // 검증한 다른 후보와 공정하게 비교하기 위함)
+          preResolved.push({
+            names: f.names, dps: f.dps, avgDeadCount: 0, survivalQuality: 1,
+            n: TITAN_OPTIMIZER_FINAL_ITERATIONS + TITAN_OPTIMIZER_CAP_CHECK_ITERATIONS,
+            avgTimeSec: capCheckResult.avgTimeSec, avgTotalDmg: capCheckResult.avgTotalDmg,
+            capConfirmed: true
+          });
           continue;
         }
-        // 확인 중 죽는 시행이 나왔음 - "가끔 죽는 조합"으로 판명됐으니 아래에서 300회 전체 검증을 마저 돌림
+        // 확인 중 죽는 시행이 나왔음 - "가끔 죽는 조합"으로 판명됐으니 아래 예비 검증으로 넘어감
       }
 
-      const verifyResult = await runTitanSimulation({
+      btn.textContent = `3단계 예비 검증 중 (${i + 1}/${finalists.length})...`;
+      const prescanResult = await runTitanSimulation({
         ...buildSimBaseCfg(selectedRunes),
-        iterations: TITAN_OPTIMIZER_VERIFY_ITERATIONS,
+        continuousBattle: true, // 조합 찾기는 항상 연속 전투 기준 - 위 2단계 주석 참고
+        iterations: TITAN_OPTIMIZER_PRESCAN_ITERATIONS,
         collectLog: false,
         batchSize: 20
       });
-      verified.push({ names: f.names, dps: f.dps, survival: verifyResult.avgTimeSec, survivalRate: verifyResult.survivalRate });
-      btn.textContent = `3단계 최종 후보 검증 중 (${i + 1}/${finalists.length})...`;
-      btn.style.setProperty("--progress", String(70 + ((i + 1) / finalists.length) * 30));
+      preResolved.push({
+        names: f.names, dps: f.dps, avgDeadCount: prescanResult.avgDeadCount,
+        survivalQuality: 1 / (1 + prescanResult.avgDeadCount), n: TITAN_OPTIMIZER_PRESCAN_ITERATIONS,
+        avgTimeSec: prescanResult.avgTimeSec, avgTotalDmg: prescanResult.avgTotalDmg,
+        capConfirmed: false
+      });
     }
 
-    // "생존 시간 최고"는 survivalRate(300회 중 몇 %가 안 죽고 버텼는지)를 1순위로 함 - avgTimeSec는
-    // 평균이라 예전엔 "가끔 죽는" 조합도 대부분 시행이 제한 시간을 채우면 평균이 별로 안 낮아져서,
-    // 확률형 회복(흡혈 등) 위주라 평균은 비슷해 보이지만 실제로는 훨씬 자주 죽는 조합이 뽑히는
-    // 문제가 있었음(사용자 실측 리포트로 확인 - 사망률 42.7% 조합이 0.7% 조합보다 "생존 시간
-    // 최고"로 잘못 뽑힌 사례). survivalRate가 같으면(둘 다 전멸 없이 다 버틴 경우가 흔함) 평균
-    // 생존 시간, 그다음 대미지로 2·3차 정렬 - 확정적으로 다 버티는 상황이라면 나머지는 딜이 제일
-    // 잘 나오는 걸 넣는 게 맞음(생존은 전혀 손해 안 보면서 대미지만 덤으로 챙기는 셈).
+    // 3-2단계: 예비 결과 전체를 놓고, 이미 확실히 밀리는(생존 1등을 이길 통계적 가능성도 없고
+    // 대미지도 최댓값 근처가 아닌) 후보만 예비 표본에서 멈추고, 나머지(진짜 경합 중인 후보 -
+    // 대미지 최고 조합은 늘 자기 자신이 최댓값이라 항상 여기 해당됨)만 500회로 승격시킴. capConfirmed
+    // 후보(2단계 지름길로 이미 확정)는 기존 최적화 그대로 재검증 없이 씀.
+    const maxDpsAmongFinalists = Math.max(...preResolved.map((r) => r.dps));
+    const survivalLeader = preResolved.reduce((a, b) => (a.avgDeadCount <= b.avgDeadCount ? a : b));
+    const verified = [];
+    for (let i = 0; i < preResolved.length; i++) {
+      const r = preResolved[i];
+      btn.textContent = `3단계 최종 검증 중 (${i + 1}/${preResolved.length})...`;
+      btn.style.setProperty("--progress", String(85 + (i / preResolved.length) * 15));
+
+      if (r.capConfirmed) { verified.push(r); continue; }
+
+      const survivalContender = titanDeathCountsStatisticallyTied(
+        r.avgDeadCount * r.n, r.n, survivalLeader.avgDeadCount * survivalLeader.n, survivalLeader.n
+      );
+      const damageContender = r.dps >= maxDpsAmongFinalists * TITAN_OPTIMIZER_CONTENDER_DPS_RATIO;
+
+      if (survivalContender || damageContender) {
+        const verifyResult = await runTitanSimulation({
+          ...buildSimBaseCfg(r.names.map((name) => ({ name, lv: levels[name] }))),
+          continuousBattle: true, // 조합 찾기는 항상 연속 전투 기준 - 위 2단계 주석 참고
+          iterations: TITAN_OPTIMIZER_VERIFY_ITERATIONS,
+          collectLog: false,
+          batchSize: 20
+        });
+        verified.push({
+          names: r.names, dps: r.dps, avgDeadCount: verifyResult.avgDeadCount,
+          survivalQuality: 1 / (1 + verifyResult.avgDeadCount), n: TITAN_OPTIMIZER_VERIFY_ITERATIONS,
+          avgTimeSec: verifyResult.avgTimeSec, avgTotalDmg: verifyResult.avgTotalDmg
+        });
+      } else {
+        // 예비 표본만으로 이미 통계적으로 못 이긴다는 게 확인됨 - 500회를 더 쓰지 않고 예비
+        // 표본을 그대로 최종 결과에 사용(정확도 손해 없음 - 애초에 이길 수 없는 후보라 순위에
+        // 영향이 없음)
+        verified.push(r);
+      }
+    }
+
+    // "가장 안 죽는 조합"은 avgDeadCount(300회 평균 사망 횟수)가 가장 낮은 조합을 1순위로 함 -
+    // 연속 전투 하에서는 죽어도 무한 재소환되므로 "한 번도 안 죽을 확률"이 아니라 "평균적으로
+    // 몇 번 죽는지"가 실제로 의미 있는 지표. 동률이면 대미지로 2차 정렬 - 사망 횟수가 똑같이
+    // 최소라면 나머지는 딜이 제일 잘 나오는 걸 넣는 게 맞음(생존은 전혀 손해 안 보면서 대미지만
+    // 덤으로 챙기는 셈). "동률" 판단은 단순 반올림이 아니라 통계 검정으로 함 - 실측 확인(500회
+    // 검증에서 여러 후보의 실제 사망 횟수를 로그로 직접 비교) 결과, 위험도가 통계적으로 구분 안
+    // 되는 후보들(예: 500회 중 4번 죽음 vs 10번 죽음 - 표본이 작아 흔히 나는 차이)끼리도 소수점
+    // 반올림값이 갈리면(0.008->0.01회 vs 0.02->0.02회) 그 미세한 차이 하나로 승자가 결정돼서,
+    // 화면엔 "똑같이 안전해 보이는" 후보들 중 대미지가 훨씬 낮은 쪽이 순전히 표본 운으로 뽑히는
+    // 경우가 있었음(단순 반올림 동률 판정으로는 못 잡음). 두 후보의 관찰 횟수(n)가 다를 수 있어서
+    // (위 "확정 0" 지름길은 65회, 일반 검증은 500회) 단순 rate 차이 비교 대신 이항분포 기반
+    // 조건부 검정을 씀: "두 후보의 진짜 위험률이 같다"는 가정 하에 둘을 합친 총 사망 횟수 중
+    // A가 차지할 비율은 노출 비율(n_A/(n_A+n_B))을 따르는 이항분포이므로, 실제 관측된 A의
+    // 사망 횟수가 그 기댓값의 ±2표준편차 안이면 통계적으로 구분 안 되는 동률로 취급함(관찰
+    // 횟수가 다른 두 표본도 공정하게 비교 가능 - 65회 만에 확정된 "0회"가 500회 검증한
+    // 수십 회짜리 후보보다 무조건 안전하다고 과신하지 않게 됨). 이 동률 안에서는 딜이 제일
+    // 높은 걸 우선함
     const bestSurvival = verified.reduce((a, b) => {
-      if (b.survivalRate !== a.survivalRate) return b.survivalRate > a.survivalRate ? b : a;
-      if (b.survival !== a.survival) return b.survival > a.survival ? b : a;
+      const tied = titanDeathCountsStatisticallyTied(a.avgDeadCount * a.n, a.n, b.avgDeadCount * b.n, b.n);
+      if (!tied) return b.avgDeadCount < a.avgDeadCount ? b : a;
       return b.dps > a.dps ? b : a;
     });
-    // 균형 조합도 같은 이유로 "생존" 축을 survivalRate로 씀(이미 0~1이라 별도 정규화 불필요) -
-    // DPS만 검증된 최종 후보군 내 최댓값 기준으로 정규화한 뒤 기하평균(한쪽에 극단적으로 치우친
-    // 조합은 다른 쪽 점수가 낮아져 기하평균이 낮게 나옴). maxDps는 finalists에 항상 bestDpsAll
-    // (전체 조합 중 진짜 DPS 최댓값)이 포함돼 있어 정확한 값.
+    // 균형 조합은 "생존" 축을 survivalQuality(1/(1+평균 사망 횟수), 이미 0~1이라 별도 정규화
+    // 불필요)로 씀 - DPS만 검증된 최종 후보군 내 최댓값 기준으로 정규화한 뒤 titanBalanceScore로
+    // 합침(위 TITAN_BALANCE_DPS_WEIGHT 주석 참고 - DPS 쪽에 더 큰 가중치를 준 기하평균이라, 한쪽에
+    // 극단적으로 치우친 조합은 여전히 낮게 나오되 대미지 비중이 더 큼). 임계값/퍼센트 기준 없이
+    // "다들 많이 죽는 상황이면 생존 쪽으로, 다들 안 죽는 상황이면 딜 쪽으로" 자연스럽게 쏠리는 게
+    // 이 공식의 핵심(사용자와 논의해서 확정한 방향). maxDps는 finalists에 항상 bestDpsAll(전체
+    // 조합 중 진짜 DPS 최댓값)이 포함돼 있어 정확한 값.
     const maxDps = Math.max(...verified.map((r) => r.dps));
     const bestBalance = verified.reduce((a, b) => {
-      const scoreA = Math.sqrt((a.dps / maxDps) * a.survivalRate);
-      const scoreB = Math.sqrt((b.dps / maxDps) * b.survivalRate);
+      const scoreA = titanBalanceScore(a.dps / maxDps, a.survivalQuality);
+      const scoreB = titanBalanceScore(b.dps / maxDps, b.survivalQuality);
       return scoreB > scoreA ? b : a;
     });
     const bestDpsEntry = verified.find((r) => r.names.join("|") === bestDpsAll.names.join("|"));
@@ -1309,45 +1495,34 @@ function initTitanPage() {
     btn.classList.remove("btn-progress");
     btn.style.removeProperty("--progress");
 
+    const fmtDeaths = (n) => `평균 ${n.toFixed(2)}회`;
     const fmtTime = (sec) => `${Math.floor(sec / 60)}분 ${Math.floor(sec % 60)}초`;
-    const fmtRate = (rate) => `${(rate * 100).toFixed(1)}%`;
     const comboLine = (names) => names.map((n) => `${n} Lv.${levels[n]}`).join(" · ");
+    // "예상 초당 대미지"는 1단계 이론값이 아니라 이 조합을 실제로 검증한 시뮬레이션 결과(평균
+    // 대미지 합계 ÷ 평균 사망 시간)에서 그대로 유도함 - 화면에 같이 뜨는 "평균 대미지 합계"와
+    // 항상 같은 시뮬레이션에서 나온 값이라 서로 앞뒤가 안 맞을 일이 없음(예전엔 1단계 해석값을
+    // 그대로 썼는데, 실측(빠른 계산 등)과 비교하면 소스가 달라서 미세한 차이가 눈에 띌 수 있었음)
+    const dpsOf = (r) => (r.avgTimeSec > 0 ? r.avgTotalDmg / r.avgTimeSec : 0);
+    const comboBoxHtml = (title, r) => `
+      <div class="dummy-optimize-result-box">
+        <div class="report-grid">
+          <div class="report-tile dummy-optimize-best-tile">
+            <div class="metric-label">${title}</div>
+            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(r.names)}</div>
+          </div>
+          <div class="report-tile"><div class="metric-label">평균 사망 시간</div><div class="metric-value">${fmtTime(r.avgTimeSec)}</div></div>
+          <div class="report-tile"><div class="metric-label">평균 사망 수</div><div class="metric-value">${fmtDeaths(r.avgDeadCount)}</div></div>
+          <div class="report-tile"><div class="metric-label">예상 초당 대미지</div><div class="metric-value accent">${Math.round(dpsOf(r)).toLocaleString()}</div></div>
+          <div class="report-tile"><div class="metric-label">평균 대미지 합계</div><div class="metric-value accent">${Math.round(r.avgTotalDmg).toLocaleString()}</div></div>
+        </div>
+      </div>
+    `;
 
     resultEl.innerHTML = `
       ${slotCount < 5 ? `<p class="quickcalc-desc">보유한 적합 룬이 ${owned.length}개뿐이라 ${slotCount}개짜리 조합까지만 계산했습니다.</p>` : ""}
-      <div class="dummy-optimize-result-box">
-        <div class="report-grid">
-          <div class="report-tile dummy-optimize-best-tile">
-            <div class="metric-label">생존 시간(공룡 1마리당) 최고 조합</div>
-            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestSurvival.names)}</div>
-          </div>
-          <div class="report-tile"><div class="metric-label">생존율(한 마리도 안 죽을 확률)</div><div class="metric-value accent">${fmtRate(bestSurvival.survivalRate)}</div></div>
-          <div class="report-tile"><div class="metric-label">평균 생존 시간</div><div class="metric-value">${fmtTime(bestSurvival.survival)}</div></div>
-          <div class="report-tile"><div class="metric-label">이 조합의 예상 초당 대미지</div><div class="metric-value">${Math.round(bestSurvival.dps).toLocaleString()}</div></div>
-        </div>
-      </div>
-      <div class="dummy-optimize-result-box">
-        <div class="report-grid">
-          <div class="report-tile dummy-optimize-best-tile">
-            <div class="metric-label">시간당 대미지 최고 조합</div>
-            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestDpsEntry.names)}</div>
-          </div>
-          <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value accent">${Math.round(bestDpsEntry.dps).toLocaleString()}</div></div>
-          <div class="report-tile"><div class="metric-label">이 조합의 생존율</div><div class="metric-value">${fmtRate(bestDpsEntry.survivalRate)}</div></div>
-          <div class="report-tile"><div class="metric-label">이 조합의 평균 생존 시간</div><div class="metric-value">${fmtTime(bestDpsEntry.survival)}</div></div>
-        </div>
-      </div>
-      <div class="dummy-optimize-result-box">
-        <div class="report-grid">
-          <div class="report-tile dummy-optimize-best-tile">
-            <div class="metric-label">균형 조합 (생존·대미지 둘 다 준수)</div>
-            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(bestBalance.names)}</div>
-          </div>
-          <div class="report-tile"><div class="metric-label">생존율</div><div class="metric-value accent">${fmtRate(bestBalance.survivalRate)}</div></div>
-          <div class="report-tile"><div class="metric-label">평균 생존 시간</div><div class="metric-value">${fmtTime(bestBalance.survival)}</div></div>
-          <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value accent">${Math.round(bestBalance.dps).toLocaleString()}</div></div>
-        </div>
-      </div>
+      ${comboBoxHtml("최대 생존 조합", bestSurvival)}
+      ${comboBoxHtml("최대 대미지 조합", bestDpsEntry)}
+      ${comboBoxHtml("추천 조합", bestBalance)}
     `;
 
     const comboEntries = [bestSurvival, bestDpsEntry, bestBalance];
