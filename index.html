@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>다이노 뮤턴트 시뮬레이터 - 새 주소로 이동</title>
+  <meta http-equiv="refresh" content="0; url=https://dinomutant-sim.com/">
+  <link rel="canonical" href="https://dinomutant-sim.com/">
+</head>
+<body>
+  <p>새 주소로 이동 중입니다: <a id="newLink" href="https://dinomutant-sim.com/">https://dinomutant-sim.com/</a></p>
+  <script>
+    // 해시 라우팅 SPA라서(#titan, #arena 등) 예전에 특정 페이지로 공유/북마크된 링크가 있으면
+    // 그 해시까지 살려서 새 도메인으로 넘겨줌(meta refresh는 고정 문자열이라 해시를 못 살림)
+    var target = "https://dinomutant-sim.com/" + window.location.hash;
+    document.getElementById("newLink").href = target;
+    window.location.replace(target);
+  </script>
+</body>
+</html>
