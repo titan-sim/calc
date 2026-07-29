@@ -170,14 +170,16 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
     const attackerVals = computeSideCombatValues(attackerSide, attackerAliveCount, tileCfg);
     const defenderVals = computeSideCombatValues(defenderSide, defenderAliveCount, tileCfg);
 
-    // 협동 공격/고독한 분노 등으로 최대 체력이 바뀔 수 있어서, 양 팀 생존 개체 전원의 체력을 매 턴
-    // 새 최대치에 맞춰 clamp(초과분만 깎임, 이미 그 아래였으면 그대로 - 타이탄전과 동일한 원칙)
+    // 협동 공격/고독한 분노 등으로 최대 체력이 바뀔 수 있음 - 게임사 공식 답변 확인: 조건을
+    // 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라 "감소 전 최대 체력 대비 남은
+    // 체력의 비율"로 재조정됨(체력 %가 유지되고 절대값만 같이 변함) - 최대치를 넘을 때만
+    // 깎던 예전 clamp 방식과 다름
     [{ side: mySide, vals: attackerKey === "my" ? attackerVals : defenderVals },
       { side: oppSide, vals: attackerKey === "my" ? defenderVals : attackerVals }]
       .forEach(({ side, vals }) => {
         aliveDinos(side).forEach((d) => {
+          if (d.maxHp > 0 && d.maxHp !== vals.maxHp) d.hp *= vals.maxHp / d.maxHp;
           d.maxHp = vals.maxHp;
-          if (d.hp > vals.maxHp) d.hp = vals.maxHp;
         });
       });
 

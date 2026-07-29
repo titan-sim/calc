@@ -94,6 +94,7 @@ function runTitanSimulation(cfg) {
         let deathEventCount = 0;
         let firstDeathTick = null;
         let initialFullHp = 0;
+        let prevMaxHp = 0; // 협동 공격/고독한 분노 등으로 최대 체력이 바뀔 때 비율 재조정용(직전 틱의 최대 체력)
         let tickEvents = []; // 1회차(i===0)에서만 채워지는 "주요 이벤트" 로그(치명타/사망/룬 발동/재소환)
         let titanDefeated = false; // 이번 틱에 타이탄 체력이 0이 됐는지 - 로그를 남기고 나서 break하기 위함
 
@@ -148,6 +149,7 @@ function runTitanSimulation(cfg) {
 
           if (t === 1) {
             initialFullHp = currentMaxHp;
+            prevMaxHp = currentMaxHp;
             const sRune = activeRunes.find((r) => r.name === "보호막");
             dinos.forEach((d) => {
               d.hp = initialFullHp;
@@ -155,9 +157,14 @@ function runTitanSimulation(cfg) {
             });
             aliveDinos = dinos;
           } else {
-            // 협동 공격/고독한 분노처럼 인원 조건에 따라 최대 체력이 오르내리는 룬 대응.
-            // 조건을 잃어 최대 체력이 줄어들면 그 초과분만 깎임(현재 체력이 이미 그 아래였다면 그대로 유지, 즉사 아님)
-            aliveDinos.forEach((d) => { if (d.hp > currentMaxHp) d.hp = currentMaxHp; });
+            // 협동 공격/고독한 분노처럼 인원 조건에 따라 최대 체력이 오르내리는 룬 대응. 게임사
+            // 공식 답변 확인: 조건을 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라,
+            // "감소 전 최대 체력 대비 남은 체력의 비율"로 재조정됨(체력 %가 그대로 유지되고
+            // 절대값만 같이 줄어듦/늘어남) - 최대치를 넘을 때만 깎던 예전 clamp 방식과 다름
+            if (currentMaxHp !== prevMaxHp) {
+              const hpRatio = currentMaxHp / prevMaxHp;
+              aliveDinos.forEach((d) => { d.hp *= hpRatio; });
+            }
             // 연속 전투로 복귀하는 공룡: 새로 소환된 것과 같으므로 체력을 꽉 채우고 상태를 초기화
             dinos.forEach((d) => {
               if (d.reviving) {
@@ -173,6 +180,7 @@ function runTitanSimulation(cfg) {
                 }
               }
             });
+            prevMaxHp = currentMaxHp;
           }
 
           for (let d of aliveDinos) {

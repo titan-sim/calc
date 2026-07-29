@@ -133,14 +133,16 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
     const attacker = nextAttacker(attackerSide);
     if (!attacker) break;
 
-    // 협동 공격/고독한 분노 등 인원수 조건부 룬으로 최대 체력이 바뀔 수 있어서, 양 진영 생존
-    // 슬롯 전원의 maxHp를 이번 턴 기준으로 다시 계산해 clamp(공룡 대전과 동일 원칙)
+    // 협동 공격/고독한 분노 등 인원수 조건부 룬으로 최대 체력이 바뀔 수 있음 - 게임사 공식 답변
+    // 확인: 조건을 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라 "감소 전 최대 체력
+    // 대비 남은 체력의 비율"로 재조정됨(공룡 대전과 동일 원칙, 최대치를 넘을 때만 깎던 예전
+    // clamp 방식과 다름)
     [mySide, oppSide].forEach((side) => {
       const aliveCount = aliveSlots(side).length;
       aliveSlots(side).forEach((slot) => {
         const v = computeSideCombatValues(pseudoSideFor(side, slot), aliveCount, tileCfg);
+        if (slot.maxHp > 0 && slot.maxHp !== v.maxHp) slot.hp *= v.maxHp / slot.maxHp;
         slot.maxHp = v.maxHp;
-        if (slot.hp > v.maxHp) slot.hp = v.maxHp;
       });
     });
 
@@ -379,12 +381,13 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
       const attacker = nextAttacker(attackerSide);
       if (!attacker) break;
 
+      // 협동 공격/고독한 분노 인원수 변화 시 체력 비율 재조정(위 runArenaSimulation과 동일 원칙)
       [mySide, oppSide].forEach((side) => {
         const aliveCount = aliveSlots(side).length;
         aliveSlots(side).forEach((slot) => {
           const v = computeSideCombatValues(pseudoSideFor(side, slot), aliveCount, tileCfg);
+          if (slot.maxHp > 0 && slot.maxHp !== v.maxHp) slot.hp *= v.maxHp / slot.maxHp;
           slot.maxHp = v.maxHp;
-          if (slot.hp > v.maxHp) slot.hp = v.maxHp;
         });
       });
 
