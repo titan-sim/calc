@@ -306,10 +306,10 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  /* 보스 아바타를 2배로 키우면서(사용자 확정) 3D 원근으로 카메라에 가까운 쪽이 실제 배치 박스보다
-     위로 더 튀어나와 보여서, 위쪽 카드와 겹치지 않게 여백을 넉넉히 둠(다이노 배틀 모바일 클리핑
-     때와 같은 원인 - 근접 오브젝트가 자기 레이아웃 박스를 넘어서 튀어나옴) */
-  padding: 70px 0 10px;
+  /* 보스 아바타를 키우면서(사용자 확정 - 1.6배) 3D 원근으로 카메라에 가까운 쪽이 실제 배치
+     박스보다 위로 더 튀어나와 보여서, 위쪽 카드와 겹치지 않게 여백을 둠(다이노 배틀 모바일
+     클리핑 때와 같은 원인 - 근접 오브젝트가 자기 레이아웃 박스를 넘어서 튀어나옴) */
+  padding: 40px 0 10px;
   /* 사이드바 체력바 폭을 육각형 스테이지와 같은 기준으로 맞추기 위해 여기(공통 부모)에 선언해서
      .titan-hex-hpbar-list와 .titan-duel-field가 같은 값을 공유하게 함 - 기존 280px 기준에서
      전체적으로 약 30% 키움(280 * 1.3 = 364) */
@@ -380,6 +380,19 @@
   transition: left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* .titan-hex-avatar가 체력바+공을 세로로 쌓는 flex라, translate(-50%,-50%)는 "그 스택 전체의
+   중앙"을 세계좌표에 맞추는 거지 "공의 중앙"을 맞추는 게 아님 - 체력바 높이만큼 공의 실제 중심이
+   육각형 중심에서 위로 밀려나 보이던 버그(사용자 지적). 빌보드 로컬 Y로 더 내려서(translateY)
+   보정해 공의 중심이 정확히 세계좌표 지점에 오게 함 - 값은 (체력바 높이+간격)/2 어림값에서
+   시작해서 실제 화면 좌표 오차를 재 가며 미세조정함(육각형 중심 대비 오차 0px 확인). 내 공룡
+   (체력바 5px)과 타이탄(체력바 32px)은 체력바 높이가 달라서 보정값도 따로 나옴 */
+#titanMySlot0, #titanMySlot1, #titanMySlot2 {
+  transform: rotateX(-55deg) translateZ(4px) translate(-50%, -50%) translateY(8.2px);
+}
+#titanBossSlot0 {
+  transform: rotateX(-55deg) translateZ(4px) translate(-50%, -50%) translateY(13.9px);
+}
+
 /* 아바타는 이제 위치를 스스로 잡지 않음(부모 빌보드 슬롯이 이미 세계좌표로 배치됨) - 체력바(위)
    + 공(아래)을 세로로 쌓는 flex 컨테이너. 원래는 체력바를 공 위로 겹쳐 올리는 음수 top(overflow)
    트릭을 썼는데, preserve-3d가 여러 겹 중첩된 이 구조에서는 부모 박스 바깥으로 넘치는 자식이
@@ -418,8 +431,9 @@
 
 /* 타이탄(보스) 아바타는 공룡 쪽보다 큼 - 항상 1마리뿐이라 위치는 항상 고정 중심점 */
 .titan-hex-avatar-boss .titan-hex-avatar-ball {
-  /* 타이탄(보스) 크기 2배 확대(사용자 확정 - "2~3배 정도로") */
-  width: clamp(84px, 30cqw, 144px);
+  /* 타이탄(보스) 크기 1.6배 확대(사용자 확정 - 처음에 2배로 했더니 너무 커졌다는 피드백으로
+     다시 줄임) */
+  width: clamp(67px, 24cqw, 115px);
 }
 
 .titan-hex-avatar-mine .titan-hex-avatar-ball {
@@ -469,10 +483,12 @@
    판단해서 되돌림) - 두께보다는 폭으로 여유를 확보함. 아바타 원보다 넓어져도(1.8배) 겹치는
    요소가 없어서 괜찮음 */
 .titan-hex-avatar-hpbar-boss {
-  /* 보스 아바타가 2.5배로 커진 만큼 체력바도 같이 커짐(width는 커진 아바타 clamp를 그대로
-     참조해서 자동으로 비례, height는 명시값이라 별도로 2.5배 - 사용자 확정) */
-  width: calc(clamp(105px, 37.5cqw, 180px) * 1.8);
-  height: 50px;
+  /* width는 지금 아바타 크기(clamp(67px,24cqw,115px))를 그대로 참조해서 자동으로 비례 -
+     예전에 옛날(2.5배) 아바타 크기값을 그대로 참조하고 있어서 아바타를 줄여도 체력바만 안 줄고
+     옆으로 튀어나와 보이던 버그였음(사용자 지적 - 실측으로 원인 확인). 배율도 1.8 -> 1.5로
+     낮춰서 육각형 밖으로 덜 튀어나오게 함 */
+  width: calc(clamp(67px, 24cqw, 115px) * 1.5);
+  height: 32px;
 }
 
 /* 현재/최대 수치를 체력바 안쪽 정중앙에 표시 - 부모(.titan-hex-avatar-hpbar-boss)가
@@ -489,7 +505,7 @@
   align-items: center;
   justify-content: center;
   white-space: nowrap;
-  font-size: clamp(15px, 4cqw, 25px);
+  font-size: clamp(10px, 2.6cqw, 16px);
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
