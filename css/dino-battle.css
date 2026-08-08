@@ -119,67 +119,127 @@
 
 .battle-arena {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(8px, 4cqw, 24px);
-  padding: clamp(24px, 10cqw, 64px) 0;
-  min-height: clamp(160px, 46cqw, 320px);
-}
-
-.battle-fighter {
-  position: relative;
-  flex: 1;
-  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-  transition: opacity 0.4s ease;
+  gap: 10px;
+  padding: clamp(16px, 6cqw, 40px) 0;
 }
 
-.battle-fighter.defeated .battle-avatar {
-  filter: grayscale(1) brightness(0.6);
-  transform: rotate(90deg) scale(0.85);
-}
-
-.battle-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: clamp(12px, 3cqw, 14px);
-  color: var(--text-sub);
-  font-weight: 700;
-}
-
-.battle-name::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-
-#myFighter .battle-name::before {
-  background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
-}
-
-#oppFighter .battle-name::before {
-  background: #e0473f;
-  box-shadow: 0 0 6px rgba(224, 71, 63, 0.6);
-}
-
-.battle-hp-bar {
+/* ===== flat-top 육각형(위/아래 변이 평행 - 허수아비/타이탄 페이지와 같은 계열) 3개를 진짜
+   3D 원근 공간에 배치 =====
+   flat-top은 가로 일직선으로 나란히 두면 점 하나에서만 만나서, 대각선 이웃 스텝(+75,-43.3)을
+   한 방향으로 두 번 이어야 진짜로 변이 맞물림(내 쪽이 아래/큼, 상대 쪽이 위/작음 - 결합 viewBox
+   250x173.2). .battle-hex-field에 real perspective를 주고 .battle-hex-tilt를 그 안에서
+   rotateX(55deg)로 기울이는 건 허수아비 페이지(.dummy-field-wrap/.dummy-hexagon)와 완전히 같은
+   기법 - 다만 이번엔 바닥(svg)뿐 아니라 앵커/팀 그룹/아바타 슬롯까지 전부 같은 preserve-3d
+   스택 안에 넣어서(체인 중 하나라도 빠지면 그 지점에서 3D가 평면으로 뭉개짐) 상대 쪽 육각형과
+   그 위 공룡이 실제로 원근에 의해 작게 보이게 함(사용자 확정 요구사항 - 순수 평면으로는 불가능) */
+.battle-hex-field {
+  position: relative;
   width: 100%;
-  max-width: 160px;
-  height: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+/* 3D 원근(rotateX+perspective)으로 카메라에 가까운 쪽(특히 내 쪽 육각형의 왼쪽)이 스테이지의
+   평평한 레이아웃 박스보다 더 튀어나와 보이는데, .battle-hex-stage가 max-width:640px라서 카드
+   폭이 640px보다 넓을 때는 자연스러운 여유 공간이 생겨 문제가 없지만, 카드 폭이 640px보다 좁아
+   지면(모바일뿐 아니라 사이드바가 펼쳐진 데스크톱에서도 카드 폭이 640px 밑으로 내려가는 경우가
+   있어서 실측으로 확인 - 뷰포트 기준 media query로는 안 맞음) 그 여유가 없어 왼쪽이 카드의
+   overflow:hidden에 잘려나감(사용자 지적 - "내 공룡 타일 왼쪽이 잘림"). .battle-main-card가
+   이미 container-type:inline-size라서 뷰포트 대신 카드 자신의 실제 폭 기준 컨테이너 쿼리를 씀 -
+   카드가 640px보다 좁을 때만 폭을 81%로 줄여 좌우에 원근 튀어나옴을 위한 여백을 둠(여러 카드
+   폭에서 실측 - 640px 근처가 가장 여유가 적어서 그 경계에서도 안전하도록 보정). box-sizing이
+   content-box라 padding으로 하면 오히려 박스가 밖으로 확장돼버려서 width 자체를 줄이고 부모
+   (.battle-arena)의 align-items:center가 가운데로 밀어주게 함 */
+@container (max-width: 640px) {
+  .battle-hex-field {
+    width: 81%;
+  }
+}
+
+/* perspective는 반드시 rotateX가 걸린 .battle-hex-tilt의 "직계 부모"에 있어야 실제로 원근이
+   적용됨(조상이라도 한 단계만 떨어지면 원근이 안 먹힘) - 그래서 가운데 정렬용 래퍼인
+   .battle-hex-field가 아니라 .battle-hex-tilt의 바로 위인 여기(.battle-hex-stage)에 둠 */
+.battle-hex-stage {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 250 / 173.2;
+  margin: 0 auto;
+  perspective: 700px;
+}
+
+.battle-hex-tilt {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(55deg);
+}
+
+.battle-hex-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+}
+
+/* ===== 세계좌표 + 카메라 촬영 방식(사용자 확정 - "싹 갈아엎자") =====
+   예전엔 육각형 절반/전체를 감싸는 앵커 박스 12개가 각자 다른 크기라 대형(1/2/3마리)을 만들
+   때마다 앵커마다 손으로 % 튜닝을 따로 해야 했음(정삼각형 하나만 5번 넘게 재조정). 이제 앵커
+   박스 없이 formationGroup 딱 2개(내/상대)만 두고, 그 안 슬롯들의 left/top은 js/pages/dino-
+   battle-page.js의 updateStackDisplay()가 바닥 SVG와 완전히 같은 결합 좌표계(0~250, 0~173.2)
+   위에서 실제 삼각함수(정삼각형 등)로 계산해서 매번 직접 심음(worldToPercent) - 여기 CSS엔
+   위치 관련 규칙이 없음. */
+.battle-formation-group {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.battle-formation-group.defeated .battle-avatar {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.battle-team-slot {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform-style: preserve-3d;
+  /* 바닥(.battle-hex-tilt)의 rotateX(55deg)를 반대로 취소해서 아바타가 눕지 않고 서 있게
+     세운 뒤(빌보드), translateZ로 바닥면과 같은 깊이에서 겹쳐 깜빡이는 z-fighting을 피해 카메라
+     쪽으로 살짝 들어올림 - translate(-50%,-50%)는 항상 마지막(가장 오른쪽)이어야 원래 좌표
+     기준점이 안 어긋남. rotateX와 translateZ 순서를 바꾸면 발밑 기준점이 위로 밀려버리므로
+     (행렬 계산으로 확인됨) 이 순서를 절대 바꾸지 말 것 */
+  transform: rotateX(-55deg) translateZ(6px) translate(-50%, -50%);
+}
+
+/* 앞장(avatar)은 팀이 살아있는 한 항상 보이고(대기는 js가 display를 직접 토글), 대기보다
+   항상 위에 그려짐(예전엔 [data-count="3"]일 때만 z-index를 줬는데, 이제 대형/개수와 무관하게
+   "앞장이 항상 맨 위"라는 규칙 하나로 충분해서 정적 규칙으로 단순화) */
+.battle-team-slot-avatar {
+  display: flex;
+  z-index: 2;
+}
+
+.battle-team-slot-behind1,
+.battle-team-slot-behind2,
+.battle-team-slot-behind3 {
+  z-index: 1;
+}
+
+.battle-hp-bar-mini {
+  width: clamp(26px, 9cqw, 46px);
+  height: 4px;
   border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   overflow: hidden;
 }
 
-.battle-hp-fill {
+.battle-hp-fill-mini {
   height: 100%;
   width: 100%;
   transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
@@ -194,16 +254,32 @@
   background: linear-gradient(90deg, #a4241f, #e0473f);
 }
 
-.battle-hp-label {
-  font-size: clamp(10px, 2.6cqw, 12px);
+/* 체력바는 공룡 머리 위, 닉네임은 발 밑(사용자 확정) - DOM 순서(hp-bar-mini → avatar → name)가
+   그대로 이 위/아래 배치가 됨. 개별 공룡 고유 닉네임 데이터는 없어서 "내 공룡"/"상대 공룡"(또는
+   친구 세션 중이면 그 닉네임)을 슬롯마다 반복 표시함 - updateFriendLabels()가 갱신 */
+.battle-team-slot-name {
+  font-size: clamp(8px, 2cqw, 10px);
   color: var(--text-sub);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 내 공룡 이름은 초록색, 상대 공룡 이름은 빨간색으로 구분(사용자 확정) */
+#myFormationGroup .battle-team-slot-name { color: #4ade80; }
+#oppFormationGroup .battle-team-slot-name { color: #e0473f; }
+
+/* --dino-scale은 매머드의 힘(1.12배)/압축된 힘(0.88배) 룬 장착 여부에 따라 applyDinoScale()이
+   formationGroup에 심어주는 배율. --avatar-formation-scale은 중앙 절반처럼 좁은 자리에 3마리가
+   들어갈 때만 updateStackDisplay()가 슬롯별로 심어주는 축소 배율(둘 다 js/pages/dino-battle-
+   page.js) - 서로 독립적으로 곱해짐(룬 배율은 대형과 무관하게 항상 적용) */
 .battle-avatar {
   position: relative;
-  width: clamp(56px, 20cqw, 96px);
-  height: clamp(56px, 20cqw, 96px);
+  /* 전체적으로 19%(0.9*0.9) 축소(사용자 확정 - 처음 10%에서 추가로 10% 더 줄임) - 룬 배율/대형
+     축소/원근 축소는 그대로 곱해짐 */
+  width: calc(clamp(44px, 17cqw, 78px) * 0.81 * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
+  height: calc(clamp(44px, 17cqw, 78px) * 0.81 * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
   border-radius: 50%;
   transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -218,29 +294,8 @@
   box-shadow: 0 0 22px rgba(224, 71, 63, 0.55);
 }
 
-/* 무대 조명 느낌을 주는 바닥 스포트라이트: 현재 맞붙고 있는 앞줄 공룡(.battle-avatar) 발밑에만 표시 */
-.battle-avatar.my-avatar::after,
-.battle-avatar.opp-avatar::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -10px;
-  transform: translateX(-50%);
-  width: 72%;
-  height: 8px;
-  border-radius: 50%;
-  filter: blur(3px);
-  pointer-events: none;
-}
-
-.battle-avatar.my-avatar::after {
-  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 55%, transparent), transparent 75%);
-}
-
-.battle-avatar.opp-avatar::after {
-  background: radial-gradient(ellipse, rgba(224, 71, 63, 0.55), transparent 75%);
-}
-
+/* 공격/피격 모션(사용자 확정 - 구체로 되돌리면서 다시 필요해짐, 스프라이트 도입 전 원본 그대로) -
+   공격자는 상대 쪽으로 살짝 튀어나갔다 돌아옴(lunge), 피격자는 제자리에서 떨림(hit-shake) */
 .battle-avatar.lunge-right {
   animation: battle-lunge-right 0.35s ease;
 }
@@ -273,111 +328,128 @@
   80% { transform: translateX(4px); }
 }
 
-/* 타일 위에 여러 마리가 대기 중임을 보여주는 스택 표현: 맨 앞(현재 싸우는 중)만 크게,
-   대기 중인 나머지는 뒤에 작고 흐리게 겹쳐 보이게 함 */
-.battle-stack {
-  position: relative;
-  width: clamp(56px, 20cqw, 96px);
-  height: clamp(56px, 20cqw, 96px);
+/* 피격 이펙트 이미지는 허수아비/타이탄과 완전히 같은 것을 재사용함(assets/sprites/Hit_Effect.png,
+   css/dummy.css의 .dummy-hit-effect - 빨갛게 물들이는 filter까지 그대로) - js/pages/dino-battle-
+   page.js의 playLungeAndShake()가 dummySpawnHitEffect/titanPlayHit과 같은 방식으로 img를 만들어
+   붙임(사용자 확정 - 직접 만든 CSS 발톱 자국 대신 이 이미지를 쓰기로 함) */
+
+/* 앞장이 죽어서 대기 중이던 공룡이 승격될 때 그 자리로 실제로 이동해온 것처럼 보이는 연출
+   (사용자 확정) - .battle-team-slot이 이미 3D 빌보드 transform을 갖고 있어서 그 transform을
+   건드리면 깨지므로, 화면 평면 기준 2차원 이동은 자식인 .battle-avatar 쪽에 얹음(부모의 3D
+   변환이 이미 카메라를 향해 평평하게 세워둔 뒤라 여기서의 translate는 그냥 화면상 이동으로 보임).
+   "다른 타일"이라 대기가 실제 화면 위치를 갖고 있으면 FLIP 기법(js의 handlePromotionEffects가
+   이동 전/후 실제 좌표 차이를 재서 --flip-dx/dy로 넘겨줌)으로 진짜 그 위치에서 온 것처럼 이동 -
+   시작 상태(.promote-in-flip)는 트랜지션 없이 즉시 적용하고, 다음 프레임에 .promote-in-flip-
+   active를 얹어야 브라우저가 "즉시 이동 후 트랜지션"이 아니라 "그 지점에서부터 트랜지션"으로
+   처리함(고전적 FLIP 2단계 클래스 패턴) */
+.battle-avatar.promote-in-flip {
+  transform: translate(var(--flip-dx, 0), var(--flip-dy, 0)) scale(0.7);
+  opacity: 0.5;
+}
+/* 예전 cubic-bezier(0.22,1,0.36,1)(easeOutQuint류)는 너무 앞쪽에 몰려서(실측 결과 시작 20ms만에
+   전체 이동 거리의 22%, 40ms만에 58%가 이미 끝나버림) 320ms 애니메이션이라 적어놓고도 눈에는
+   "슥 나타남"처럼 거의 순간이동으로 보였음(사용자 지적 - 이동 모션이 안 보인다고 함). ease-out은
+   실측상 100ms에 약 39%, 200ms에 약 76%로 훨씬 고르게 퍼져서 이동 궤적이 실제로 눈에 보임 */
+.battle-avatar.promote-in-flip-active {
+  transition: transform 0.38s ease-out, opacity 0.38s ease;
+  transform: translate(0, 0) scale(1);
+  opacity: 1;
 }
 
-.stack-dino {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 50%;
+/* "한 타일"이라 대기가 애초에 화면에 없었을 때만 쓰는 대체용 고정 슬라이드(실제 이동 거리를
+   잴 방법이 없어서 방향만 맞춤 - 내 편은 왼쪽에서, 상대는 오른쪽에서) */
+.battle-avatar.promote-in-left { animation: battle-promote-in-left 0.3s ease-out; }
+.battle-avatar.promote-in-right { animation: battle-promote-in-right 0.3s ease-out; }
+@keyframes battle-promote-in-left {
+  0% { transform: translateX(-28px) scale(0.82); opacity: 0.55; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes battle-promote-in-right {
+  0% { transform: translateX(28px) scale(0.82); opacity: 0.55; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
 }
 
-.stack-dino.front {
-  z-index: 3;
+/* 승격으로 빈 대기 슬롯에 오버플로우(가려져 있던) 공룡이 새로 나타날 때 - 작음에서 원래 크기로
+   확대되는 팝인(사용자 확정, "수면 위로 올라오는" 느낌) */
+.battle-avatar.reserve-pop-in { animation: battle-reserve-pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes battle-reserve-pop-in {
+  0% { transform: scale(0.35); opacity: 0.3; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-.stack-dino.behind-1 {
-  z-index: 2;
-  transform: scale(0.6) translate(28%, 28%);
-  opacity: 0.55;
-  filter: saturate(0.7);
+/* 배치 설정을 "다른 타일"→"한 타일"로 바꾸는 순간, 그때까지 대기 육각형에 떠 있던 아바타 자리에
+   똑같이 생긴 "유령"을 임시로 띄운 뒤 앞장(전투 자리) 쪽으로 날아가며 축소+페이드 - 실제 상태 전환
+   (아바타 숨김 + 체력바 전환)은 이 애니메이션과 동시에 바로 진행되므로, 유령이 날아가는 짧은 순간
+   동안만 "모여드는" 느낌을 겹쳐서 보여줌(js의 playConvergeGhosts가 실측 좌표로 --converge-dx/dy를
+   구해서 넘김 - FLIP과 같은 방식). z-index를 높여 다른 3D 빌보드 레이어 위에 그대로 보이게 함 */
+.battle-converge-ghost {
+  z-index: 60;
+  pointer-events: none;
+  transform: scale(1);
+  opacity: 1;
+}
+.battle-converge-ghost-active {
+  transition: transform 0.34s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.34s ease;
+  transform: translate(var(--converge-dx, 0), var(--converge-dy, 0)) scale(0.25);
+  opacity: 0;
 }
 
-.stack-dino.behind-2 {
-  z-index: 1;
-  transform: scale(0.42) translate(52%, 52%);
-  opacity: 0.32;
-  filter: saturate(0.5);
-}
-
-/* 스택(대표 공룡) + 대기 중인 나머지 공룡들의 미니 체력바를 나란히 배치. 항상 무대 바깥쪽으로 붙도록
-   내 쪽은 바가 오른쪽(무대 중앙 방향)이 아니라 왼쪽에, 상대 쪽은 반대로 둠.
-   타일 배치 설정에 따라 점선 테두리로 "같은 타일(전부 하나로 묶임)"인지 "다른 타일(전투 공룡과
-   대기 공룡이 분리됨)"인지 시각적으로 보여줌(순수 표시용, 실제 분리 여부는 엔진 쪽에서 처리). */
-.battle-stack-row {
+/* 아바타 3마리(앞장 포함) 한도를 넘는 나머지 공룡들 - 아바타 없이 얇은 체력바만, 타일들 밑에
+   따로 모아서 보여줌(사용자 확정) */
+.battle-overflow-row {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
 }
 
-.battle-stack-row.tile-same {
-  padding: 6px;
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--text-main) 3%, transparent);
-}
-
-.battle-stack-row.tile-separate {
-  gap: 14px;
-}
-
-/* .battle-stack는 내부 공룡 원들이 position:absolute; top:0; left:0으로 자기 자신(패딩 없는
-   0,0 기준)에 딱 맞춰 앉아있어서, 여기에 직접 padding을 주면 그 아이들도 패딩 안쪽으로 같이
-   밀려 들어가 테두리와 어긋나 보임. 그래서 장식용 점선 테두리는 별도의 감싸는 .tile-box에
-   주고, .battle-stack 자체는 손대지 않음(대기 체력바 쪽은 절대위치 자식이 없어서 그대로 둬도 됨) */
-.battle-stack-row.tile-separate .tile-box,
-.battle-stack-row.tile-separate .reserve-bars {
-  padding: 6px;
-  border: 1px dashed var(--border-color);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--text-main) 3%, transparent);
-}
-
-.my-stack-row {
-  flex-direction: row-reverse;
-}
-
-/* 스택(.battle-stack)과 정확히 같은 높이로 고정해서 대기 마릿수와 무관하게 박스 크기/위치가
-   항상 일정하게 유지되도록 함(다른 타일 모드에서 점선 박스가 들쭉날쭉해 보이던 문제 해결).
-   최대 12마리(공룡 수 상한 13 - 앞장 1)까지도 스크롤 없이 다 들어가도록 바를 얇게 잡음. */
-.reserve-bars {
+.battle-overflow-group {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  height: clamp(56px, 20cqw, 96px);
-  overflow: hidden;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-content: flex-start;
 }
 
-.reserve-bar {
-  width: clamp(20px, 8cqw, 34px);
-  height: 3px;
-  border-radius: 1.5px;
+/* 내 대기 공룡은 왼쪽, 상대 대기 공룡은 오른쪽으로 붙여서 그림 - 둘 다 그냥 왼쪽 정렬이면
+   상대 쪽 바들이 화면 가운데 쪽으로 쏠려 보여서 "누구 건지" 헷갈렸음(사용자 지적) */
+.my-overflow-group { justify-content: flex-start; }
+.opp-overflow-group { justify-content: flex-end; }
+
+.battle-overflow-bar {
+  width: clamp(20px, 6cqw, 30px);
+  height: 6px;
+  border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   overflow: hidden;
   flex-shrink: 0;
+  animation: battle-overflow-bar-in 0.25s ease;
 }
 
-.reserve-bar-fill {
+@keyframes battle-overflow-bar-in {
+  0% { opacity: 0; transform: scaleX(0.4); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+
+.battle-overflow-bar-fill {
   height: 100%;
   transition: width 0.3s ease;
 }
 
+/* 죽음 = "원래 크기 -> 축소되며 사라짐"(사용자 확정 - 예전의 펀치+회전+그레이스케일 플래시
+   대신). 이 자리(앞장 아바타)는 바로 다음 공룡으로 교체돼서 재사용되므로, 이 애니메이션이 끝나는
+   시점(js의 setTimeout 350ms)에 맞춰 새 공룡의 승격 슬라이드 애니메이션이 이어서 시작함
+   (handlePromotionEffects) - 같은 엘리먼트에 두 애니메이션이 동시에 걸리면 CSS가 하나만
+   적용하므로 반드시 순서대로 재생되도록 js에서 지연시킴 */
 .battle-avatar.front-defeated {
-  animation: battle-front-defeated 0.4s ease;
+  animation: battle-front-defeated 0.35s ease-in forwards;
 }
 
 @keyframes battle-front-defeated {
-  0% { transform: scale(1); filter: brightness(1); }
-  50% { transform: scale(0.7) rotate(30deg); filter: brightness(2) grayscale(1); }
-  100% { transform: scale(1); filter: brightness(1); }
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.1); opacity: 0; }
 }
 
 .battle-arena.area-flash {

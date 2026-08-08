@@ -682,7 +682,7 @@ function initMyDinoPage(profile, options = {}, container) {
     // readOnly는 남의 프로필(친구 세션/스냅샷)이라 이 profile을 절대 storageKey에 저장하면 안 됨 -
     // 화면 갱신만 하고 여기서 끝냄(프리셋 로컬 미리보기 등도 이 가드 하나로 안전해짐)
     if (readOnly) {
-      updateSummary(profile, idPrefix, options.splitCritStat);
+      updateSummary(profile, idPrefix, options.splitCritStat, true);
       return;
     }
     // 이 profile 객체는 마운트 시점에 한 번 로드해서 계속 재사용하는 클로저라, 이 모듈이 관리하지
@@ -694,7 +694,7 @@ function initMyDinoPage(profile, options = {}, container) {
     const latest = loadMyDinoProfile(storageKey);
     profile.arenaFormations = latest.arenaFormations;
     saveMyDinoProfile(profile, storageKey);
-    updateSummary(profile, idPrefix, options.splitCritStat);
+    updateSummary(profile, idPrefix, options.splitCritStat, true);
     if (options.onChange) options.onChange(profile);
   }
 
@@ -721,7 +721,10 @@ function initMyDinoPage(profile, options = {}, container) {
   wireDinoPanelHeader(root, options.header);
 }
 
-function updateSummary(profile, idPrefix = "", splitCrit = false) {
+// animate=true면(사용자가 설정을 실제로 수정해서 재계산된 경우) 값이 바뀐 항목만 롤링 애니메이션으로
+// 보여줌(js/ui/stat-roll-ui.js) - 처음 페이지를 열 때(마운트 시 최초 1회)는 "0 -> 실제값"으로 전부
+// 애니메이션되면 산만하니 animate=false로 그냥 바로 표시함
+function updateSummary(profile, idPrefix = "", splitCrit = false, animate = false) {
   const id = (name) => idPrefix + name;
   const stats = getBattleStats({
     baseAtk: profile.baseAtk,
@@ -731,18 +734,28 @@ function updateSummary(profile, idPrefix = "", splitCrit = false) {
     constellation: profile.constellation,
     bonusPercent: getEffectiveBonusPercent(profile)
   });
-  document.getElementById(id("sumAtk")).innerText = Math.floor(stats.fAtk).toLocaleString();
-  document.getElementById(id("sumHp")).innerText = Math.floor(stats.fHp).toLocaleString();
+  const setVal = (elId, text) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (animate) {
+      animateStatValue(el, text);
+    } else {
+      el.textContent = text;
+      el.dataset.statRollRaw = text;
+    }
+  };
+  setVal(id("sumAtk"), Math.floor(stats.fAtk).toLocaleString());
+  setVal(id("sumHp"), Math.floor(stats.fHp).toLocaleString());
   if (splitCrit) {
-    document.getElementById(id("sumCritRate")).innerText = `${stats.cRate.toFixed(2)}%`;
-    document.getElementById(id("sumCritDmg")).innerText = `${stats.cDmg.toFixed(2)}%`;
+    setVal(id("sumCritRate"), `${stats.cRate.toFixed(2)}%`);
+    setVal(id("sumCritDmg"), `${stats.cDmg.toFixed(2)}%`);
   } else {
-    document.getElementById(id("sumCrit")).innerText = `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`;
-    document.getElementById(id("sumCount")).innerText = `${profile.dinoCount}마리`;
+    setVal(id("sumCrit"), `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`);
+    setVal(id("sumCount"), `${profile.dinoCount}마리`);
   }
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
   const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
-  document.getElementById(id("sumLevel")).innerText = level.toLocaleString();
+  setVal(id("sumLevel"), level.toLocaleString());
 }
 

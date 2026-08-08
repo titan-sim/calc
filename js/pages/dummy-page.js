@@ -138,6 +138,11 @@ function renderDummyPage(container) {
 
       <div class="battle-mode-panel" id="dummyLiveModeCard">
         <div class="dummy-field-wrap">
+          <!-- 다이노 배틀/타이탄 페이지와 같은 세계좌표+카메라 방식(사용자 확정) - 허수아비는
+               타일이 하나뿐이라 포메이션 계산은 필요 없지만, 구조 자체는 통일함: 육각형(바닥)이
+               preserve-3d로 진짜 3D 공간을 열고, 그 안의 .dummy-target-layer가 반대로 회전해서
+               카메라를 향해 서는 빌보드가 됨. 바닥과 정확히 같은 크기/중심으로 배치해서 안쪽의
+               허수아비/타격 이펙트 상대 위치(%)는 예전 그대로 재사용 가능 -->
           <div class="dummy-hexagon">
             <svg class="dummy-hexagon-svg" viewBox="0 0 100 86.6" preserveAspectRatio="none">
               <defs>
@@ -146,11 +151,16 @@ function renderDummyPage(container) {
                   <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
                 </radialGradient>
               </defs>
-              <polygon points="25,0 75,0 100,43.3 75,86.6 25,86.6 0,43.3" fill="url(#dummyHexGradient)" stroke="var(--accent)" stroke-width="2.4" vector-effect="non-scaling-stroke"></polygon>
+              <polygon points="25,0 75,0 100,43.3 75,86.6 25,86.6 0,43.3" fill="url(#dummyHexGradient)"></polygon>
+              <!-- 대각선 변과 위/아래 수평 변을 따로 그림 - rotateX(55°)가 화면상 세로(Y) 방향만
+                   압축하는 변환이라, 수평 변은 굵기 방향이 통째로 Y축이라 유독 얇아 보이고 대각선
+                   변은 덜 압축됨(다이노 배틀/타이탄과 같은 이유) - 수평 변만 stroke-width 보정 -->
+              <path d="M75,0 L100,43.3 L75,86.6 M25,86.6 L0,43.3 L25,0" fill="none" stroke="var(--accent)" stroke-width="2.4" vector-effect="non-scaling-stroke"></path>
+              <path d="M25,0 L75,0 M75,86.6 L25,86.6" fill="none" stroke="var(--accent)" stroke-width="4.2" vector-effect="non-scaling-stroke"></path>
             </svg>
-          </div>
-          <div class="dummy-target-layer" id="dummyTarget">
-            <img src="./assets/sprites/Scarecrow_1.png" class="dummy-scarecrow" alt="허수아비">
+            <div class="dummy-target-layer" id="dummyTarget">
+              <img src="./assets/sprites/Scarecrow_1.png" class="dummy-scarecrow" alt="허수아비">
+            </div>
           </div>
           <div class="dummy-popup-layer" id="dummyPopupLayer"></div>
         </div>

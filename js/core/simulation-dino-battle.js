@@ -6,8 +6,13 @@
 // - 양 팀 모두 타일 위에 자신의 공룡 수만큼 전부 올라와 있음(전부 풀피로 시작) -> 메테오 같은 광역
 //   효과는 대기 중인 공룡까지 전부 맞음.
 // - 실제로 서로 때리는 건 각 팀의 "앞장"(맨 위) 공룡끼리 1:1. 앞장이 죽으면 다음 공룡이 앞장이 됨.
-// - 선공은 전투 시작 시점의 종합 공격력이 더 높은 쪽. 이후로는 공격권이 팀 단위로 계속 번갈아감
-//   (내 공격 1회 -> 상대 공격 1회 -> ...).
+// - 선공권(사용자 확정, decideInitiative 참고): 이동속도가 더 높은 쪽 -> 같으면 레벨이 더 높은
+//   쪽 -> 그마저 같으면 랜덤. 앞장이 그대로 유지되는 동안은 공격권이 팀 단위로 계속 번갈아가지만
+//   (내 공격 1회 -> 상대 공격 1회 -> ...), 앞장이 바뀔 때(누군가 죽어서 새 앞장이 나올 때)마다
+//   이 순서로 다시 판정함. 단, 한쪽이 상대를 "단독으로"(자기 쪽은 안 죽고) 처치했다면 그 처치
+//   보너스로 다음 매치업 1회는 이속/레벨과 무관하게 처치한 쪽이 그대로 선공을 유지함. 양쪽 앞장이
+//   동시에 바뀌는 경우(100회 교환 무승부, 또는 "죽을 준비" 반격으로 우연히 같이 죽는 경우)는
+//   "누가 죽였다"라고 할 수 없으니 처치 보너스 없이 다시 이속->레벨->랜덤으로 판정함.
 // - 타이탄전에 부적합한 룬(보스/건축물 전용)과는 다른 기준으로 DINO_BATTLE_UNSUITABLE_RUNE_LIST에
 //   있는 룬은 아예 효과가 없는 것으로 계산함(장착은 막지 않되 수치에 반영 안 함).
 
@@ -33,6 +38,15 @@ function makeSeededRng(seed) {
 // js/pages/my-dino-page.js의 updateSummary()에 쓰이는 계산식과 동일(요약 카드에 보이는 "레벨" 수치)
 function levelOf(inputs) {
   return inputs.baseAtk + Math.floor(inputs.baseHp / 10) + inputs.moveSpeed;
+}
+
+// 선공권 판정(사용자 확정): 이동속도 -> 레벨 -> 랜덤 순. my/opp는 baseAtk/baseHp/moveSpeed를 담은
+// 원본 입력 객체(런타임 내내 안 바뀌는 순수 기본 스탯이라 myLevel/oppLevel은 호출부에서 한 번만
+// 계산해 넘기면 됨). rand를 안 넘기면 Math.random 사용(quick-calc처럼 시드가 없는 호출부용).
+function decideInitiative(my, opp, myLevel, oppLevel, rand = Math.random) {
+  if (my.moveSpeed !== opp.moveSpeed) return my.moveSpeed > opp.moveSpeed ? "my" : "opp";
+  if (myLevel !== oppLevel) return myLevel > oppLevel ? "my" : "opp";
+  return rand() < 0.5 ? "my" : "opp";
 }
 
 // unsuitableList: 이 계산 컨텍스트(공룡 대전/아레나 등)에서 부적합한 룬 목록 - 장착은 막지 않되
@@ -142,18 +156,14 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
   const MUTUAL_KILL_EXCHANGES = 200;
   let pairExchangeCount = 0;
 
-  // 선공 결정: 레벨이 더 높은 쪽부터. 레벨이 같으면 전투 시작 시점(전원 생존) 종합 공격력이
-  // 더 높은 쪽. 그마저 같으면 내 공룡 먼저.
   const myLevel = levelOf(my);
   const oppLevel = levelOf(opp);
-  let attackerKey;
-  if (myLevel !== oppLevel) {
-    attackerKey = myLevel > oppLevel ? "my" : "opp";
-  } else {
-    const myOpen = computeSideCombatValues(mySide, mySide.count, tileCfg);
-    const oppOpen = computeSideCombatValues(oppSide, oppSide.count, tileCfg);
-    attackerKey = myOpen.atk >= oppOpen.atk ? "my" : "opp";
-  }
+  let attackerKey = decideInitiative(my, opp, myLevel, oppLevel, rand);
+  // 앞장이 바뀔 때(새 매치업이 생길 때)마다 선공권을 재판정하기 위해, 지금 싸우고 있는 앞장
+  // 공룡 인스턴스를 기억해뒀다가 매 턴 끝에 바뀌었는지 비교함(makeDinoSide가 만든 dinos 배열의
+  // 첫 원소 = 전투 시작 시점의 앞장)
+  let pairingFrontMy = mySide.dinos[0];
+  let pairingFrontOpp = oppSide.dinos[0];
 
   while (turn < MAX_TURNS) {
     const attackerSide = attackerKey === "my" ? mySide : oppSide;
@@ -261,8 +271,12 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
       }
       // 메테오: 룬 설명대로 "현재 타일에 있는 모든 적"이 레벨과 무관하게 항상 맞음(대기 중인 공룡 포함).
       // 단, "대기 공룡 배치"를 다른 타일로 설정했다면 대기 중인 공룡은 물리적으로 이 타일에 없는 것이라
-      // 앞장(defender)만 맞음. 21레벨부터 붙는 area_burst_p(주변 타일 추가 피해)는 아직 이 엔진에는
-      // 해당 개념이 없어서(향후 육각타일맵에서 구현 예정) 지금은 쓰지 않음.
+      // 앞장(defender)만 맞음 - 대신 21레벨부터 붙는 area_burst_p(주변 타일 추가 피해, js/data/
+      // rune-data.js에 이미 정의돼 있었지만 이 엔진엔 미구현이었음)로 그 대기 공룡들에게 별도의
+      // (더 약한) 피해를 추가로 줌 - 이제 육각 타일맵이 실제로 있어서(대기 육각형이 전투 타일과
+      // 진짜로 인접한 "주변 타일") 그 대기 공룡들이 정확히 이 효과의 대상이 됨. "한 타일" 배치라
+      // sameTile===true면 대기가 이미 위 분기에서 메인 피해를 다 받았으므로(타일 개념이 없어져서
+      // "주변 타일"도 없음) 이 추가 피해는 적용 안 함.
       if (r.name === "메테오" && rand() * 100 < r.s.prob) {
         if (sameTile) {
           // 광역기라 여러 마리가 한 번에 맞지만, 크리티컬은 맞는 공룡마다 독립적으로 판정됨(한
@@ -281,6 +295,20 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
         } else {
           const c = rollCrit(attackerVals);
           hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "메테오");
+          if (r.s.area_burst_p !== undefined) {
+            const areaTargets = [];
+            defenderSide.dinos.forEach((d, idx) => {
+              if (d === defender || d.hp <= 0) return;
+              const c2 = rollCrit(attackerVals);
+              const dmg = Math.max(0, withCrit(finalAtk * (r.s.area_burst_p / 100), c2, attackerVals));
+              const before = d.hp;
+              d.hp = Math.max(0, d.hp - dmg);
+              areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: c2 });
+            });
+            if (areaTargets.length > 0) {
+              event.aoe = { label: "메테오(주변 타일)", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets };
+            }
+          }
         }
       }
       if (r.name === "흡혈" && rand() * 100 < r.s.prob) {
@@ -363,7 +391,21 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
     events.push(event);
 
     if (aliveDinos(mySide).length === 0 || aliveDinos(oppSide).length === 0) break;
-    attackerKey = defenderKey;
+
+    // 선공권 재판정: 앞장이 그대로면(둘 다 안 바뀜) 지금처럼 단순 교대. 딱 한쪽만 바뀌었다면
+    // 상대를 "단독으로" 처치한 것이므로 attackerKey를 그대로 둬서(원래는 defenderKey로 넘어갔어야
+    // 할 차례를) 처치한 쪽이 다음 매치업도 그대로 선공 유지. 양쪽이 동시에 바뀌었다면(100회 교환
+    // 무승부든 "죽을 준비" 반격으로 우연히 같이 죽었든) "누가 죽였다"라고 할 수 없으니 처치
+    // 보너스 없이 이속->레벨->랜덤으로 다시 판정.
+    const myChanged = myFrontNow !== pairingFrontMy;
+    const oppChanged = oppFrontNow !== pairingFrontOpp;
+    if (myChanged && oppChanged) {
+      attackerKey = decideInitiative(my, opp, myLevel, oppLevel, rand);
+    } else if (!myChanged && !oppChanged) {
+      attackerKey = defenderKey;
+    }
+    pairingFrontMy = myFrontNow;
+    pairingFrontOpp = oppFrontNow;
   }
 
   const myAlive = aliveDinos(mySide).length > 0;
@@ -385,14 +427,7 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
   const myLevel = levelOf(my);
   const oppLevel = levelOf(opp);
-  let attackerKey;
-  if (myLevel !== oppLevel) {
-    attackerKey = myLevel > oppLevel ? "my" : "opp";
-  } else {
-    const myOpen = computeSideCombatValues(mySide, 1, tileCfg);
-    const oppOpen = computeSideCombatValues(oppSide, 1, tileCfg);
-    attackerKey = myOpen.atk >= oppOpen.atk ? "my" : "opp";
-  }
+  let attackerKey = decideInitiative(my, opp, myLevel, oppLevel);
 
   let myKills = 0, oppKills = 0;
   let myDmgDealt = 0, oppDmgDealt = 0;
@@ -491,6 +526,9 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     if (attacker.warCrySteps > 0 && --attacker.warCrySteps === 0) attacker.warCryAtkP = 0;
 
     let diedThisTurn = false;
+    // bothDied: 이번 턴에 양쪽이 다 죽었는지("죽을 준비" 반격으로 우연히 같이 죽거나, 100회
+    // 교환 무승부) - 이 경우엔 "누가 죽였다"라고 할 수 없어 선공권 처치 보너스를 안 줌
+    let bothDied = false;
     if (defender.hp <= 0) {
       diedThisTurn = true;
       deaths++;
@@ -511,6 +549,7 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
           if (attackerKey === "my") { oppDmgDealt += burst; oppHitCount++; } else { myDmgDealt += burst; myHitCount++; }
         }
       });
+      if (attacker.hp <= 0) bothDied = true;
       // 대기 공룡이 없는 단순화 모드라 죽는 즉시 그 자리에서 풀피로 부활(이동/딜레이 없음)
       defender.hp = defender.maxHp;
       defender.giftAtk = 0;
@@ -525,6 +564,7 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     // 유리하게 치우치지 않도록, 승리의 함성도 발동 안 함 - "처치"가 아니라 무승부 교환이라)
     if (!diedThisTurn && pairExchangeCount >= MUTUAL_KILL_EXCHANGES) {
       diedThisTurn = true;
+      bothDied = true;
       deaths += 2;
       myKills++;
       oppKills++;
@@ -546,7 +586,14 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
     if (diedThisTurn) pairExchangeCount = 0;
 
-    attackerKey = defenderKey;
+    // 선공권 재판정: 아무도 안 죽었으면(앞장 그대로) 단순 교대. 양쪽이 같이 죽었으면(무승부 교환/
+    // 우연한 동시사망) 처치 보너스 없이 이속->레벨->랜덤으로 재판정. 한쪽만 죽었으면(단독 처치)
+    // attackerKey를 그대로 둬서 처치한 쪽이 다음 매치업도 선공 유지.
+    if (bothDied) {
+      attackerKey = decideInitiative(my, opp, myLevel, oppLevel);
+    } else if (!diedThisTurn) {
+      attackerKey = defenderKey;
+    }
   }
 
   return {

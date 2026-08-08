@@ -553,7 +553,7 @@ function renderArenaPage(container) {
         <div class="friend-picker-header">
           <span>
             <span id="arenaSlotEditTitle">슬롯</span>
-            <span class="arena-slot-edit-hint">더블클릭하여 확정</span>
+            <span class="arena-slot-edit-hint" id="arenaSlotEditHint">더블클릭하여 확정</span>
           </span>
           <button class="close-btn" id="arenaSlotEditClose">✕</button>
         </div>
@@ -827,6 +827,10 @@ function arenaMountFormationTab(sideKey, containerEl) {
     const data = arenaLoadFormationsData(sideKey);
     const row = document.getElementById(id("formationRow"));
     if (!row) return;
+    // 친구의 진영(실시간 세션/스냅샷)을 보는 중이면 이 배치 프리셋도 남의 데이터라 이름을 못 바꾸게
+    // 함(사용자 확정) - 슬롯 프리셋 편집 팝업(arenaRenderSlotEditPresetRow)에는 이미 있던 동일한
+    // foreign 체크가 여기(배치 프리셋 이름) 쪽엔 빠져있던 걸 발견해서 맞춤
+    const foreign = sideKey === "opp" && arenaIsOppRunePresetsForeign();
     row.innerHTML = "";
     data.formations.forEach((formation, idx) => {
       const isActive = idx === data.activeFormationIndex;
@@ -834,7 +838,7 @@ function arenaMountFormationTab(sideKey, containerEl) {
       btn.className = "arena-preset-btn" + (isActive ? " active" : "");
       btn.innerHTML = `
         <span class="arena-preset-btn-name" data-idx="${idx}">${formation.name}</span>
-        ${isActive ? '<button type="button" class="arena-preset-edit-btn" title="이름 수정">✏️</button>' : ""}
+        ${isActive && !foreign ? '<button type="button" class="arena-preset-edit-btn" title="이름 수정">✏️</button>' : ""}
       `;
       btn.onclick = (e) => {
         if (e.target.closest(".arena-preset-edit-btn")) return;
@@ -921,6 +925,11 @@ function arenaOpenSlotEditor(sideKey, slotIndex) {
   arenaSlotEditPresetIndex = assignedIdx !== null ? assignedIdx : 0;
 
   document.getElementById("arenaSlotEditTitle").textContent = `${slotIndex + 1}번 슬롯`;
+  // 친구의 진영(실시간 세션/스냅샷)을 보는 중이면 "더블클릭하여 확정"이라는 편집 문구 자체가
+  // 오해를 줌(사용자 지적 - 남의 프리셋을 내가 바꿀 수 있는 것처럼 보임) - 남의 데이터를 보는
+  // 중임을 명확히 하고 실제로도 배정 자체가 안 되게 막음(아래 arenaRenderSlotEditPresetRow)
+  const foreign = sideKey === "opp" && arenaIsOppRunePresetsForeign();
+  document.getElementById("arenaSlotEditHint").textContent = foreign ? "읽기 전용(친구의 조합)" : "더블클릭하여 확정";
   arenaLoadSlotEditPresetIntoRuneUI();
   arenaRenderSlotEditPresetRow();
   document.getElementById("arenaSlotEditOverlay").style.display = "flex";
@@ -951,9 +960,11 @@ function arenaRenderSlotEditPresetRow() {
     // 적용되는 문제가 있었음 - 미리보기 단계를 하나 끼워넣어서 실수로 잘못 장착하는 일을 줄임
     btn.onclick = (e) => {
       if (e.target.closest(".arena-preset-edit-btn")) return;
-      arenaPreviewSlotEditPreset(idx);
+      arenaPreviewSlotEditPreset(idx); // 미리보기(어떤 룬 구성인지 보기)는 남의 것이어도 그냥 조회라 허용
     };
-    btn.ondblclick = (e) => {
+    // 친구의 진영을 보는 중이면 더블클릭해도 실제 배정이 안 됨 - 내가 남의 프리셋 구성을 바꿀
+    // 수 없어야 한다는 요구사항(사용자 확정) - 위 힌트 문구도 이 상태에 맞춰 "읽기 전용"으로 바뀜
+    btn.ondblclick = foreign ? null : (e) => {
       if (e.target.closest(".arena-preset-edit-btn")) return;
       arenaConfirmSlotEditPreset(idx);
     };

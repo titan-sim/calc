@@ -302,11 +302,11 @@ function renderTitanPage(container) {
       </div>
 
       <div class="battle-mode-panel" id="titanLiveModeCard" style="display:none;">
-        <!-- 바닥(육각형 2개, 인접 타일)만 진짜 3D 공간에서 rotateX로 기울이고, 그 위에 올라가는
-             공룡/타이탄 아바타는 3D 변환을 아예 안 씀 - 대신 rotateX(55deg)가 순수 회전이라고
-             가정했을 때의 좌표 압축 공식(세로 = 중심 기준 cos(55°)≈0.5736배)을 좌표 계산으로 직접
-             적용해서 평면 원형 아바타를 정확한 위치에 배치함. 3D 중첩 변환에서 생기던 렌더링
-             아티팩트가 구조적으로 발생할 수 없고, 계산도 고정 배율이라 화면 크기와 무관하게 항상 맞음 -->
+        <!-- 다이노 배틀 페이지와 같은 세계좌표+카메라 방식(사용자 확정) - 바닥(육각형 2개, 인접
+             타일)과 공룡/타이탄 아바타가 전부 같은 결합 좌표계(175×129.9) 위에서 진짜 3D 공간에
+             rotateX로 함께 기울고, 아바타 쪽만 그 반대로 회전(빌보드)해서 카메라를 향해 똑바로
+             섬 - titanPositionMyAvatars()/titanPositionBoss()가 세계좌표를 계산해서 left/top을
+             심으면 이미 걸린 CSS 3D(perspective+rotateX)가 원근 투영을 그대로 해줌 -->
         <div class="titan-duel-wrap">
           <div class="titan-hex-hpbar-list" id="titanMyHpBars"></div>
 
@@ -335,28 +335,42 @@ function renderTitanPage(container) {
                   <!-- 테두리는 채우기와 분리한 열린 path로 그림: 두 육각형이 공유하는 변(75,43.3 ~
                        100,86.6)은 금색/적색 어느 쪽 테두리에도 포함하지 않아서 겹쳐 그려지며
                        anti-alias로 서로의 색이 "새는" 것처럼 번지던 문제를 없애고, 그 변만 따로
-                       중립(두 진영 색 혼합) 색 한 줄로 한 번만 그려서 경계선 자체는 살아있게 함 -->
-                  <path d="M100,86.6 L75,129.9 L25,129.9 L0,86.6 L25,43.3 L75,43.3" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                  <path d="M75,43.3 L100,0 L150,0 L175,43.3 L150,86.6 L100,86.6" fill="none" stroke="#e0473f" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                       중립(두 진영 색 혼합) 색 한 줄로 한 번만 그려서 경계선 자체는 살아있게 함.
+                       대각선 변과 위/아래 수평 변은 다이노 배틀과 같은 이유로 따로 그림 - rotateX(55°)가
+                       화면상 세로(Y) 방향만 압축하는 변환이라, 수평 변은 굵기 방향이 통째로 Y축이라
+                       유독 얇아 보이고 대각선 변은 덜 압축됨 - 수평 변만 stroke-width를 3.6으로 보정 -->
+                  <path d="M100,86.6 L75,129.9 M25,129.9 L0,86.6 L25,43.3" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                  <path d="M75,129.9 L25,129.9 M25,43.3 L75,43.3" fill="none" stroke="var(--accent)" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
+                  <path d="M75,43.3 L100,0 M150,0 L175,43.3 L150,86.6" fill="none" stroke="#e0473f" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+                  <path d="M100,0 L150,0 M150,86.6 L100,86.6" fill="none" stroke="#e0473f" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
                   <path d="M75,43.3 L100,86.6" fill="none" stroke="color-mix(in srgb, var(--accent) 50%, #e0473f)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
                 </svg>
-              </div>
 
-              <div class="titan-hex-anchor titan-anchor-mine" id="titanMyTarget">
-                <div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot0" data-slot="0"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div>
-                <div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot1" data-slot="1"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div>
-                <div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot2" data-slot="2"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div>
+              <!-- 다이노 배틀과 같은 세계좌표+카메라 방식(사용자 확정) - .titan-formation-group이
+                   preserve-3d로 바닥(.titan-duel-tilt)의 rotateX(55deg) 3D 공간에 실제로 들어가고,
+                   그 안의 .titan-hex-billboard-slot 각각이 rotateX(-55deg)로 반대 회전해서 카메라를
+                   향해 똑바로 서는("빌보드") 방식. titanPositionMyAvatars()/titanPositionBoss()가
+                   세계좌표를 계산해서 매번 left/top만 직접 심고, 안쪽(.titan-hex-avatar 이하)은
+                   기존 그대로 - 체력바/피격 흔들림/팝업 로직이 참조하는 클래스명·자식 순서·id를
+                   전혀 바꾸지 않아서 그쪽 로직은 안 건드려도 그대로 동작함 -->
+              <div class="titan-formation-group" id="titanMyTarget">
+                <div class="titan-hex-billboard-slot" id="titanMySlot0"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot0" data-slot="0"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
+                <div class="titan-hex-billboard-slot" id="titanMySlot1"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot1" data-slot="1"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
+                <div class="titan-hex-billboard-slot" id="titanMySlot2"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot2" data-slot="2"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
                 <div class="titan-hex-anchor-popup-layer" id="titanMyPopupLayer"></div>
               </div>
-              <div class="titan-hex-anchor titan-anchor-boss" id="titanBossTarget">
-                <div class="titan-hex-avatar titan-hex-avatar-boss">
-                  <div class="titan-hex-avatar-ball"></div>
-                  <div class="titan-hex-avatar-hpbar titan-hex-avatar-hpbar-boss">
-                    <div class="titan-hex-avatar-hpfill titan-hex-hpfill-boss" id="titanBossHpFill"></div>
-                    <div class="titan-hex-avatar-hp-text" id="titanBossHpText"></div>
+              <div class="titan-formation-group" id="titanBossTarget">
+                <div class="titan-hex-billboard-slot" id="titanBossSlot0">
+                  <div class="titan-hex-avatar titan-hex-avatar-boss">
+                    <div class="titan-hex-avatar-ball"></div>
+                    <div class="titan-hex-avatar-hpbar titan-hex-avatar-hpbar-boss">
+                      <div class="titan-hex-avatar-hpfill titan-hex-hpfill-boss" id="titanBossHpFill"></div>
+                      <div class="titan-hex-avatar-hp-text" id="titanBossHpText"></div>
+                    </div>
                   </div>
                 </div>
                 <div class="titan-hex-anchor-popup-layer" id="titanBossPopupLayer"></div>
+              </div>
               </div>
             </div>
           </div>
@@ -862,6 +876,56 @@ function initTitanPage() {
   // 고정된 DOM을 재활용하지 않고 그때그때 다시 그림(개수가 몇 안 돼서 매 틱 다시 그려도 부담 없음)
   const TITAN_VISIBLE_DINO_SLOTS = 3;
 
+  // ===== 육각형 바닥과 완전히 같은 결합 좌표계(세계좌표) 위에 아바타를 "카메라로 촬영"하듯 배치 =====
+  // 다이노 배틀 페이지(js/pages/dino-battle-page.js)와 완전히 같은 원리 - 예전엔 앵커 박스마다
+  // 손으로 튜닝한 %였는데, 이제 바닥 SVG와 정확히 같은 0~175 x 0~129.9 좌표계 하나에 정삼각형
+  // 배치를 실제 삼각함수로 계산하고, 이미 걸려있는 CSS 3D(perspective+rotateX)가 그 좌표를 그대로
+  // 원근 투영해줌. 육각형 1개 크기(100×86.6)가 다이노 배틀의 육각형과 완전히 같아서 반지름 값도
+  // 그대로 재사용함(TITAN_R3 = 다이노 배틀의 R3_RESERVE)
+  const TITAN_WORLD_W = 175, TITAN_WORLD_H = 129.9;
+  const TITAN_HEX_CENTERS = { mine: [50, 86.6], boss: [125, 43.3] };
+  const TITAN_R3 = 22;
+
+  function titanWorldToPercent([x, y]) {
+    return { left: `${(x / TITAN_WORLD_W) * 100}%`, top: `${(y / TITAN_WORLD_H) * 100}%` };
+  }
+
+  // count(1~3)에 따른 삼각 대형 좌표 - 다이노 배틀의 trianglePoints와 같은 공식(앞 1 + 뒤 2),
+  // 마주볼 상대가 없는 자리라 방향 편향 없이 정삼각형만 씀
+  function titanFormationPoints(center, count) {
+    if (count <= 0) return [];
+    if (count === 1) return [center];
+    if (count === 2) return [[center[0] - TITAN_R3, center[1]], [center[0] + TITAN_R3, center[1]]];
+    const R = TITAN_R3;
+    return [
+      [center[0], center[1] + R],
+      [center[0] - 0.866 * R, center[1] - 0.5 * R],
+      [center[0] + 0.866 * R, center[1] - 0.5 * R]
+    ];
+  }
+
+  // 공룡(내 편) 1~3마리를 mine 육각형 안에 삼각 대형으로 배치 - titanLiveReset(첫 배치)과
+  // titanUpdateMyDisplay(매 틱, 죽어서 마릿수가 줄 때)에서 호출
+  function titanPositionMyAvatars(count) {
+    const points = titanFormationPoints(TITAN_HEX_CENTERS.mine, count);
+    [0, 1, 2].forEach((i) => {
+      const slot = document.getElementById(`titanMySlot${i}`);
+      const point = points[i];
+      if (!point) return;
+      const pct = titanWorldToPercent(point);
+      slot.style.left = pct.left;
+      slot.style.top = pct.top;
+    });
+  }
+
+  // 보스는 항상 1마리 고정 - 포메이션 계산 없이 boss 육각형 중심에 고정
+  function titanPositionBoss() {
+    const slot = document.getElementById("titanBossSlot0");
+    const pct = titanWorldToPercent(TITAN_HEX_CENTERS.boss);
+    slot.style.left = pct.left;
+    slot.style.top = pct.top;
+  }
+
   function titanResetLiveStats() {
     document.getElementById("titanLiveStats").style.display = "none";
     document.getElementById("titanLiveDmg").innerText = "0";
@@ -885,16 +949,25 @@ function initTitanPage() {
     document.getElementById("titanBossHpFill").style.width = "100%";
     document.getElementById("titanBossHpText").textContent =
       `${TITAN_STATS[titanLevel].hp.toLocaleString()} / ${TITAN_STATS[titanLevel].hp.toLocaleString()}`;
-    titanBuildHpBars(getMyDinoBattleInputs().count || 1);
-    // 처음 3마리는 타일 위 아바타로 이미 표시되므로, 사이드바 쪽 같은 인덱스는 숨겨야 함
-    // (안 그러면 시뮬레이션 시작 전에는 타일 3마리 + 사이드바 전체 N마리가 같이 보이는 버그가 생김)
+    const myCount = getMyDinoBattleInputs().count || 1;
+    titanBuildHpBars(myCount);
+    // 처음 3마리(정확히는 min(3, 공룡 수))는 타일 위 아바타로 이미 표시되므로, 사이드바 쪽 같은
+    // 인덱스는 숨겨야 함(안 그러면 시뮬레이션 시작 전에는 타일 3마리 + 사이드바 전체 N마리가 같이
+    // 보이는 버그가 생김). 예전엔 공룡 수와 무관하게 항상 3마리를 다 보여줘서(사용자 확인) 공룡
+    // 수를 2로 설정해도 시뮬레이션 시작 전엔 3마리가 보이는 버그가 있었음 - 실제 보여줄 수 있는
+    // 마릿수는 항상 min(TITAN_VISIBLE_DINO_SLOTS, 공룡 수)로 제한함
+    const visibleCount = Math.min(TITAN_VISIBLE_DINO_SLOTS, myCount);
+    // 세계좌표 삼각 대형으로 배치(1마리=중앙/2마리=좌우대칭/3마리=정삼각형이 전부 실제 좌표
+    // 계산으로 나옴 - 예전의 data-count별 손튜닝 % 없이도 자동으로 무게중심이 맞음)
+    titanPositionMyAvatars(visibleCount);
+    titanPositionBoss();
     document.querySelectorAll("#titanMyHpBars .titan-hex-hpbar").forEach((bar, i) => {
-      bar.style.display = i < TITAN_VISIBLE_DINO_SLOTS ? "none" : "";
+      bar.style.display = i < visibleCount ? "none" : "";
       const fill = bar.querySelector(".titan-hex-hpfill");
       if (fill) fill.style.width = "100%";
     });
     document.querySelectorAll("#titanMyTarget .titan-hex-avatar").forEach((el, i) => {
-      el.style.display = i < TITAN_VISIBLE_DINO_SLOTS ? "" : "none";
+      el.style.display = i < visibleCount ? "" : "none";
       const fill = el.querySelector(".titan-hex-avatar-hpfill");
       if (fill) fill.style.width = "100%";
     });
@@ -941,8 +1014,10 @@ function initTitanPage() {
     const frontIdx = aliveIdx.slice(0, TITAN_VISIBLE_DINO_SLOTS);
     const hiddenIdx = entry.공룡상태.map((d, i) => i).filter((i) => !frontIdx.includes(i));
 
-    // 앞쪽 삼각 대형 3자리 - 각자 자기 체력바를 가짐
+    // 앞쪽 삼각 대형 3자리 - 각자 자기 체력바를 가짐. 실시간 재생 중에도 표시되는 마릿수가
+    // (죽어서) 줄어들 수 있으므로 매 틱 세계좌표 대형을 다시 계산해서 1/2마리로 줄었을 때도 재배치됨
     const target = document.getElementById("titanMyTarget");
+    titanPositionMyAvatars(frontIdx.length);
     target.querySelectorAll(".titan-hex-avatar").forEach((avatarEl, slot) => {
       if (slot < frontIdx.length) {
         avatarEl.style.display = "";
@@ -1046,7 +1121,9 @@ function initTitanPage() {
     if (prevEntry) {
       // 타이탄이 받은 피해(전체) - 보스 아바타 위에 뜸
       const dmgToTitan = Math.max(0, prevEntry.타이탄HP_raw - titanHp);
-      if (dmgToTitan > 0) titanPlayHit("titanBossTarget", "titanBossPopupLayer", dmgToTitan);
+      if (dmgToTitan > 0) {
+        titanPlayHit("titanBossTarget", "titanBossPopupLayer", dmgToTitan);
+      }
 
       // 공룡 전원(표시 중인 3마리 + 숨겨진 나머지 전부)의 피격/회복을 정확한 수치(남은HP 증감)로
       // 계산해서 각자 위(표시 중이면 아바타, 숨겨졌으면 왼쪽 체력바)에 개별 표시
@@ -1095,6 +1172,14 @@ function initTitanPage() {
     fx.src = "./assets/sprites/Hit_Effect.png";
     fx.className = "dummy-hit-effect";
     fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
+    // .dummy-hit-effect의 기본 left:50%/top:26%는 "그 타일 전용 앵커 박스" 기준이었는데, 이제
+    // target(.titan-formation-group)이 무대 전체(inset:0)를 차지하므로 그 %가 더 이상 안 맞음 -
+    // 세계좌표 육각형 중심을 직접 계산해서 심어줌(다이노 배틀과 같은 원리)
+    const hexCenter = TITAN_HEX_CENTERS[targetId === "titanMyTarget" ? "mine" : "boss"];
+    const pct = titanWorldToPercent(hexCenter);
+    fx.style.left = pct.left;
+    fx.style.top = pct.top;
+    fx.style.transform = "translate(-50%, -50%)";
     target.appendChild(fx);
     fx.addEventListener("animationend", () => fx.remove());
 
@@ -1105,6 +1190,12 @@ function initTitanPage() {
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup dummy-dmg-popup";
     popup.innerText = Math.round(dmg).toLocaleString();
+    // .dummy-dmg-popup 기본 CSS(top:-6%)도 이제 무대 전체 기준이라 안 맞고, 음수 top 자체도
+    // preserve-3d 중첩 구조에서 렌더링이 안 되는 문제가 있어서(fx와 같은 이유) 위치를 인라인으로
+    // 직접 심음 - 육각형 중심에서 시작해 기존 battle-dmg-float 애니메이션이 위로 띄워줌(그 keyframe
+    // 자체가 transform을 갖고 있어서 여기서 별도 transform을 얹어도 즉시 덮어써짐 - left/top만 심음)
+    popup.style.left = pct.left;
+    popup.style.top = pct.top;
     layer.appendChild(popup);
     popup.addEventListener("animationend", () => popup.remove());
   }

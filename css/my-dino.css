@@ -106,6 +106,44 @@
   line-height: 1.2;
 }
 
+/* 설정을 바꿔서 요약바 숫자가 달라지면(js/ui/stat-roll-ui.js) 값이 커졌으면 초록, 작아졌으면
+   빨강으로 잠깐 강조 - 이 저장소에 방향성(증가/감소) 색 변수가 따로 없어서 여기서만 쓰는
+   전용 색을 둠(초록은 새로 도입, 빨강은 저장소에서 이미 "상대편"으로 쓰는 색과 통일) */
+.stat-readout-value.stat-roll-up { animation: stat-roll-flash-up 0.65s ease; }
+.stat-readout-value.stat-roll-down { animation: stat-roll-flash-down 0.65s ease; }
+@keyframes stat-roll-flash-up {
+  0% { color: #3ecf6d; text-shadow: 0 0 10px rgba(62, 207, 109, 0.6); }
+  100% { color: inherit; text-shadow: none; }
+}
+@keyframes stat-roll-flash-down {
+  0% { color: #e0473f; text-shadow: 0 0 10px rgba(224, 71, 63, 0.6); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+/* 오도미터 방식 자릿수 롤링 - 바뀐 자릿수만 0~9 세로 스트립을 옛 값에서 새 값 위치로 트랜지션시켜
+   그 사이 숫자들을 스치듯 지나가게 함(안 바뀐 자릿수/콤마/%/단위는 정적 텍스트 그대로 둠) */
+.stat-roll-digit {
+  display: inline-block;
+  position: relative;
+  height: 1.1em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.stat-roll-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stat-roll-strip span {
+  height: 1.1em;
+  line-height: 1.1em;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stat-roll-strip { transition: none; }
+  .stat-readout-value.stat-roll-up, .stat-readout-value.stat-roll-down { animation: none; }
+}
+
 /* 친구와 함께(3단계): 상대 쪽 읽기 전용 요약 카드. 편집 폼과 구분되도록 점선 테두리 + 잠금 태그 */
 .dino-panel-readonly {
   border: 1px dashed var(--border-color);

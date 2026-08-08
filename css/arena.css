@@ -454,6 +454,7 @@ body[data-page="arena"] .dino-tab-panel[data-panel="base"] .input-grid > div:las
 }
 
 .arena-slot-avatar {
+  position: relative; /* 안에 심는 스프라이트(inset:0)가 슬롯 전체가 아니라 이 원 자체를 기준으로 위치하게 함 */
   border-radius: 50%;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
 }
