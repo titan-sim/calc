@@ -627,7 +627,7 @@ function initTitanPage() {
   const titanList = document.getElementById("titanList");
   const titanSelectedValue = document.getElementById("titanSelectedValue");
   let titanLevel = 1;
-  for (let lv = 1; lv <= 140; lv++) {
+  for (let lv = 1; lv <= 150; lv++) {
     const { atk, hp } = TITAN_STATS[lv];
     const li = document.createElement("li");
     const label = `Lv. ${lv} (ATK ${atk} / HP ${hp.toLocaleString()})`;
