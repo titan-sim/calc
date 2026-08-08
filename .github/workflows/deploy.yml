@@ -1,0 +1,21 @@
+name: Deploy to Cloudflare Workers
+
+# main에 푸시될 때마다 자동으로 wrangler deploy를 실행해서 실제 서비스(dinomutant-sim.com)에
+# 그대로 반영함 - 예전엔 이 저장소를 깃허브에 푸시하는 것과 실제 사이트 배포가 완전히 분리된
+# 수동 작업이라 "푸시했는데 왜 사이트는 그대로냐"는 혼란이 반복됐음(사용자 확정으로 자동화함).
+# CLOUDFLARE_API_TOKEN은 저장소 Settings > Secrets and variables > Actions에 등록된 값을 씀 -
+# 코드에는 절대 값 자체가 노출되지 않음.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
