@@ -52,13 +52,16 @@ function saveDummyOwnedLevels(levels) {
 }
 
 function defaultDummyTileSettings() {
-  return { natureAdjacent: false, tribeControl: false, atkTowerLevel: null };
+  return { natureAdjacent: false, tribeControl: true, atkTowerLevel: null };
 }
 
+// 허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있는 게 인게임 규칙이라, 부족 점령
+// 상태는 선택지가 아니라 항상 켜져 있어야 함(사용자 확정) - 예전에 저장된 tribeControl:false
+// 값이 남아있어도 여기서 강제로 true로 덮어써서, 껐다 켠 적 없는 사용자도 항상 정상 값을 씀
 function loadDummyTileSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(DUMMY_TILE_KEY));
-    return { ...defaultDummyTileSettings(), ...(saved || {}) };
+    return { ...defaultDummyTileSettings(), ...(saved || {}), tribeControl: true };
   } catch (e) {
     return defaultDummyTileSettings();
   }
@@ -80,6 +83,14 @@ let dummyRunning = false;
 let dummyElapsedSec = 0;
 let dummyTotalDmg = 0;
 
+// 재생 중(setInterval)에 다른 페이지로 이동해도 안 멈추고 계속 dummyRunAttackTick을 불러서, 이미
+// 사라진 DOM에 접근하다 "Cannot set properties of null" 콘솔 에러가 나던 버그(타이탄 페이지의
+// titanReplayTick과 같은 종류 - 실측으로 발견) - 페이지를 벗어나는 순간 타이머를 확실히 멈춤
+window.addEventListener("hashchange", () => {
+  clearInterval(dummyAttackTimer);
+  dummyRunning = false;
+});
+
 function renderDummyPage(container) {
   container.innerHTML = `
     <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
@@ -94,8 +105,8 @@ function renderDummyPage(container) {
           <label class="switch"><input type="checkbox" id="dummyNatureToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-row">
-          <div class="setting-label">부족 점령 상태 (부족의 축복)</div>
-          <label class="switch"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
+          <div class="setting-label" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다">부족 점령 상태 (부족의 축복)</div>
+          <label class="switch" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-row">
           <div class="setting-label">공격력 버프 타워</div>
@@ -213,14 +224,12 @@ function dummyInitTileSettings() {
     dummyResetQuickCalc();
   };
 
+  // 허수아비는 부족 점령 타일에만 설치 가능해서 이 설정은 실제로 고를 수 있는 선택지가 아님
+  // (사용자 확정) - 항상 켜진 상태로 고정하고 조작 자체를 막음(loadDummyTileSettings가 이미
+  // tribeControl:true를 강제하므로 여기서는 그 값을 그대로 반영만 함)
   const tribeToggle = document.getElementById("dummyTribeToggle");
-  tribeToggle.checked = settings.tribeControl;
-  tribeToggle.onchange = () => {
-    settings.tribeControl = tribeToggle.checked;
-    saveDummyTileSettings(settings);
-    dummyResetDisplay();
-    dummyResetQuickCalc();
-  };
+  tribeToggle.checked = true;
+  tribeToggle.disabled = true;
 
   const list = document.getElementById("dummyAtkTowerList");
   const selectedValue = document.getElementById("dummyAtkTowerSelectedValue");
@@ -318,6 +327,9 @@ function dummyInitOwnedRuneGrid() {
       saveDummyOwnedLevels(current);
       document.getElementById("dummyOptimizeResult").innerHTML = "";
     };
+    // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
+    // 사용자 지적) - blur()를 호출하면 위 onblur 핸들러가 그대로 실행됨
+    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
   });
 }
 
@@ -473,14 +485,22 @@ function dummyShakeScarecrow() {
   img.classList.add("dummy-shaking");
 }
 
+// #dummyTarget(.dummy-target-layer)이 preserve-3d 빌보드라 허수아비 이미지와 fx가 같은 3D
+// 컨텍스트 안에 있으면 깊이 다툼에 걸릴 수 있음(다이노 배틀/타이탄과 같은 문제) - 3D를 아예
+// 우회해서 화면 좌표(position:fixed)로 직접 띄움. 항상 최상단에 그려지므로 허수아비 뒤에
+// 가려지는 문제가 원천적으로 발생할 수 없음(사용자 지적 버그 수정)
 function dummySpawnHitEffect() {
   const target = document.getElementById("dummyTarget");
   if (!target) return;
+  const rect = target.getBoundingClientRect();
   const fx = document.createElement("img");
   fx.src = "./assets/sprites/Hit_Effect.png";
-  fx.className = "dummy-hit-effect";
+  fx.className = "dummy-hit-effect dummy-hit-effect-fixed";
   fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
-  target.appendChild(fx);
+  fx.style.left = `${rect.left + rect.width / 2}px`;
+  fx.style.top = `${rect.top + rect.height * 0.4}px`;
+  fx.style.width = `${rect.width * 0.26}px`;
+  document.body.appendChild(fx);
   fx.addEventListener("animationend", () => fx.remove());
 }
 

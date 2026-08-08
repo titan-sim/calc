@@ -40,16 +40,21 @@
   position: relative;
   transform-style: preserve-3d;
   transform: rotateX(55deg);
-  filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
 }
 
 /* clip-path + border 조합은 대각선 변에서 테두리가 끊겨 보이는 고질적인 문제가 있어서(border는
    클리핑 전의 사각 박스 기준으로 그려짐), 진짜 육각형 다각형을 그리는 SVG polygon으로 바꿈 -
-   stroke가 꼭짓점을 그대로 잇는 하나의 이어진 선이라 테두리가 절대 끊기지 않음 */
+   stroke가 꼭짓점을 그대로 잇는 하나의 이어진 선이라 테두리가 절대 끊기지 않음. filter는
+   .dummy-hexagon이 아니라 여기(바닥 svg)에만 걸어둠 - CSS 스펙상 filter가 걸린 요소는
+   transform-style:preserve-3d가 있어도 강제로 평면화(flatten)돼서, .dummy-hexagon에 걸려있으면
+   그 자식인 허수아비 빌보드(.dummy-target-layer)의 반대 회전이 진짜 3D로 상쇄되지 못하고
+   찌그러져 보이는 버그가 있었음(사용자 지적 - 다이노 배틀/타이탄은 애초에 filter를 바닥 svg에만
+   걸어서 이 문제가 없었음, 실측으로 원인 확인) */
 .dummy-hexagon-svg {
   display: block;
   width: 100%;
   height: 100%;
+  filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
 }
 
 /* 허수아비(빌보드) - 바닥(.dummy-hexagon)과 정확히 같은 크기·중심의 진짜 3D 자식. 바닥의
@@ -76,6 +81,10 @@
   top: 50%;
   width: 40%;
   height: auto;
+  /* Scarecrow_1.png 원본 비율(366x405)을 명시해서 어떤 상황에서도(로딩 중 레이아웃, 극단적인
+     컨테이너 크기 등) width%/height:auto 추론에 기대지 않고 원본 그대로의 비율이 보장되게 함
+     (사용자 지적 - "찌그러지지 않은 이미지 원본을 그대로 보여줘야 함") */
+  aspect-ratio: 366 / 405;
   transform: translate(-50%, -100%) translateX(6%);
   transform-origin: 50% 100%;
   filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
@@ -121,6 +130,18 @@
   filter: brightness(0) saturate(100%) invert(20%) sepia(89%) saturate(6142%) hue-rotate(2deg) brightness(100%) contrast(112%)
     drop-shadow(0 0 10px rgba(255, 40, 30, 0.55));
   animation: dummy-hit-flash 0.4s ease-out forwards;
+}
+
+/* 다이노 배틀/타이탄/허수아비 전부 - 피격 이펙트가 대상(공룡/타이탄/허수아비)보다 뒤에 그려지는
+   버그가 있었음(사용자 지적). 원인이 두 가지나 겹쳐서(① preserve-3d가 여러 겹 중첩되면 같은
+   깊이의 형제 요소끼리 DOM 순서를 안 지키는 렌더링 버그, ② 피격 흔들림 애니메이션이 filter를 쓰는
+   요소는 CSS 스펙상 강제로 평면화(flatten)돼서 그 요소의 preserve-3d 자체가 무시됨 - translateZ로
+   깊이를 줘도 소용없어짐) - 3D 깊이 다툼을 아예 포기하고 화면 좌표(position:fixed)로 직접 튀어
+   나오게 해서 모든 3D 컨텍스트를 통째로 우회함. JS가 대상의 실제 화면 좌표(getBoundingClientRect)를
+   재서 left/top/width를 px로 직접 심어줌 */
+.dummy-hit-effect-fixed {
+  position: fixed;
+  z-index: 999;
 }
 
 @keyframes dummy-hit-flash {

@@ -1302,13 +1302,21 @@ let lungeShakeTimeout = null;
 // 허수아비/타이탄 페이지와 완전히 같은 피격 이펙트 이미지(dummySpawnHitEffect/titanPlayHit과 동일한
 // 방식 - assets/sprites/Hit_Effect.png + css/dummy.css의 .dummy-hit-effect, 빨갛게 물들이는
 // filter까지 그대로 재사용) - 사용자 확정으로 직접 만든 CSS 발톱 자국 대신 이걸 씀
+// 대상(아바타)이 preserve-3d 안에 있어서 fx를 그냥 자식으로 넣으면 3D 깊이 다툼에 걸림(피격
+// 흔들림 애니메이션이 filter를 쓰는 순간 CSS 스펙상 강제로 평면화돼서 translateZ가 무시됨 -
+// 실측으로 확인) - 3D를 아예 우회해서 화면 좌표(position:fixed)로 직접 띄움. 항상 최상단에
+// 그려지므로 대상 뒤에 가려지는 문제가 원천적으로 발생할 수 없음(사용자 지적 버그 수정)
 function spawnDinoHitEffect(target) {
   if (!target) return;
+  const rect = target.getBoundingClientRect();
   const fx = document.createElement("img");
   fx.src = "./assets/sprites/Hit_Effect.png";
-  fx.className = "dummy-hit-effect";
+  fx.className = "dummy-hit-effect dummy-hit-effect-fixed";
   fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
-  target.appendChild(fx);
+  fx.style.left = `${rect.left + rect.width / 2}px`;
+  fx.style.top = `${rect.top + rect.height / 2}px`;
+  fx.style.width = `${rect.width * 0.9}px`;
+  document.body.appendChild(fx);
   fx.addEventListener("animationend", () => fx.remove());
 }
 

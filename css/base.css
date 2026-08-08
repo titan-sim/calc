@@ -667,6 +667,14 @@ input:checked + .slider:before {
   transform: translateX(22px);
 }
 
+/* 선택지가 아니라 항상 고정된 값임을 보여줘야 할 때(예: 허수아비의 "부족 점령 상태" - 부족이
+   점령한 타일에만 설치 가능해서 끌 수 없음) - 흐릿하게 표시하고 커서를 no-drop으로 바꿔서
+   조작 불가능한 상태임을 알림 */
+.switch input:disabled + .slider {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .hp-bar-container {
   background: #444;
   border-radius: 10px;

@@ -392,8 +392,16 @@ function initMyDinoPage(profile, options = {}, container) {
   const readOnly = !!options.readOnly;
   // 아래 흩어진 el.onclick = ...같은 대입을 전부 이 헬퍼로 통일 - readOnly면 그냥 핸들러를 안
   // 붙이는 것 하나로 모든 입력/드롭다운/프리셋 항목이 한 번에 비활성화됨(각 자리마다
-  // `if (readOnly) return;`을 반복해서 넣지 않아도 됨)
-  const on = (el, evt, fn) => { if (!readOnly) el[evt] = fn; };
+  // `if (readOnly) return;`을 반복해서 넣지 않아도 됨).
+  // onblur 핸들러를 붙일 때는(=숫자 입력칸들) 엔터 키로도 같은 커밋이 되도록 keydown도 같이
+  // 붙여줌 - 예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만(blur) 값이 반영돼서 답답하다는
+  // 지적(사용자 확정) - input.blur()를 호출하면 이미 등록된 onblur 핸들러가 그대로 실행되므로
+  // 커밋 로직을 중복 작성할 필요 없음
+  const on = (el, evt, fn) => {
+    if (readOnly) return;
+    el[evt] = fn;
+    if (evt === "onblur") el.onkeydown = (e) => { if (e.key === "Enter") el.blur(); };
+  };
 
   // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션). 인스턴스가 여러 개 떠 있을 수 있어서
   // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음. readOnly여도 탭 전환 자체는

@@ -681,6 +681,9 @@ function initTitanPage() {
     saveConfig();
     titanResetAllCalc();
   };
+  // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
+  // 사용자 지적) - blur()를 호출하면 위 onblur 핸들러가 그대로 실행됨
+  fDistance.onkeydown = (e) => { if (e.key === "Enter") fDistance.blur(); };
   continuousToggle.onchange = () => {
     continuousBattle = continuousToggle.checked;
     saveConfig();
@@ -846,6 +849,15 @@ function initTitanPage() {
   let titanReplayTimer = null;
   let titanReplayRunning = false;
   let titanFirstDeathTick = null;
+
+  // 재생 중(setInterval)에 다른 페이지로 이동해도 이 타이머가 안 멈추고 계속 titanReplayTick을
+  // 불러서, 이미 사라진 DOM(#titanBossHpFill 등)에 접근하다 "Cannot read properties of null"
+  // 콘솔 에러가 나던 버그(다이노 배틀 페이지에서 같은 종류의 버그를 이미 hashchange로 고쳤던 것과
+  // 동일 - 실측으로 발견) - 페이지를 벗어나는 순간 타이머를 확실히 멈춤
+  window.addEventListener("hashchange", () => {
+    clearInterval(titanReplayTimer);
+    titanReplayRunning = false;
+  });
 
   function titanInitSpeedDropdown() {
     const currentMs = titanGetSpeedMs();
@@ -1168,19 +1180,23 @@ function initTitanPage() {
       void avatar.offsetWidth;
       avatar.classList.add("dummy-shaking");
     });
+    // 대상이 preserve-3d 안에 있어서 fx를 3D 공간 안에 두면 깊이 다툼에 걸림(피격 흔들림
+    // 애니메이션이 filter를 쓰는 순간 CSS 스펙상 강제로 평면화돼서 translateZ가 무시됨 - 다이노
+    // 배틀에서 실측으로 확인된 것과 같은 문제) - 3D를 아예 우회해서 화면 좌표(position:fixed)로
+    // 직접 띄움. 육각형 중심의 세계좌표를 target(무대 전체 크기)의 실제 화면 rect에 곱해서
+    // 실제 픽셀 좌표를 구함(사용자 지적 - 피격 이펙트가 아바타 뒤에 그려지던 버그 수정)
+    const hexCenter = TITAN_HEX_CENTERS[targetId === "titanMyTarget" ? "mine" : "boss"];
+    const stageRect = target.getBoundingClientRect();
+    const screenX = stageRect.left + stageRect.width * (hexCenter[0] / TITAN_WORLD_W);
+    const screenY = stageRect.top + stageRect.height * (hexCenter[1] / TITAN_WORLD_H);
     const fx = document.createElement("img");
     fx.src = "./assets/sprites/Hit_Effect.png";
-    fx.className = "dummy-hit-effect";
+    fx.className = "dummy-hit-effect dummy-hit-effect-fixed";
     fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
-    // .dummy-hit-effect의 기본 left:50%/top:26%는 "그 타일 전용 앵커 박스" 기준이었는데, 이제
-    // target(.titan-formation-group)이 무대 전체(inset:0)를 차지하므로 그 %가 더 이상 안 맞음 -
-    // 세계좌표 육각형 중심을 직접 계산해서 심어줌(다이노 배틀과 같은 원리)
-    const hexCenter = TITAN_HEX_CENTERS[targetId === "titanMyTarget" ? "mine" : "boss"];
-    const pct = titanWorldToPercent(hexCenter);
-    fx.style.left = pct.left;
-    fx.style.top = pct.top;
-    fx.style.transform = "translate(-50%, -50%)";
-    target.appendChild(fx);
+    fx.style.left = `${screenX}px`;
+    fx.style.top = `${screenY}px`;
+    fx.style.width = `${stageRect.width * 0.16}px`;
+    document.body.appendChild(fx);
     fx.addEventListener("animationend", () => fx.remove());
 
     // popupLayerId가 없으면(예: 표시 중인 3마리 각자에게 이미 개별 팝업을 따로 띄운 경우) 흔들림/
@@ -1194,8 +1210,9 @@ function initTitanPage() {
     // preserve-3d 중첩 구조에서 렌더링이 안 되는 문제가 있어서(fx와 같은 이유) 위치를 인라인으로
     // 직접 심음 - 육각형 중심에서 시작해 기존 battle-dmg-float 애니메이션이 위로 띄워줌(그 keyframe
     // 자체가 transform을 갖고 있어서 여기서 별도 transform을 얹어도 즉시 덮어써짐 - left/top만 심음)
-    popup.style.left = pct.left;
-    popup.style.top = pct.top;
+    const popupPct = titanWorldToPercent(hexCenter);
+    popup.style.left = popupPct.left;
+    popup.style.top = popupPct.top;
     layer.appendChild(popup);
     popup.addEventListener("animationend", () => popup.remove());
   }
@@ -1274,6 +1291,9 @@ function initTitanPage() {
         saveTitanOwnedLevels(current);
         document.getElementById("titanOptimizeResult").innerHTML = "";
       };
+      // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
+      // 사용자 지적) - blur()를 호출하면 위 onblur 핸들러가 그대로 실행됨
+      input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
     });
   }
 
