@@ -1,0 +1,11 @@
+# wrangler deploy가 assets.directory("./")를 통째로 업로드하는데, 여기 없으면 .git/ 내부(커밋
+# 기록, config 등)까지 그대로 정적 파일로 배포되어버림(실제로 한 번 발생 - 사용자 지적으로 발견,
+# 즉시 재배포로 수정). 저장소 관리/로컬 도구 관련 디렉토리와 배포에 필요 없는 내부 문서를 제외함.
+.git/
+.wrangler/
+.claude/
+node_modules/
+*.md
+supabase_schema.sql
+supabase_setup_guide.md
+타이탄_레벨별_스탯.csv
