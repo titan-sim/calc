@@ -19,3 +19,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: deploy
+          # wrangler-action이 버전을 안 정해주면 3.90.0으로 떨어지는데, 그 버전은 이 프로젝트처럼
+          # main(진입점 스크립트) 없이 assets(정적 파일)만 배포하는 방식을 지원 안 해서
+          # "Missing entry-point" 에러가 남(로컬에서 쓴 4.120.0에서는 문제없이 되던 것과 대조돼서
+          # 실측으로 원인 확인) - 로컬과 같은 계열인 4.x로 명시 고정
+          wranglerVersion: "4"
