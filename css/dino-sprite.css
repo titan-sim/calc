@@ -1,0 +1,28 @@
+/* ===== 공용 공룡 스프라이트 - 세 전투 화면의 "공" 아바타(.titan-hex-avatar-ball /
+   .battle-avatar/.battle-reserve-avatar / .arena-slot-avatar) 안에 공통으로 들어가는 내용물.
+   호스트는 위치·크기·흔들림/돌진 애니메이션을 그대로 유지하고, 여기 클래스들은 그 안을 "채우는"
+   자식일 뿐이라 서로 transform이 겹치지 않음(흔들림/돌진은 호스트 쪽 transform, 좌우 반전은
+   .dino-sprite 자신의 transform) ===== */
+.dino-sprite {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 원본 그림은 우측(머리/입)을 보고 있음(눈·이빨·벌린 입이 전부 오른쪽, 꼬리가 왼쪽으로 빠짐).
+   세 화면 모두 "내 편"은 화면 왼쪽, "상대"는 화면 오른쪽에 배치되는 동일한 관례라 - 내 편은
+   원본 그대로 두면 이미 오른쪽(=상대 쪽)을 보고, 상대만 좌우 반전해서 왼쪽(=내 편 쪽)을 보게
+   해서 서로 마주보게 함 */
+.dino-sprite[data-team="opp"] {
+  transform: scaleX(-1);
+}
+
+.dino-sprite-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom; /* 프레임마다 트리밍된 캔버스 크기가 달라도 바닥 중앙 기준으로 고정 */
+}

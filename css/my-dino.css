@@ -103,7 +103,10 @@
   font-size: clamp(11px, 3.2cqw, 15px);
   white-space: normal;
   word-break: keep-all;
-  line-height: 1.2;
+  /* 아래 .stat-roll-digit이 애니메이션 도중 쓰는 line-height(1.1em)와 정확히 맞춰서, 애니메이션이
+     끝나고 일반 텍스트로 돌아갈 때 줄 높이 차이로 글자가 위아래로 튀는 걸 방지(1.2는 미세하게
+     어긋나 있었음) */
+  line-height: 1.1;
 }
 
 /* 설정을 바꿔서 요약바 숫자가 달라지면(js/ui/stat-roll-ui.js) 값이 커졌으면 초록, 작아졌으면

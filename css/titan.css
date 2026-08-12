@@ -14,6 +14,12 @@
   appearance: none;
   font-family: inherit;
   outline: none;
+  /* 브라우저 기본 <button> 글자색(대개 검정에 가까운 buttontext 시스템 색상, 다크 테마와 무관하게
+     고정)을 명시적으로 덮어씀 - 없으면 .metric-label/.metric-value가 각자 색을 갖고 있어 평소엔
+     안 보이지만, stat-roll-flash-up/down 애니메이션의 마지막 프레임(color: inherit)이 바로 이
+     버튼의 기본 검정색으로 풀려서 값이 바뀔 때마다 잠깐 검게 변했다가 되돌아오는 것처럼 보이던
+     원인이었음(사용자 지적) */
+  color: var(--text-main);
 
   background: var(--input-bg);
   border: 1px solid var(--border-color);
@@ -53,6 +59,21 @@
   font-weight: 700;
   color: var(--text-main);
   font-variant-numeric: normal;
+  /* js/ui/stat-roll-ui.js의 오도미터 자릿수 스트립(.stat-roll-digit)이 애니메이션 도중에만
+     line-height:1.1em을 쓰는데, 여기 자체엔 line-height가 없어서(브라우저 기본값 상속) 애니메이션이
+     끝나고 일반 텍스트로 되돌아가는 순간 줄 높이가 달라져 글자가 위아래로 살짝 튀어 보였음
+     (사용자 지적) - 정적/애니메이션 상태의 줄 높이를 똑같이 맞춰서 그 튐을 없앰 */
+  line-height: 1.1;
+}
+
+/* 관련 수치 타일 값이 바뀔 때(룬/스탯 조절 등) js/ui/stat-roll-ui.js의 오도미터 롤링 애니메이션을
+   씀(건물 페이지에서 처음 적용 - 사용자 확정 "숫자가 바뀌는 모션이 있어야 해") - 색 플래시
+   키프레임 자체는 my-dino.css에 이미 있고 지금까지 .stat-readout-value에만 걸려있었어서, 여기
+   .metric-value에도 걸리게 선택자만 추가함(같은 keyframes 재사용, 새 keyframes 아님) */
+.metric-value.stat-roll-up { animation: stat-roll-flash-up 0.65s ease; }
+.metric-value.stat-roll-down { animation: stat-roll-flash-down 0.65s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .metric-value.stat-roll-up, .metric-value.stat-roll-down { animation: none; }
 }
 
 .metric-sub {
@@ -169,6 +190,30 @@
   padding: 12px 0;
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
+}
+
+/* levelblock끼리 바로 붙으면(버프 타워 페어 바로 밑에 레벨캡 페어) 앞 블록의 border-bottom과
+   뒷 블록의 border-top이 몇 픽셀 간격을 두고 나란히 있어 가로선 2개로 보임(사용자 지적) - 뒤에
+   오는 블록의 위쪽 선은 빼서 하나로 합침 */
+.titan-settings-levelblock + .titan-settings-levelblock {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* 자연/부족/버프타워/레벨캡/별자리캡(서버·타일 관련 설정)과 타이탄 레벨부터 이어지는 타이탄
+   전투 설정을 시각적으로 분리(사용자 확정 - "타일 설정 관련이랑 타이탄 설정 관련을 조금
+   시각적으로 분리시켰으면") - 레벨캡 페어 바로 다음에 오는 "타이탄 레벨"(전투 설정 섹션의 시작)
+   위에 여백을 더 주고 구분선을 강조색으로 눈에 띄게 함. 레벨캡 페어 자신의 아래쪽 가는 선은
+   이 강조색 선과 몇 픽셀 간격을 두고 나란히 있어 또 가로선 2개로 보이므로(사용자 지적) 없앰
+   (:has로 "바로 다음이 타이탄 레벨인 levelblock"만 콕 집어서 border-bottom을 뺌) */
+.titan-settings-levelblock:has(+ .titan-settings-fullstack) {
+  border-bottom: none;
+}
+
+.titan-settings-levelblock + .titan-settings-fullstack {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 2px solid var(--accent);
 }
 
 .titan-settings-stack .setting-label {

@@ -61,6 +61,13 @@ function animateStatValue(el, newText) {
     const oldPadded = Array(maxLen - oldChars.length).fill(null).concat(oldChars);
     const newPadded = Array(maxLen - newChars.length).fill(null).concat(newChars);
     newPadded.forEach((newCh, j) => {
+      // newCh가 null이면 padding 자리(새 숫자가 옛 숫자보다 자릿수가 적어서 이 위치엔 대응하는
+      // 문자가 아예 없음 - 예: "11,704"(6자) -> "7,011"(5자)) - 그대로 두면 /\d/.test(null)이
+      // "null" 문자열로 강제 변환돼 digit도 아니라고 판정되고, else 분기의
+      // document.createTextNode(null)이 문자 그대로 "null"을 화면에 찍어버리는 버그가 있었음
+      // (건물 페이지 "관련 수치" 카드에서 큰 값 -> 작은 값으로 바뀔 때 실제로 재현됨) - 대응하는
+      // 새 문자가 없는 자리는 그냥 건너뜀
+      if (newCh === null) return;
       const oldCh = oldPadded[j];
       if (/\d/.test(newCh)) {
         statRollAppendDigit(el, oldCh && /\d/.test(oldCh) ? Number(oldCh) : Number(newCh), Number(newCh));

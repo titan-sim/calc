@@ -154,6 +154,22 @@ function renderDinoBattlePage(container) {
               <ul class="dropdown-list" id="tileTribeList"></ul>
             </div>
           </div>
+          <div class="setting-stack-pair">
+            <div class="setting-stack">
+              <label class="setting-label">서버 레벨캡</label>
+              <div class="custom-dropdown" id="tileServerLevelCapDropdown">
+                <div class="selected-value" id="tileServerLevelCapSelectedValue">없음</div>
+                <ul class="dropdown-list" id="tileServerLevelCapList"></ul>
+              </div>
+            </div>
+            <div class="setting-stack">
+              <label class="setting-label">서버 별자리캡</label>
+              <div class="custom-dropdown" id="tileConstellationCapDropdown">
+                <div class="selected-value" id="tileConstellationCapSelectedValue">없음</div>
+                <ul class="dropdown-list" id="tileConstellationCapList"></ul>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -603,6 +619,45 @@ function initTileSettings() {
   });
   tribeSelectedValue.onclick = () => toggleDropdownList(tribeSelectedValue, tribeList);
 
+  // 서버 레벨캡 - 4개 페이지가 공유하는 전역 설정이라 tileSettings가 아니라 별도 localStorage
+  // 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀. 친구 세션
+  // 공유값이 아니라 각자 자기 서버 기준으로 알아서 설정하는 개인 값이라 sendMyTileUpdate로
+  // 전파하지 않음(자연의 포옹/부족 점령과는 다름 - 그건 "같은 타일" 개념이라 공유해야 함)
+  const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const capList = document.getElementById("tileServerLevelCapList");
+  const capSelectedValue = document.getElementById("tileServerLevelCapSelectedValue");
+  capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
+  SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = () => {
+      saveServerLevelCap(opt.value);
+      capSelectedValue.textContent = opt.label;
+      capList.style.display = "none";
+      resetBattleDisplay();
+    };
+    capList.appendChild(li);
+  });
+  capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
+
+  // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정(마찬가지로 친구 세션에 전파 안 함)
+  const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const constList = document.getElementById("tileConstellationCapList");
+  const constSelectedValue = document.getElementById("tileConstellationCapSelectedValue");
+  constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
+  CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = () => {
+      saveConstellationLevelCap(opt.value);
+      constSelectedValue.textContent = opt.label;
+      constList.style.display = "none";
+      resetBattleDisplay();
+    };
+    constList.appendChild(li);
+  });
+  constSelectedValue.onclick = () => toggleDropdownList(constSelectedValue, constList);
+
   initArrangementDropdown("my", settings);
   initArrangementDropdown("opp", settings);
 
@@ -730,8 +785,10 @@ function playConvergeGhosts(sideKey) {
   });
 }
 
+// 서버 레벨캡(전역 공유 설정, my-dino-page.js) - 내 공룡/상대 공룡 둘 다 같은 서버에서 뛴다는
+// 전제라 양쪽 다 적용함(getOppBattleInputs의 나머지 두 분기도 동일하게 적용, 아래 참고)
 function getSideInputs(storageKey) {
-  return getMyDinoBattleInputs(storageKey);
+  return applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs(storageKey)));
 }
 
 // ===== 친구 기능 3단계: 친구와 함께 실시간 공동 연구 =====
@@ -760,10 +817,10 @@ function computeTribeControlFromUserId(tribeControlUserId, myId, friendId) {
 function getOppBattleInputs() {
   const session = getActiveSession();
   if (session && session.status === "active" && session.friendProfile) {
-    return dinoProfileToBattleInputs(session.friendProfile);
+    return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(session.friendProfile)));
   }
   if (friendSnapshotProfile) {
-    return dinoProfileToBattleInputs(friendSnapshotProfile);
+    return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(friendSnapshotProfile)));
   }
   return getSideInputs(DINO_BATTLE_OPPONENT_KEY);
 }

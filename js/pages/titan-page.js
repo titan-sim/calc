@@ -11,6 +11,12 @@ const TITAN_CONFIG_KEY = "dino_sim_config_titan"; // {titanLevel, timeLimitMinut
 const TITAN_TILE_KEY = "dino_titan_tile_settings"; // {natureAdjacent, tribeControl, atkTowerLevel, hpTowerLevel}
 const TITAN_OWNED_LEVELS_KEY = "dino_titan_owned_rune_levels";
 const TITAN_SPEED_KEY = "dino_titan_speed_ms";
+
+// 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - getMyDinoBattleInputs()를 직접 쓰던
+// 모든 곳을 이걸로 교체
+function titanDinoInputs() {
+  return applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs()));
+}
 // 조합 찾기는 조합 수가 많으면(보유 룬이 많을수록 기하급수적으로 늘어남) 매번 정밀 시뮬레이션을
 // 돌리기엔 너무 느려서 3단계로 나눔: 1단계는 모든 조합의 DPS/기대 사망 횟수/균형 점수를
 // 시뮬레이션 없이 estimateTitanExpectedDeaths()(js/core/stat-calc.js, 연속 전투 기준 재생 이론
@@ -232,6 +238,22 @@ function renderTitanPage(container) {
               <div class="custom-dropdown" id="titanHpTowerDropdown">
                 <div class="selected-value" id="titanHpTowerSelectedValue">없음</div>
                 <ul class="dropdown-list" id="titanHpTowerList"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="titan-settings-levelblock">
+            <div class="titan-settings-stack">
+              <label class="setting-label">서버 레벨캡</label>
+              <div class="custom-dropdown" id="titanServerLevelCapDropdown">
+                <div class="selected-value" id="titanServerLevelCapSelectedValue">없음</div>
+                <ul class="dropdown-list" id="titanServerLevelCapList"></ul>
+              </div>
+            </div>
+            <div class="titan-settings-stack">
+              <label class="setting-label">서버 별자리캡</label>
+              <div class="custom-dropdown" id="titanConstellationCapDropdown">
+                <div class="selected-value" id="titanConstellationCapSelectedValue">없음</div>
+                <ul class="dropdown-list" id="titanConstellationCapList"></ul>
               </div>
             </div>
           </div>
@@ -491,7 +513,7 @@ function initTitanPage() {
   }
 
   function refreshMetricsCard() {
-    const dino = getMyDinoBattleInputs();
+    const dino = titanDinoInputs();
     const tileCfg = loadTitanTileSettings();
     lastMetrics = getTitanCombatMetrics(dino, tileCfg);
     const finalAvgDmg = lastMetrics.avgHitDamage + lastMetrics.skillDmgTotal;
@@ -620,6 +642,43 @@ function initTitanPage() {
     };
     initTowerDropdown("titanAtkTowerList", "titanAtkTowerSelectedValue", "atkTowerLevel");
     initTowerDropdown("titanHpTowerList", "titanHpTowerSelectedValue", "hpTowerLevel");
+
+    // 서버 레벨캡 - 4개 페이지가 공유하는 전역 설정이라 titanTileSettings가 아니라 별도
+    // localStorage 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀
+    const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+    const capList = document.getElementById("titanServerLevelCapList");
+    const capSelectedValue = document.getElementById("titanServerLevelCapSelectedValue");
+    capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
+    SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
+      const li = document.createElement("li");
+      li.textContent = opt.label;
+      li.onclick = () => {
+        saveServerLevelCap(opt.value);
+        capSelectedValue.textContent = opt.label;
+        capList.style.display = "none";
+        onTileChange();
+      };
+      capList.appendChild(li);
+    });
+    capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
+
+    // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정
+    const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+    const constList = document.getElementById("titanConstellationCapList");
+    const constSelectedValue = document.getElementById("titanConstellationCapSelectedValue");
+    constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
+    CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
+      const li = document.createElement("li");
+      li.textContent = opt.label;
+      li.onclick = () => {
+        saveConstellationLevelCap(opt.value);
+        constSelectedValue.textContent = opt.label;
+        constList.style.display = "none";
+        onTileChange();
+      };
+      constList.appendChild(li);
+    });
+    constSelectedValue.onclick = () => toggleDropdownList(constSelectedValue, constList);
   }
   titanInitTileSettings();
 
@@ -713,7 +772,7 @@ function initTitanPage() {
 
   // 지금 설정을 runTitanSimulation cfg 형태로 모아주는 헬퍼(빠른 계산/실전 시뮬레이션/조합 찾기가 공통으로 씀)
   function buildSimBaseCfg(selectedRunesOverride) {
-    const dino = getMyDinoBattleInputs();
+    const dino = titanDinoInputs();
     const tileCfg = loadTitanTileSettings();
     return {
       baseAtk: dino.baseAtk,
@@ -961,7 +1020,7 @@ function initTitanPage() {
     document.getElementById("titanBossHpFill").style.width = "100%";
     document.getElementById("titanBossHpText").textContent =
       `${TITAN_STATS[titanLevel].hp.toLocaleString()} / ${TITAN_STATS[titanLevel].hp.toLocaleString()}`;
-    const myCount = getMyDinoBattleInputs().count || 1;
+    const myCount = titanDinoInputs().count || 1;
     titanBuildHpBars(myCount);
     // 처음 3마리(정확히는 min(3, 공룡 수))는 타일 위 아바타로 이미 표시되므로, 사이드바 쪽 같은
     // 인덱스는 숨겨야 함(안 그러면 시뮬레이션 시작 전에는 타일 3마리 + 사이드바 전체 N마리가 같이
@@ -1310,7 +1369,7 @@ function initTitanPage() {
 
     const slotCount = Math.min(5, owned.length);
     const combos = titanCombinations(owned, slotCount);
-    const dino = getMyDinoBattleInputs();
+    const dino = titanDinoInputs();
     const tileCfg = loadTitanTileSettings();
     btn.disabled = true;
     btn.classList.add("btn-progress");

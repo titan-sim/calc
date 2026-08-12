@@ -4,7 +4,7 @@ const HOME_TILES = [
   { href: "#dino-battle", title: "공룡 대전", desc: "공룡간 전투 결과 예측", ready: true },
   { href: "#arena", title: "아레나", desc: "5:5 진영전 예측", ready: true },
   { href: "#dummy", title: "허수아비", desc: "허수아비 대상 딜 측정", ready: true },
-  { href: "#building", title: "건물", desc: "건물 공략 결과 예측", ready: false }
+  { href: "#building", title: "건물", desc: "건물 공략 결과 예측", ready: true }
 ];
 
 const GAME_DOWNLOAD_LINKS = [

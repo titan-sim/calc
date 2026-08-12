@@ -13,6 +13,12 @@ const DUMMY_TILE_KEY = "dino_dummy_tile_settings";
 const DUMMY_SPEED_KEY = "dino_dummy_speed_ms";
 const DUMMY_OWNED_LEVELS_KEY = "dino_dummy_owned_rune_levels";
 
+// 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - dinoProfileToBattleInputs(profile)를
+// 직접 쓰던 곳을 이걸로 교체
+function dummyDinoInputs(profile) {
+  return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(profile)));
+}
+
 // 적합 룬 14종 - "최적 조합 찾기"가 이 안에서만 조합을 뒤짐(부적합 룬은 애초에 대미지에 기여하는
 // 코드가 없어서 포함시켜봐야 의미 없음)
 // 등급 내림차순(유니크->에픽->희귀->일반), 같은 등급이면 룬 id(imgId의 "RuneSprite_N" 숫자)
@@ -108,11 +114,27 @@ function renderDummyPage(container) {
           <div class="setting-label" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다">부족 점령 상태 (부족의 축복)</div>
           <label class="switch" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
         </div>
-        <div class="setting-row">
-          <div class="setting-label">공격력 버프 타워</div>
-          <div class="custom-dropdown setting-control" id="dummyAtkTowerDropdown">
+        <div class="setting-stack">
+          <label class="setting-label">공격력 버프 타워</label>
+          <div class="custom-dropdown" id="dummyAtkTowerDropdown">
             <div class="selected-value" id="dummyAtkTowerSelectedValue">없음</div>
             <ul class="dropdown-list" id="dummyAtkTowerList"></ul>
+          </div>
+        </div>
+        <div class="setting-stack-pair">
+          <div class="setting-stack">
+            <label class="setting-label">서버 레벨캡</label>
+            <div class="custom-dropdown" id="dummyServerLevelCapDropdown">
+              <div class="selected-value" id="dummyServerLevelCapSelectedValue">없음</div>
+              <ul class="dropdown-list" id="dummyServerLevelCapList"></ul>
+            </div>
+          </div>
+          <div class="setting-stack">
+            <label class="setting-label">서버 별자리캡</label>
+            <div class="custom-dropdown" id="dummyConstellationCapDropdown">
+              <div class="selected-value" id="dummyConstellationCapSelectedValue">없음</div>
+              <ul class="dropdown-list" id="dummyConstellationCapList"></ul>
+            </div>
           </div>
         </div>
       </div>
@@ -170,7 +192,7 @@ function renderDummyPage(container) {
               <path d="M25,0 L75,0 M75,86.6 L25,86.6" fill="none" stroke="var(--accent)" stroke-width="4.2" vector-effect="non-scaling-stroke"></path>
             </svg>
             <div class="dummy-target-layer" id="dummyTarget">
-              <img src="./assets/sprites/Scarecrow_1.png" class="dummy-scarecrow" alt="허수아비">
+              <img src="./assets/tribe/Scarecrow_1.png" class="dummy-scarecrow" alt="허수아비">
             </div>
           </div>
           <div class="dummy-popup-layer" id="dummyPopupLayer"></div>
@@ -250,6 +272,45 @@ function dummyInitTileSettings() {
     list.appendChild(li);
   });
   selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
+
+  // 서버 레벨캡 - 4개 페이지가 공유하는 전역 설정이라 dummyTileSettings가 아니라 별도
+  // localStorage 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀
+  const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const capList = document.getElementById("dummyServerLevelCapList");
+  const capSelectedValue = document.getElementById("dummyServerLevelCapSelectedValue");
+  capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
+  SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = () => {
+      saveServerLevelCap(opt.value);
+      capSelectedValue.textContent = opt.label;
+      capList.style.display = "none";
+      dummyResetDisplay();
+      dummyResetQuickCalc();
+    };
+    capList.appendChild(li);
+  });
+  capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
+
+  // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정
+  const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const constList = document.getElementById("dummyConstellationCapList");
+  const constSelectedValue = document.getElementById("dummyConstellationCapSelectedValue");
+  constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
+  CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = () => {
+      saveConstellationLevelCap(opt.value);
+      constSelectedValue.textContent = opt.label;
+      constList.style.display = "none";
+      dummyResetDisplay();
+      dummyResetQuickCalc();
+    };
+    constList.appendChild(li);
+  });
+  constSelectedValue.onclick = () => toggleDropdownList(constSelectedValue, constList);
 }
 
 // 빠른 계산 / 실전 대전 / 조합 찾기 3개 탭 전환. 다른 페이지(아레나 등)의 mode-live/mode-quick
@@ -281,7 +342,7 @@ const DUMMY_QUICK_CALC_SECONDS = 600; // 10분
 
 function dummyRunQuickCalc() {
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
-  const inputs = dinoProfileToBattleInputs(profile);
+  const inputs = dummyDinoInputs(profile);
   const tileCfg = loadDummyTileSettings();
   const values = computeDummyCombatValues(inputs, tileCfg);
   const dps = computeDummyExpectedDps(values);
@@ -360,7 +421,7 @@ function dummyRunOptimizer() {
 
   const slotCount = Math.min(5, owned.length);
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
-  const inputs = dinoProfileToBattleInputs(profile);
+  const inputs = dummyDinoInputs(profile);
   const tileCfg = loadDummyTileSettings();
 
   const scored = dummyCombinations(owned, slotCount).map((names) => {
@@ -463,7 +524,7 @@ function dummyRunAttackTick() {
   dummyElapsedSec++;
 
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
-  const inputs = dinoProfileToBattleInputs(profile);
+  const inputs = dummyDinoInputs(profile);
   const tileCfg = loadDummyTileSettings();
   const values = computeDummyCombatValues(inputs, tileCfg);
   const { dmg, isCrit } = rollDummyAttack(values);

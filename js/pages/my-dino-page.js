@@ -100,6 +100,85 @@ function getMyDinoBattleInputs(storageKey = MY_DINO_PROFILE_KEY) {
   return dinoProfileToBattleInputs(loadMyDinoProfile(storageKey));
 }
 
+// ===== 서버 레벨캡 - 타이탄/공룡대전/허수아비/건물 4개 페이지 공용(사용자 확정, 전역 공유 설정 -
+// 페이지별 타일 설정이 아니라 localStorage 키 하나를 다같이 읽고 씀). "레벨" 자체는 이미 있는
+// 공식(요약 카드/전투력에 쓰는 것과 동일 - my-dino-page.js의 updateSummary, arena-page.js의
+// arenaComputeLevel): baseAtk + floor(baseHp/10) + moveSpeed. 레벨캡을 넘으면 이속은 그대로 두고
+// (캡 대상 아님), 남은 예산을 "지금 공격력:체력(10당1) 비율" 그대로 나눠서 새 baseAtk/baseHp를
+// 만듦 - 검증: 공격 600/체력 4000/이속 150(레벨 1150)에 캡 650을 걸면 remaining=500,
+// newAtk=300, newHp=2000이 나오고, 이걸 같은 공식에 다시 넣으면 300+200+150=650으로 캡과
+// 정확히 일치함(자기일관성 확인 완료) =====
+const SERVER_LEVEL_CAP_KEY = "dino_server_level_cap";
+
+// "없음" + 1200~3000(100단위, 사용자 확정) - BUFF_TOWER_OPTIONS 만드는 방식과 동일하게 매핑
+const SERVER_LEVEL_CAP_OPTIONS = [
+  { value: null, label: "없음" },
+  ...Array.from({ length: 19 }, (_, i) => {
+    const v = 1200 + i * 100;
+    return { value: v, label: v.toLocaleString() };
+  })
+];
+
+function loadServerLevelCap() {
+  const saved = Number(localStorage.getItem(SERVER_LEVEL_CAP_KEY));
+  return SERVER_LEVEL_CAP_OPTIONS.some((o) => o.value === saved) ? saved : null;
+}
+
+function saveServerLevelCap(value) {
+  localStorage.setItem(SERVER_LEVEL_CAP_KEY, String(value));
+}
+
+// dinoProfileToBattleInputs(p) 자체는 건드리지 않음(arena-page.js 등 이 스코프 밖 페이지도
+// 그 함수를 그대로 쓰기 때문) - 캡을 적용하고 싶은 페이지가 이 함수를 한 번 더 거치게 함
+function applyServerLevelCap(inputs) {
+  const cap = loadServerLevelCap();
+  if (cap === null) return inputs;
+
+  const hpUnit = Math.floor(inputs.baseHp / 10);
+  const level = inputs.baseAtk + hpUnit + inputs.moveSpeed;
+  if (level <= cap) return inputs;
+
+  const remaining = Math.max(0, cap - inputs.moveSpeed);
+  const total = inputs.baseAtk + hpUnit;
+  const newBaseAtk = total > 0 ? Math.round((remaining * inputs.baseAtk) / total) : 0;
+  const newHpUnit = total > 0 ? Math.round((remaining * hpUnit) / total) : 0;
+
+  return { ...inputs, baseAtk: newBaseAtk, baseHp: newHpUnit * 10 };
+}
+
+// ===== 별자리 레벨캡 - 서버 레벨캡과 같은 4개 페이지 공용/전역 공유 설정(사용자 확정 - "레벨캡을
+// 사용하는 곳이라면 당연히 별자리 캡도 존재할 테니 그쪽에서"). 별자리는 지금도 "각 스탯의 최종
+// 누적 수치"를 그대로 입력받는 방식이라(레벨 자체는 입력 안 받음) 그 입력 UI는 그대로 두고
+// (사용자 확정 - "지금 별자리 입력하는 방식을 그대로 사용하되"), 캡을 걸면 입력값과 "캡 레벨의
+// 누적치"(js/data/constellation-data.js) 중 작은 쪽을 씀. 자료가 없는 구간(치확 36+, 스튜
+// 19+)은 캡을 걸 근거가 없어서 그냥 입력값 그대로 둠(틀린 값을 만들어내는 것보다 안전) =====
+const CONSTELLATION_LEVEL_CAP_KEY = "dino_constellation_level_cap";
+
+function loadConstellationLevelCap() {
+  const saved = Number(localStorage.getItem(CONSTELLATION_LEVEL_CAP_KEY));
+  return CONSTELLATION_LEVEL_CAP_OPTIONS.some((o) => o.value === saved) ? saved : null;
+}
+
+function saveConstellationLevelCap(value) {
+  localStorage.setItem(CONSTELLATION_LEVEL_CAP_KEY, String(value));
+}
+
+function applyConstellationCap(inputs) {
+  const cap = loadConstellationLevelCap();
+  if (cap === null || !inputs.constellation) return inputs;
+
+  const cappedConstellation = { ...inputs.constellation };
+  Object.keys(CONSTELLATION_CAP_TABLES).forEach((statKey) => {
+    const table = CONSTELLATION_CAP_TABLES[statKey];
+    const capValueAtLevel = table[cap];
+    if (capValueAtLevel === undefined) return; // 이 스탯은 해당 레벨까지 자료가 없음 - 캡 생략
+    const current = cappedConstellation[statKey] || 0;
+    if (current > capValueAtLevel) cappedConstellation[statKey] = capValueAtLevel;
+  });
+
+  return { ...inputs, constellation: cappedConstellation };
+}
+
 // 프리셋 인덱스 -> 버튼 이미지 경로. 0번은 Select.png, 1~8번은 Select0~7.png (에셋이 9종뿐이라 프리셋도 9개로 고정)
 function getPresetBtnImg(index, active) {
   if (!active) return "./assets/rune preset/PresetBtn.png";

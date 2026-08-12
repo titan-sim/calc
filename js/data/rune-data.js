@@ -689,6 +689,65 @@ const DUMMY_UNSUITABLE_RUNE_LIST = [
   "낙뢰"
 ];
 
+// 건물(#building) 페이지용 - 사용자가 직접 확정한 목록(허수아비 목록과는 다름 - 예를 들어
+// 부족의 축복 1·2는 허수아비엔 적합했지만 건물엔 부적합, 체력 증가/강인함류는 반대로 건물엔
+// 적합함). 나머지 룬은 전부 적합으로 취급
+const BUILDING_UNSUITABLE_RUNE_LIST = [
+  "메테오",
+  "낙뢰",
+  "흡혈",
+  "보스 슬레이어",
+  "죽을 준비",
+  "타이탄 가드",
+  "단단한 피부 1",
+  "단단한 피부 2",
+  "피해 저항 1",
+  "피해 저항 2",
+  "부족의 축복 1",
+  "부족의 축복 2",
+  "힐",
+  "승리의 함성",
+  "트리플 임팩트",
+  "보호막"
+];
+
+// 건물 전체 목록 + 체력(사용자 확정, assets/tribe/ 실제 파일과 전부 대조 완료). locked: true인
+// 2종(대미지/체력 버프 타워)은 사용자 확인상 인게임에 아직 안 풀린 건물이라 선택 그리드엔 보이되
+// 고를 수 없게 잠가둠(building-page.js의 건설 모달 참고)
+//
+// anchorX/anchorY: 이 이미지에서 "육각형 중심(발밑)"에 와야 하는 지점의 좌표(사용자가 직접 측정해서
+// 준 값 - 이미지 왼쪽 위 기준 %). 예전엔 발밑 정렬(-50%,-100%) 기준으로 알파채널 여백/그림자
+// 방향을 하나하나 어림짐작으로 보정했는데(투명 여백 있는 UI 아이콘은 떠 보이고, 그림자가 오른쪽에
+// 있는 벽/짚더미는 왼쪽으로 치우쳐 보이고, 부족 본부처럼 원근감이 있는 그림은 뒤로 밀려 보이는 등
+// 사진마다 원인이 다 달라서), 매번 스크린샷 찍고 다시 재는 식으로는 정확히 안 맞았음 - 이제 이미지
+// 좌표를 직접 앵커로 써서(translate(-anchorX%, -anchorY%)) 그런 보정이 전부 필요 없어짐.
+//
+// scale은 전부 제거함(사용자 확정 - "일단은 모든 이미지 파일들 크기는 원본으로 해놔봐") - 예전엔
+// UI 아이콘(작음)과 실제 에셋(큼)이 섞여있어서 건물마다 2배/1.7배 배율을 따로 줬었는데, 지금은
+// assets/tribe/ 전체를 실제 에셋으로 통일해서(UIIcon 파일 전부 교체됨) 배율 없이 전부 같은
+// 기준(.building-sprite의 clamp)으로 그려도 됨
+const BUILDING_TYPES = [
+  { id: "alarm_tower", label: "알람 타워", img: "AlarmTower.png", hp: 1500000, anchorX: 37.57, anchorY: 78.25 },
+  { id: "ammo_distributor", label: "탄 분배기", img: "AmmoDistributor.png", hp: 3000000, anchorX: 45.28, anchorY: 77.02 },
+  // 공격력/체력 버프 타워 - 적 부족이 이미 세워둔 걸 우리가 부술 수도 있는 상황이라 잠금 해제
+  // (사용자 확정 - 체력값도 이미 둘 다 확정해서 줬었음)
+  { id: "damage_buff_tower", label: "공격력 버프 타워", img: "DamageBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
+  { id: "hp_buff_tower", label: "체력 버프 타워", img: "HpBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
+  { id: "base", label: "둥지", img: "Tribe_Base_Icon.png", hp: 50000, anchorX: 50.00, anchorY: 67.19 },
+  { id: "notice_board", label: "부족 게시판", img: "Noticeboard.png", hp: 1500000, anchorX: 39.58, anchorY: 98.01 },
+  { id: "portal_blue", label: "전쟁 포탈", img: "Tribe_Tribeportal_Blue.png", hp: 5, anchorX: 49.02, anchorY: 82.23 },
+  { id: "portal_green", label: "부족 포탈", img: "Tribe_Tribeportal_Green.png", hp: 3000000, anchorX: 49.02, anchorY: 82.23 },
+  { id: "lv1", label: "벽 Lv.1", img: "Tribe_Wall_Lv1.png", hp: 7000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "lv2", label: "벽 Lv.2", img: "Tribe_Wall_Lv2.png", hp: 12000000, anchorX: 36.57, anchorY: 94.41 },
+  // Lv3/Lv4는 게임 업데이트로 새로 풀림(사용자 확정, 체력 2000만/3000만) - anchorX/Y는 아직
+  // 실측 좌표를 안 주셔서 같은 벽 시리즈인 Lv1/Lv2 값을 임시로 재사용함(모양이 비슷할 가능성이
+  // 높아서) - 실제로 안 맞으면 정확한 좌표로 교체 필요
+  { id: "lv3", label: "벽 Lv.3", img: "Tribe_Wall_Lv3.png", hp: 20000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "lv4", label: "벽 Lv.4", img: "Tribe_Wall_Lv4.png", hp: 30000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "warehouse", label: "부족 본부", img: "Tribe_WareHouse.png", hp: 300000, anchorX: 47.43, anchorY: 80.90 },
+  { id: "straw_wall", label: "짚더미", img: "StrawWall.png", hp: 3000000, anchorX: 42.19, anchorY: 69.34 }
+];
+
 // 흡혈량 계산 시 공격력 보너스에서 제외되는 룬 목록 (오버밸런스 방지용)
 const VAMP_EXCLUSION_LIST = [
   "고독한 분노",

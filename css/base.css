@@ -128,9 +128,15 @@ input, textarea {
   width: 100%;
 }
 
-/* 내 공룡 페이지는 입력 항목이 많아 PC 화면에서 세로로 과하게 길어지므로,
-   넓은 화면에서만 컨테이너 폭을 넓혀 좌우 여백을 활용함 (모바일은 기존 그대로) */
+/* PC 화면은 카드 폭이 조금 더 늘어나도 괜찮다는 사용자 확정 - 모든 페이지 공통으로 살짝 넓힘
+   (모바일은 기존 그대로 600px). 내 공룡 페이지는 입력 항목이 유독 많아 그보다 더 넓게(860px)
+   써야 해서 별도로 더 큰 값을 줌 - 선택자 우선순위상 body[data-page="my-dino"] 쪽이 더 구체적이라
+   이 공통 규칙보다 항상 이김 */
 @media (min-width: 860px) {
+  .container {
+    width: min(100%, 720px);
+  }
+
   body[data-page="my-dino"] .container {
     width: min(100%, 860px);
   }
@@ -500,7 +506,56 @@ input:focus, select:focus {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 0;
+}
+
+/* 타일 설정 안에서 한 "블록"(토글 행 하나, 또는 드롭다운 페어 하나)씩 위아래 구분선으로 나뉨.
+   :where()로 블록 종류를 묶어서 "서로 인접한 블록 사이에만" 선을 긋게 하면(카드 제목의 밑줄
+   바로 아래 첫 블록은 인접한 형제가 없어서 자동으로 제외됨 - +는 원래 첫 자식과 매치하지 않음)
+   맨 위 첫 블록에 괜히 선이 하나 더 겹치는 문제(사용자 지적)가 애초에 생길 여지가 없음 */
+.setting-list > :where(.setting-row, .setting-stack-pair) + :where(.setting-row, .setting-stack-pair) {
   border-top: 1px solid var(--border-color);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+}
+
+/* 드롭다운 항목 2개를 "라벨 위 / 드롭다운 아래"로 쌓고 나란히 배치하는 페어(타이탄 페이지의
+   .titan-settings-stack/.titan-settings-levelblock과 같은 모양 - 사용자 확정: "타일 설정을
+   기본 스탯 하듯이 약간 작게 글자 넣고 그 아래쪽에 드롭다운을... 공격력 버프 타워, 체력 버프
+   타워 / 서버 레벨캡, 서버 별자리캡 이렇게"). 짝이 없는 항목(예: 허수아비의 공격력 버프
+   타워처럼 체력 버프 타워가 없는 경우)은 .setting-stack 하나만 이 클래스 없이 홀로 두면 자연스럽게
+   전체 폭을 씀 */
+.setting-stack-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  padding: 14px 0;
+}
+
+.setting-stack .setting-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.setting-stack .custom-dropdown,
+.setting-stack .affix-input {
+  width: 100%;
+}
+
+.setting-stack .selected-value {
+  font-size: clamp(9.5px, 2cqw, 13px);
+  padding-left: 20px;
+  padding-right: 20px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .setting-label {
