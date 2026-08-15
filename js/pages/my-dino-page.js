@@ -202,17 +202,30 @@ function enableDragScroll(el) {
     scrollStart = el.scrollLeft;
     el.classList.add("dragging");
   });
-  window.addEventListener("mouseup", () => { isDown = false; el.classList.remove("dragging"); });
   // mousemove를 el이 아니라 window에 붙여야 함 - el에만 붙어있으면 드래그 도중 마우스 커서가
   // (버튼을 누른 채로) 이 요소의 경계 밖으로 나가는 순간 더 이상 이벤트가 안 잡혀서 스크롤이
   // 그 자리에서 멈춰버림. window 기준으로 좌표를 추적하면 커서가 어디에 있든(모달 바깥이어도)
-  // 버튼을 뗄 때까지 계속 스크롤됨 - mouseleave로 드래그를 강제 종료하던 것도 함께 제거함
-  window.addEventListener("mousemove", (e) => {
+  // 버튼을 뗄 때까지 계속 스크롤됨 - mouseleave로 드래그를 강제 종료하던 것도 함께 제거함.
+  // window에 붙는 리스너라 el이 화면에서 사라져도(페이지 재방문 등) 스스로 안 지워지면 호출될
+  // 때마다 계속 쌓임(사이트 전체 점검에서 발견) - renderMyDinoPage()는 같은 화면에 여러 인스턴스가
+  // 동시에 뜰 수 있어서(다이노배틀/아레나의 "내 공룡"/"상대" 패널 등) 모듈 전역변수 하나로 막는
+  // 방식은 안 맞음 - el이 더 이상 문서에 붙어있지 않으면 핸들러가 스스로 자신을 지우게 함
+  // (js/ui/chart-ui.js의 리사이즈 리스너와 같은 해법)
+  function onMouseUp() {
+    if (!el.isConnected) { window.removeEventListener("mouseup", onMouseUp); return; }
+    isDown = false;
+    el.classList.remove("dragging");
+  }
+  window.addEventListener("mouseup", onMouseUp);
+
+  function onMouseMove(e) {
+    if (!el.isConnected) { window.removeEventListener("mousemove", onMouseMove); return; }
     if (!isDown) return;
     const dx = e.pageX - startX;
     if (Math.abs(dx) > 4) moved = true;
     el.scrollLeft = scrollStart - dx;
-  });
+  }
+  window.addEventListener("mousemove", onMouseMove);
   // 드래그 도중 놓았을 때 프리셋 버튼의 클릭(선택)이 함께 발생하지 않도록 캡처 단계에서 차단
   el.addEventListener("click", (e) => {
     if (moved) {
@@ -517,7 +530,15 @@ function initMyDinoPage(profile, options = {}, container) {
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => moveIndicator(root.querySelector(".dino-tab.active")));
   }
-  window.addEventListener("resize", () => moveIndicator(root.querySelector(".dino-tab.active")));
+  // window에 붙는 리스너라 root가 화면에서 사라져도(페이지 재방문, 다른 패널로 교체 등) 스스로 안
+  // 지워지면 renderMyDinoPage() 호출마다 계속 쌓임(사이트 전체 점검에서 발견) - 여러 인스턴스가
+  // 동시에 뜰 수 있어서(위 enableDragScroll과 같은 이유) root가 더 이상 문서에 붙어있지 않으면
+  // 핸들러가 스스로 자신을 지우게 함
+  function onResizeMoveIndicator() {
+    if (!root.isConnected) { window.removeEventListener("resize", onResizeMoveIndicator); return; }
+    moveIndicator(root.querySelector(".dino-tab.active"));
+  }
+  window.addEventListener("resize", onResizeMoveIndicator);
 
   // 기본 스탯
   const fBaseAtk = $("fBaseAtk");

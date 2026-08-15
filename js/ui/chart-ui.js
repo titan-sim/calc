@@ -158,9 +158,15 @@ function drawHpChart(canvas, data, limitSec) {
 
   render(null);
 
-  // 카드 폭이 바뀌면(회전, 리사이즈 등) 새 크기에 맞춰 다시 그림
+  // 카드 폭이 바뀌면(회전, 리사이즈 등) 새 크기에 맞춰 다시 그림. 페이지를 벗어나 이 canvas가
+  // 라우터의 innerHTML 교체로 사라져도(SPA엔 teardown 훅이 없음) 이 리스너 자체는 안 지워졌었음
+  // (사이트 전체 점검에서 발견) - canvas가 더 이상 문서에 붙어있지 않으면 핸들러가 스스로 자신을
+  // 지우게 함(다른 페이지 이동 훅 없이 이 파일 안에서만 완결)
   if (canvas._hpResizeHandler) window.removeEventListener("resize", canvas._hpResizeHandler);
-  canvas._hpResizeHandler = () => render(null);
+  canvas._hpResizeHandler = () => {
+    if (!canvas.isConnected) { window.removeEventListener("resize", canvas._hpResizeHandler); return; }
+    render(null);
+  };
   window.addEventListener("resize", canvas._hpResizeHandler);
 
   let tooltip = container.querySelector(".chart-tooltip");

@@ -113,7 +113,7 @@
 
 /* hover:hover 가드 - 터치 기기에서 탭했을 때 호버가 눌어붙어 보이는 걸 막음(마우스 있는 PC에서만) */
 @media (hover: hover) {
-  .nav-link:not(.nav-link-soon):hover {
+  .nav-link:hover {
     background: var(--input-bg);
     color: var(--primary);
   }
@@ -123,10 +123,6 @@
   background: var(--input-bg);
   font-weight: bold;
   color: var(--primary);
-}
-
-.nav-link-soon {
-  opacity: 0.55;
 }
 
 .nav-soon-tag {

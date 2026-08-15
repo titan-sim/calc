@@ -183,14 +183,12 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
     // 협동 공격/고독한 분노 등으로 최대 체력이 바뀔 수 있음 - 게임사 공식 답변 확인: 조건을
     // 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라 "감소 전 최대 체력 대비 남은
     // 체력의 비율"로 재조정됨(체력 %가 유지되고 절대값만 같이 변함) - 최대치를 넘을 때만
-    // 깎던 예전 clamp 방식과 다름
+    // 깎던 예전 clamp 방식과 다름. stat-calc.js의 rescaleOneUnitHp 공용 함수 사용(전투 수식
+    // 공용화 작업)
     [{ side: mySide, vals: attackerKey === "my" ? attackerVals : defenderVals },
       { side: oppSide, vals: attackerKey === "my" ? defenderVals : attackerVals }]
       .forEach(({ side, vals }) => {
-        aliveDinos(side).forEach((d) => {
-          if (d.maxHp > 0 && d.maxHp !== vals.maxHp) d.hp *= vals.maxHp / d.maxHp;
-          d.maxHp = vals.maxHp;
-        });
+        aliveDinos(side).forEach((d) => rescaleOneUnitHp(d, vals.maxHp));
       });
 
     const attacker = aliveDinos(attackerSide)[0];
@@ -211,9 +209,6 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
       deaths: [], // { side }
       spawn: null // { side } - 이번 턴에 새 앞장이 등장했는지
     };
-
-    const rollCrit = (vals) => rand() * 100 < vals.cRate;
-    const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
 
     function hitDefender(rawDmg, isCrit, label) {
       let dmg = rawDmg;
@@ -247,20 +242,20 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
 
     // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
     const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
-    const basicCrit = rollCrit(attackerVals);
-    hitDefender(withCrit(finalAtk, basicCrit, attackerVals), basicCrit, "평타");
+    const basicHit = rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg, rand);
+    hitDefender(basicHit.dmg, basicHit.isCrit, "평타");
 
     // 공격측 스킬 룬들
     attackerSide.runes.forEach((r) => {
       if (defender.hp <= 0) return;
       if (r.name === "트리플 임팩트" && attacker.attackCount % 3 === 0) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "트리플 임팩트");
+        const tripleHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+        hitDefender(tripleHit.dmg, tripleHit.isCrit, "트리플 임팩트");
       }
       // 낙뢰: 룬 설명대로 "전투중인 상대 유닛"만 맞는 단일 대상 스킬 (21+ 즉사 확률 포함)
       if (r.name === "낙뢰" && rand() * 100 < r.s.prob) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, r.name);
+        const lightningHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+        hitDefender(lightningHit.dmg, lightningHit.isCrit, r.name);
         if (r.s.insta_hp !== undefined && defender.hp > 0) {
           const hpPct = (defender.hp / defender.maxHp) * 100;
           if (hpPct < r.s.insta_hp && rand() * 100 < r.s.insta_prob) {
@@ -285,25 +280,25 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
           const targets = [];
           defenderSide.dinos.forEach((d, idx) => {
             if (d.hp <= 0) return;
-            const c = rollCrit(attackerVals);
-            const dmg = Math.max(0, withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+            const meteorAoeHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+            const dmg = Math.max(0, meteorAoeHit.dmg);
             const before = d.hp;
             d.hp = Math.max(0, d.hp - dmg);
-            targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: c });
+            targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: meteorAoeHit.isCrit });
           });
           event.aoe = { label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets };
         } else {
-          const c = rollCrit(attackerVals);
-          hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "메테오");
+          const meteorHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+          hitDefender(meteorHit.dmg, meteorHit.isCrit, "메테오");
           if (r.s.area_burst_p !== undefined) {
             const areaTargets = [];
             defenderSide.dinos.forEach((d, idx) => {
               if (d === defender || d.hp <= 0) return;
-              const c2 = rollCrit(attackerVals);
-              const dmg = Math.max(0, withCrit(finalAtk * (r.s.area_burst_p / 100), c2, attackerVals));
+              const meteorAreaHit = rollCritHit(finalAtk * (r.s.area_burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+              const dmg = Math.max(0, meteorAreaHit.dmg);
               const before = d.hp;
               d.hp = Math.max(0, d.hp - dmg);
-              areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: c2 });
+              areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: meteorAreaHit.isCrit });
             });
             if (areaTargets.length > 0) {
               event.aoe = { label: "메테오(주변 타일)", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets };
@@ -460,8 +455,6 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
     attacker.attackCount++;
 
-    const rollCrit = (vals) => Math.random() * 100 < vals.cRate;
-    const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
     let dealt = 0;
 
     // isSkill: 트리플 임팩트/낙뢰/메테오 등 스킬 피해는 단단한 피부/피해 저항의 감소를 받지 않음
@@ -494,27 +487,23 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
 
     // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
     const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
-    const basicCrit = rollCrit(attackerVals);
-    hitDefender(withCrit(finalAtk, basicCrit, attackerVals));
+    hitDefender(rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg).dmg);
 
     // 공격측 스킬 룬들 (1마리뿐이라 메테오의 "타일 전체" 피해도 사실상 이 상대 한 명에게만 적용됨)
     attackerSide.runes.forEach((r) => {
       if (defender.hp <= 0) return;
       if (r.name === "트리플 임팩트" && attacker.attackCount % 3 === 0) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
+        hitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, true);
       }
       if (r.name === "낙뢰" && Math.random() * 100 < r.s.prob) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
+        hitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, true);
         if (r.s.insta_hp !== undefined && defender.hp > 0) {
           const hpPct = (defender.hp / defender.maxHp) * 100;
           if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) defender.hp = 0;
         }
       }
       if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), true);
+        hitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, true);
       }
       if (r.name === "흡혈" && Math.random() * 100 < r.s.prob) {
         attacker.hp = Math.min(attacker.maxHp, attacker.hp + (attackerSide.vampBaseAtk * r.s.rec_p) / 100);

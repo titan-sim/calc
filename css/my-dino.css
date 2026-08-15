@@ -224,35 +224,3 @@
   padding: var(--p-base);
 }
 
-/* ===== 내 공룡: 룬 프리셋 칩 ===== */
-.preset-chip-row {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 12px 0 4px;
-}
-
-.preset-chip {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--input-bg);
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.preset-chip-add {
-  color: var(--primary);
-  border: 1px dashed var(--primary);
-  background: none;
-}
-
-.preset-chip-remove {
-  opacity: 0.6;
-  font-size: 11px;
-}
-

@@ -7,10 +7,61 @@ function getTileMoveSeconds(moveSpeed) {
   return 10 - ((lv - 1) * 5) / 149;
 }
 
-// 연속 전투 재소환 지연(초) = 고정 1.5초 + 둥지<->타이탄 이동 시간. simulation-titan.js와
-// estimateTitanExpectedDeaths(1단계 해석적 추정) 양쪽에서 똑같이 써야 해서 공용 헬퍼로 뽑음
+// 연속 전투 재소환 지연(초) = 고정 1.5초 + 둥지<->타이탄 이동 시간. simulation-titan.js,
+// simulation-building.js(js/pages/building-page.js), estimateTitanExpectedDeaths(1단계 해석적
+// 추정) 전부 똑같이 써야 해서 공용 헬퍼로 뽑음
 function getRespawnDelaySec(moveSpeed, distanceTiles) {
   return 1.5 + distanceTiles * getTileMoveSeconds(moveSpeed);
+}
+
+// 치명타 굴림 - "치확 확률로 cDmg%, 아니면 100% 대미지"라는 동일한 계산이 타이탄/건물/허수아비/
+// 다이노배틀/아레나 5개 엔진에 전부 각자 구현돼있던 걸 공용화(사용자 지적 - "4개 페이지 모두
+// 각각 따로따로 체력이나 공격력을 계산했던거야? 그건 너무 비효율적인 코드 작성"). rand를 인자로
+// 받는 이유: 다이노배틀/아레나의 친구 동기화 재생은 시드 고정 RNG를 써서 똑같은 결과가 재생되게
+// 하므로, 여기서 Math.random을 직접 호출하지 않고 호출자가 준 rand()를 그대로 씀(기본값은
+// Math.random - 시드가 필요 없는 나머지 엔진은 그냥 기본값을 씀)
+function rollCritHit(baseDmg, cRate, cDmg, rand = Math.random) {
+  const isCrit = rand() * 100 < cRate;
+  return { dmg: isCrit ? baseDmg * (cDmg / 100) : baseDmg, isCrit };
+}
+
+// 치확/치피 평균을 반영한 기대 대미지 배율(빠른 계산용 - 확률/굴림 없이 "1초당 기댓값"으로 환산)
+function computeExpectedDpsFromCrit(atk, cRate, cDmg) {
+  return atk * (1 + (cRate / 100) * (cDmg / 100 - 1));
+}
+
+// 전투 중 최대체력이 바뀔 때(인원수 조건부 룬 임계값을 넘나들 때 등) 살아있는 유닛의 현재체력을
+// "감소 전 최대체력 대비 남은 체력의 비율"로 재조정(체력 %가 유지되고 절대값만 같이 줄거나 늚) -
+// 게임사 공식 답변 기준 규칙. prevMaxHp가 0이면(이론상 나올 일은 없지만) 0으로 나누기를 막음.
+// 페이지마다 공룡 체력을 담는 자료구조 모양이 달라서(타이탄은 유닛 배열 전체가 같은 prevMaxHp를
+// 공유, 다이노배틀/아레나는 유닛마다 자기 maxHp를 따로 들고 있음, 건물은 순수 숫자 배열) 핵심
+// 비율 계산(hpRescaleRatio)만 공용화하고 세 가지 모양별로 얇은 래퍼를 둠
+function hpRescaleRatio(newMaxHp, prevMaxHp) {
+  return (prevMaxHp > 0 && newMaxHp !== prevMaxHp) ? newMaxHp / prevMaxHp : 1;
+}
+
+// 타이탄처럼 살아있는 유닛 배열 전체가 같은 이전 최대체력(prevMaxHp)을 공유하는 경우
+function rescaleAliveHpForMaxHpChange(aliveUnits, newMaxHp, prevMaxHp) {
+  const ratio = hpRescaleRatio(newMaxHp, prevMaxHp);
+  if (ratio !== 1) aliveUnits.forEach((u) => { u.hp *= ratio; });
+}
+
+// 다이노배틀/아레나처럼 유닛 하나하나가 자기 maxHp를 따로 들고 있는 경우 - 재조정과 동시에
+// maxHp 자체도 새 값으로 갱신함(호출자가 따로 안 해도 되게)
+function rescaleOneUnitHp(unit, newMaxHp) {
+  const ratio = hpRescaleRatio(newMaxHp, unit.maxHp);
+  if (ratio !== 1) unit.hp *= ratio;
+  unit.maxHp = newMaxHp;
+}
+
+// 건물 페이지처럼 공룡 체력을 객체가 아니라 순수 숫자 배열(buildingDinoHp)로 들고 있는 경우 -
+// 배열 자체를 제자리에서 수정함(살아있는(>0) 유닛만)
+function rescaleHpArrayForMaxHpChange(hpArray, newMaxHp, prevMaxHp) {
+  const ratio = hpRescaleRatio(newMaxHp, prevMaxHp);
+  if (ratio === 1) return;
+  for (let i = 0; i < hpArray.length; i++) {
+    if (hpArray[i] > 0) hpArray[i] *= ratio;
+  }
 }
 
 // 룬 레벨 -> 슬롯 테두리 색상 클래스
@@ -205,12 +256,15 @@ function getTitanCombatMetrics({
   const atkAmpGain = ampFinalAtk - finalAtk;
 
   // avgDmg는 발동 확률(빈도)까지 반영된 평균값, rawDmg는 "발동됐을 때 실제로 들어가는 대미지"
-  // (치확/치피 평균은 반영하되 발동 확률은 안 곱한 값) - 관련 수치 카드의 breakdown에서 "평균"과
-  // "원래 대미지"를 나란히 보여주는 용도(rawDmg * triggerRate = avgDmg로 항상 일치함)
+  // (치확/치피 평균은 반영하되 발동 확률은 안 곱한 값), critDmg는 그 발동이 확정 크리티컬이었을
+  // 때의 대미지(치확/치피를 평균으로 안 섞고 cDmg%를 그대로 적용) - 관련 수치 카드의 breakdown에서
+  // "원래 대미지"/"평균 대미지"/"크리티컬 대미지" 세 줄로 나란히 보여주는 용도(rawDmg * triggerRate
+  // = avgDmg로 항상 일치함)
   const skillDetails = skillHits.map((h) => ({
     name: h.name,
     avgDmg: ampFinalAtk * (h.burstP / 100) * h.triggerRate * critMult,
     rawDmg: ampFinalAtk * (h.burstP / 100) * critMult,
+    critDmg: ampFinalAtk * (h.burstP / 100) * (cDmg / 100),
     prob: h.prob
   }));
   const skillDmgTotal = skillDetails.reduce((sum, d) => sum + d.avgDmg, 0);
@@ -386,6 +440,11 @@ function buildTitanCycleBranches(metrics, targetTitan) {
 // 상태 확률 분포(v, 길이 B+1)에 한 사이클을 적용 - v[0]은 이미 죽은 확률질량(흡수됨), v[1..B]가
 // "살아있는" 확률질량. 시작 분포(전부 만수 체력)에서 출발해 매 사이클 앞으로 전파(propagate)함
 function propagateOneCycle(v, combined, B, finalHp, step) {
+  // finalHp가 0 이하면 hpDown/finalHp가 0으로 나누기가 돼서 NaN이 조용히 확률 버킷을 오염시킴 -
+  // singleDinoMTTFCycles가 이미 이 경우를 걸러서 이 함수까지 안 오게 막아두지만(호출자 가드), 이
+  // 함수가 앞으로 다른 곳에서도 직접 호출될 가능성에 대비해 여기도 방어적으로 같은 가드를 둠
+  if (finalHp <= 0) return v;
+
   const next = new Float64Array(B + 1);
   for (let s = 1; s <= B; s++) {
     const mass = v[s];
@@ -420,6 +479,11 @@ function propagateOneCycle(v, combined, B, finalHp, step) {
 // 이러면 λ가 1에 아주 가까울수록(극도로 안전) 꼬리 항이 자연히 커져서 큰 MTTF를 정확히 반영하고,
 // 반복 횟수 자체에 상한이 걸리지 않는다.
 function singleDinoMTTFCycles(metrics, targetTitan, horizonCycles, buckets = TITAN_SURVIVAL_BUCKETS) {
+  // finalHp가 0 이하면(이론상 나올 일은 없지만 - 사이트 전체 점검에서 지적된 방어적 가드) 이미
+  // 죽은 것과 같으므로 사이클 0으로 바로 반환 - 안 그러면 아래 propagateOneCycle의 hpDown/finalHp가
+  // 0으로 나누기가 돼서 NaN이 조용히 확률 버킷을 오염시킴
+  if (metrics.finalHp <= 0) return 0;
+
   const { upBranches, downBranchesShielded, downBranchesUnshielded, shieldTurns } = buildTitanCycleBranches(metrics, targetTitan);
   const combine = (downBranches) => {
     const combined = [];

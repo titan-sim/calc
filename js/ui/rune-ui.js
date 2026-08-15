@@ -26,18 +26,6 @@ function resolveDesc(rune, level) {
   return typeof rune.desc === "function" ? rune.desc(level) : rune.desc;
 }
 
-function getFormattedDesc(runeName, level) {
-  const rune = RUNES_DATA[runeName];
-  if (!rune || !rune.levels[level]) return "";
-  const stats = rune.levels[level];
-  return resolveDesc(rune, level).replace(RUNE_TAG_REGEX, (match, key) => {
-    const value = stats[key];
-    if (value === undefined) return match;
-    const color = RUNE_COLOR_MAP[key] || "#fff";
-    return `<span style="color: ${color}; font-weight: bold;">${value}</span>`;
-  });
-}
-
 function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [], unsuitableLabel = "적합하지 않은 룬입니다" } = {}) {
   const id = (name) => idPrefix + name;
   const $ = (name) => document.getElementById(id(name));

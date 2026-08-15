@@ -52,6 +52,11 @@ let arenaCurrentBattleResult = null;
 let arenaCurrentBattleIndex = 0;
 let arenaShakeTimeout = null;
 
+// dino-battle-page.js와 동일한 이유(SPA 라우터엔 teardown 훅이 없어서 페이지를 벗어나도 예약된
+// setTimeout이 그대로 실행돼 이미 사라진 DOM을 건드림) - "동일한 패턴"이라는 위 주석과 달리 정작
+// 이 무효화 리스너 자체가 빠져있었음(사이트 전체 점검에서 발견, 사용자 확정)
+window.addEventListener("hashchange", () => { arenaBattleToken++; });
+
 // 친구 기능(초대/설정 불러오기) 상태 - dino-battle-page.js의 동명 상태와 동일한 역할이지만 이름
 // 충돌 방지를 위해 arena 접두사를 붙임. "상대 진영"에만 적용됨(내 진영은 항상 로컬 편집).
 let arenaMyUserId = null;
@@ -488,6 +493,7 @@ function arenaBattlefieldMarkup() {
 
 function renderArenaPage(container) {
   container.innerHTML = `
+    <h2 class="sr-only">아레나</h2>
     <div class="battle-layout" id="arenaLayout">
       <div class="battle-side-panel my-side" id="arenaMySidePanel">
         <div id="arenaMyDinoSection"></div>
@@ -1161,8 +1167,12 @@ function arenaRenderBattleEvent(ev) {
 
   if (ev.aoe) {
     const battlefield = document.getElementById("arenaBattlefield");
-    battlefield.classList.add("area-flash");
-    setTimeout(() => battlefield.classList.remove("area-flash"), 400);
+    // arenaDrawStrikeLine과 동일한 null 가드 - 페이지를 벗어난 뒤 밀린 이벤트가 재생되면
+    // battlefield가 이미 사라진 상태일 수 있음(사이트 전체 점검에서 발견, 사용자 확정)
+    if (battlefield) {
+      battlefield.classList.add("area-flash");
+      setTimeout(() => battlefield.classList.remove("area-flash"), 400);
+    }
     ev.aoe.targets.forEach((t) => {
       bump(ev.defenderSide, t.slot);
       const k = slotKey(ev.defenderSide, t.slot);

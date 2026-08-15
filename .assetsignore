@@ -10,3 +10,4 @@ dev/
 supabase_schema.sql
 supabase_setup_guide.md
 타이탄_레벨별_스탯.csv
+wrangler.jsonc

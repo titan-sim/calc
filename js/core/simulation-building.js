@@ -154,13 +154,13 @@ function computeBuildingIncomingReduction(selectedRunes) {
 }
 
 /**
- * 공격 한 틱(1초에 한 번)의 결과.
+ * 공격 한 틱(1초에 한 번)의 결과 - 실제 계산은 stat-calc.js의 rollCritHit 공용 함수(사용자 지적 -
+ * "4개 페이지 모두 각각 따로따로... 그건 너무 비효율적인 코드 작성", 전투 수식 공용화 작업의
+ * 일부). 여기 남은 건 값 객체(values)를 그 함수의 인자로 풀어주는 얇은 래퍼뿐.
  * @returns {{dmg:number, isCrit:boolean}}
  */
 function rollBuildingAttack(values) {
-  const isCrit = Math.random() * 100 < values.cRate;
-  const dmg = isCrit ? values.atk * (values.cDmg / 100) : values.atk;
-  return { dmg, isCrit };
+  return rollCritHit(values.atk, values.cRate, values.cDmg);
 }
 
 // 지진은 낙뢰/메테오/트리플 임팩트 같은 "스킬형" 룬과 같은 종류라(타이탄의
@@ -173,18 +173,18 @@ function rollBuildingAttack(values) {
 // 자체의 발동 여부(주기 도달)는 호출하는 쪽(페이지/runBuildingSimulation)에서 판정함.
 function rollEarthquakeHit(values) {
   const skillBaseDmg = values.atk * (values.earthquake.burst_p / 100);
-  const isCrit = Math.random() * 100 < values.cRate;
-  const dmg = isCrit ? skillBaseDmg * (values.cDmg / 100) : skillBaseDmg;
-  return { dmg, isCrit };
+  return rollCritHit(skillBaseDmg, values.cRate, values.cDmg);
 }
 
 /**
  * 빠른 계산용 - 크리티컬 확률/피해까지 반영한 "1초당 기댓값"(지진 추가 피해는 제외 - 어떤 건물이
  * 타겟인지, 뒤 칸에 건물이 있는지 등 배치 상태에 따라 달라져서 고정 기댓값 공식으로 표현하기
- * 어려움. 실전 시뮬레이션에서는 정확히 반영됨)
+ * 어려움. 실전 시뮬레이션에서는 정확히 반영됨). stat-calc.js의 computeExpectedDpsFromCrit 공용
+ * 함수를 그대로 호출하는 얇은 래퍼 - computeEarthquakeExpectedSplashDps/
+ * computeBuildingCombatMetrics 등 내부에서 이 이름으로 계속 부르므로 이름 자체는 유지함
  */
 function computeBuildingExpectedDps(values) {
-  return values.atk * (1 + (values.cRate / 100) * (values.cDmg / 100 - 1));
+  return computeExpectedDpsFromCrit(values.atk, values.cRate, values.cDmg);
 }
 
 // 지진 룬의 "주기 도달 시 추가 피해"를 초당 기댓값으로 환산 - burst_p%의 스플래시가 count타마다

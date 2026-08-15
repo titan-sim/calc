@@ -63,6 +63,12 @@ function runTitanSimulation(cfg) {
       .filter((r) => r !== null)
       .map((r) => ({ ...r, s: RUNES_DATA[r.name].levels[r.lv] }));
 
+    // "보호막"/"타이탄 가드" 룬은 activeRunes 자체가 시뮬레이션 1회 전체(runTitanSimulation
+    // 호출 1번)에서 안 바뀌므로 여기서 한 번만 찾아둠 - 예전엔 매 틱, 매 공룡마다 다시
+    // activeRunes.find(...)로 탐색했음(성능 낭비, 사용자 지적 - 사이트 전체 점검 결과)
+    const shieldRune = activeRunes.find((r) => r.name === "보호막");
+    const guardRune = activeRunes.find((r) => r.name === "타이탄 가드");
+
     // 자연의 포옹/부족의 축복은 해당 타일 조건이 충족된 상태여야만 효과가 적용됨(허수아비/공룡
     // 대전과 같은 조건). 다른 룬은 항상 적용.
     const isTileGated = (r) =>
@@ -150,21 +156,18 @@ function runTitanSimulation(cfg) {
           if (t === 1) {
             initialFullHp = currentMaxHp;
             prevMaxHp = currentMaxHp;
-            const sRune = activeRunes.find((r) => r.name === "보호막");
             dinos.forEach((d) => {
               d.hp = initialFullHp;
-              d.shieldSteps = sRune ? sRune.s.turn : 0;
+              d.shieldSteps = shieldRune ? shieldRune.s.turn : 0;
             });
             aliveDinos = dinos;
           } else {
             // 협동 공격/고독한 분노처럼 인원 조건에 따라 최대 체력이 오르내리는 룬 대응. 게임사
             // 공식 답변 확인: 조건을 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라,
             // "감소 전 최대 체력 대비 남은 체력의 비율"로 재조정됨(체력 %가 그대로 유지되고
-            // 절대값만 같이 줄어듦/늘어남) - 최대치를 넘을 때만 깎던 예전 clamp 방식과 다름
-            if (currentMaxHp !== prevMaxHp) {
-              const hpRatio = currentMaxHp / prevMaxHp;
-              aliveDinos.forEach((d) => { d.hp *= hpRatio; });
-            }
+            // 절대값만 같이 줄어듦/늘어남) - 최대치를 넘을 때만 깎던 예전 clamp 방식과 다름.
+            // 다이노배틀/아레나/건물과 같은 공용 헬퍼(stat-calc.js) 사용
+            rescaleAliveHpForMaxHpChange(aliveDinos, currentMaxHp, prevMaxHp);
             // 연속 전투로 복귀하는 공룡: 새로 소환된 것과 같으므로 체력을 꽉 채우고 상태를 초기화
             dinos.forEach((d) => {
               if (d.reviving) {
@@ -172,8 +175,7 @@ function runTitanSimulation(cfg) {
                 d.giftAtk = 0;
                 d.giftSteps = 0;
                 d.attackCount = 0;
-                const sRune = activeRunes.find((r) => r.name === "보호막");
-                d.shieldSteps = sRune ? sRune.s.turn : 0;
+                d.shieldSteps = shieldRune ? shieldRune.s.turn : 0;
                 d.reviving = false;
                 if (collectLog && i === 0) {
                   tickEvents.push(`${dinos.indexOf(d) + 1}번 공룡 재소환 복귀 (체력 ${Math.round(currentMaxHp).toLocaleString()})`);
@@ -186,13 +188,11 @@ function runTitanSimulation(cfg) {
           for (let d of aliveDinos) {
             d.attackCount++;
             let finalBaseAtk = currentAtk + d.giftAtk;
-            // 치명타 여부까지 같이 돌려줘야 "주요 이벤트" 로그(치명타 발동)에 남길 수 있음
-            const rollHit = (val) => {
-              const isCrit = Math.random() * 100 < cRate;
-              return { dmg: isCrit ? val * (cDmg / 100) : val, isCrit };
-            };
 
-            const basicHit = rollHit(finalBaseAtk);
+            // 치명타 여부까지 같이 돌려줘야 "주요 이벤트" 로그(치명타 발동)에 남길 수 있음 -
+            // stat-calc.js의 rollCritHit 공용 함수 사용(전투 수식 공용화 작업 - 예전엔 매 공룡,
+            // 매 틱마다 여기서 클로저를 새로 만들어 썼음, 사용자 지적으로 정리)
+            const basicHit = rollCritHit(finalBaseAtk, cRate, cDmg);
             tHp -= basicHit.dmg;
             if (collectLog && i === 0 && basicHit.isCrit) {
               tickEvents.push(`${dinos.indexOf(d) + 1}번 공룡 평타 치명타 (타이탄 ${Math.round(basicHit.dmg).toLocaleString()} 피해)`);
@@ -200,14 +200,14 @@ function runTitanSimulation(cfg) {
 
             activeRunes.forEach((r) => {
               if ((r.name === "낙뢰" || r.name === "메테오") && Math.random() * 100 < r.s.prob) {
-                const skillHit = rollHit(finalBaseAtk * (r.s.burst_p / 100));
+                const skillHit = rollCritHit(finalBaseAtk * (r.s.burst_p / 100), cRate, cDmg);
                 tHp -= skillHit.dmg;
                 if (collectLog && i === 0) {
                   tickEvents.push(`${dinos.indexOf(d) + 1}번 공룡 ${r.name} 발동${skillHit.isCrit ? "(치명타)" : ""} (타이탄 ${Math.round(skillHit.dmg).toLocaleString()} 피해)`);
                 }
               }
               if (r.name === "트리플 임팩트" && d.attackCount % 3 === 0) {
-                const skillHit = rollHit(finalBaseAtk * (r.s.burst_p / 100));
+                const skillHit = rollCritHit(finalBaseAtk * (r.s.burst_p / 100), cRate, cDmg);
                 tHp -= skillHit.dmg;
                 if (collectLog && i === 0) {
                   tickEvents.push(`${dinos.indexOf(d) + 1}번 공룡 트리플 임팩트 발동${skillHit.isCrit ? "(치명타)" : ""} (타이탄 ${Math.round(skillHit.dmg).toLocaleString()} 피해)`);
@@ -247,12 +247,10 @@ function runTitanSimulation(cfg) {
               // 타이탄전에서 "특정 대상"(보스/캐터펄트) 룬 중 타이탄에 적용 가능한 건 타이탄 가드(상수값)뿐이라 특정 대상 %는 없음
               let currentTDmg = baseTDmg;
 
-              const guardRune = activeRunes.find((r) => r.name === "타이탄 가드");
               if (guardRune) currentTDmg -= guardRune.s.red_f;
 
               if (d.shieldSteps > 0) {
-                const sRune = activeRunes.find((r) => r.name === "보호막");
-                currentTDmg *= (1 - (sRune ? sRune.s.red_p : 0) / 100);
+                currentTDmg *= (1 - (shieldRune ? shieldRune.s.red_p : 0) / 100);
                 d.shieldSteps--;
               }
 

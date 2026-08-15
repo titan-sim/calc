@@ -517,12 +517,6 @@
   font-weight: 700;
 }
 
-.friend-preset-detail-slots {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--border-color);
-}
-
 .friend-stat-subrow {
   margin-top: 10px;
   padding-top: 10px;

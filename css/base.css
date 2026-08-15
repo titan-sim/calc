@@ -37,6 +37,23 @@
   --m-bottom: clamp(8px, 2vh, 20px);
 }
 
+/* 화면엔 안 보이지만 스크린리더/문서 개요(document outline)에는 잡히는 텍스트 - 타이탄/건물/
+   허수아비/다이노배틀/아레나 페이지가 내부 섹션 제목(예: "관련 수치", "타일 설정")은 있어도 "이
+   페이지 자체가 뭔지" 알려주는 헤딩이 없었음(사이트 전체 점검에서 발견). 각 페이지 콘텐츠 최상단에
+   이 클래스를 쓴 <h2>를 하나씩 추가해서 시맨틱 구조만 채우고 기존 디자인/레이아웃은 전혀 안 건드림
+   (사용자 확정 - "디자인이나 스타일이 달라지지 않게") */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* 라이트 모드 클래스
    예전엔 배경/카드/입력칸이 다 거의 흰색 한 덩어리라(#f1f3f7/#ffffff/#edf0f5) 층 구분이 안 되고
    눈부심만 있었음. 페이지 배경을 확실히 더 어둡게 잡아서 카드가 그 위에 "떠 보이게" 하고,
@@ -151,23 +168,6 @@ input, textarea {
   width: 100%;
   box-sizing: border-box;
   margin: 0 auto;
-}
-
-.button-group,
-.grid-2col {
-  display: flex;
-  flex-wrap: nowrap;
-  /* 가로 배열 유지 */
-  gap: 8px;
-  width: 100%;
-}
-
-.button-group button,
-.grid-2col > div {
-  flex: 1;
-  /* 모든 요소가 동일한 비율로 너비를 나눠 가짐 */
-  min-width: 0;
-  /* flex 아이템이 칸을 뚫고 나가는 현상 방지 */
 }
 
 .warning {
@@ -730,31 +730,6 @@ input:checked + .slider:before {
   cursor: not-allowed;
 }
 
-.hp-bar-container {
-  background: #444;
-  border-radius: 10px;
-  height: 20px;
-  width: 100%;
-  margin: 10px 0;
-  position: relative;
-  overflow: hidden;
-}
-
-.hp-bar-fill {
-  background: linear-gradient(90deg, #e74c3c, #2ecc71);
-  height: 100%;
-  width: 0%;
-  transition: width 0.5s ease;
-}
-
-.min-record-text {
-  font-size: 11px;
-  color: var(--text-sub);
-  text-align: right;
-  display: block;
-  margin-top: -5px;
-}
-
 .close-btn {
   background: none;
   border: none;
@@ -861,15 +836,6 @@ b .dropdown-list::-webkit-scrollbar {
   color: var(--accent);
 }
 
-.chart-container {
-  width: 100%;
-  /* 가로가 좁아지면 세로도 비율에 맞춰 줄어들게 함 */
-  aspect-ratio: 2 / 1; 
-  position: relative;
-  background: #111; /* 배경색 예시 */
-  padding: 0;
-  margin: 10px 0;
-}
 
 #hpChart {
   display: block;

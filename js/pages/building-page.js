@@ -254,6 +254,11 @@ let buildingAttackTimer = null;
 let buildingRunning = false;
 let buildingElapsedSec = 0;
 let buildingTotalDmg = 0;
+// buildingStartAttack()에서 한 번만 계산해서 매 틱 재사용하는 캐시(성능 최적화) - "전투 설정" 탭을
+// 건드리면 재생이 자동으로 멈추므로 재생 중엔 이 값들이 안 바뀜
+let buildingCachedCombatConfig = null;
+let buildingCachedInputs = null;
+let buildingCachedTileCfg = null;
 let buildingAttackCount = 0; // 지진 주기 판정용 - 리셋 시 0으로
 let buildingMaxHp = [null, null, null, null]; // null = 그 자리에 건물 없음
 let buildingHp = [null, null, null, null];
@@ -275,6 +280,18 @@ const BUILDING_SLOT_LABELS = ["중앙", "정면", "좌측", "우측"];
 let buildingDinoHp = Array(BUILDING_MAX_DINO_COUNT).fill(0);
 let buildingDinoMaxHp = 0;
 let buildingDinoReviveAt = Array(BUILDING_MAX_DINO_COUNT).fill(null); // null 아니면 그 시각(경과초)에 부활
+
+// 투사체 비행 시간(css/building.css의 building-projectile-fly 애니메이션 시간과 반드시 맞춰야 함) -
+// 인게임처럼 "쏘는 순간"과 "맞는 순간" 사이에 시간차를 둠(사용자 확정 - "투사체가 타일에 명중한
+// 뒤에 대미지가 터지도록"). 대미지 적용을 이만큼 늦춘 setTimeout들을 여기 모아뒀다가, 일시정지/
+// 초기화/페이지 이탈 시 한꺼번에 취소함(안 그러면 이미 멈춘 뒤에도 뒤늦게 대미지가 터지거나,
+// 사라진 DOM에 접근해 콘솔 에러가 남 - 다른 타이머들과 같은 이유)
+const BUILDING_PROJECTILE_FLIGHT_MS = 450;
+let buildingPendingCatapultTimers = [];
+function buildingClearPendingCatapultTimers() {
+  buildingPendingCatapultTimers.forEach((t) => clearTimeout(t));
+  buildingPendingCatapultTimers = [];
+}
 let buildingNextCatapultFireSec = 1; // 캐터펄트는 항상 장전 완료 상태라 내 공격 1타와 동시에 첫 발(사용자 확정)
 
 // ===== 관련 수치 카드(타이탄과 같은 패턴, css/titan.css의 .metrics-grid/.metric-tile을 그대로
@@ -289,11 +306,13 @@ let buildingActiveMetricKey = null;
 window.addEventListener("hashchange", () => {
   clearInterval(buildingAttackTimer);
   buildingRunning = false;
+  buildingClearPendingCatapultTimers();
 });
 
 function renderBuildingPage(container) {
   const [c0, c1, c2, c3] = BUILDING_HEX_CENTERS;
   container.innerHTML = `
+    <h2 class="sr-only">건물</h2>
     <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
 
     <div id="buildingMyDinoSection"></div>
@@ -375,9 +394,17 @@ function renderBuildingPage(container) {
               <label class="setting-label" for="buildingDistanceInput">건물까지의 거리</label>
               <div class="affix-input has-suffix"><input type="tel" inputmode="numeric" id="buildingDistanceInput" value="1"><span class="affix-suffix">타일</span></div>
             </div>
-            <div class="titan-settings-row">
-              <label class="setting-label">연속 전투</label>
-              <label class="switch"><input type="checkbox" id="buildingContinuousToggle"><span class="slider round"></span></label>
+            <!-- "건물까지의 거리"는 라벨(위)+입력칸(아래) 2줄인데 "연속 전투"는 라벨+토글이 한
+                 줄이라 키가 안 맞았음 - 진짜로 위쪽에 보이지 않는 라벨을 하나 더 두면(.titan-settings-stack
+                 .setting-label 스타일 그대로 재사용, visibility:hidden만 추가) 높이가 정확히 같아짐
+                 (사용자 확정 - "옆에 있는 타일수의 입력칸과 높이를 똑같이 맞춰... 위쪽에 투명
+                 글자가 있다라고 생각해도 좋다는거지") -->
+            <div class="titan-settings-stack">
+              <label class="setting-label" style="visibility:hidden">건물까지의 거리</label>
+              <div class="titan-settings-row">
+                <label class="setting-label">연속 전투</label>
+                <label class="switch"><input type="checkbox" id="buildingContinuousToggle"><span class="slider round"></span></label>
+              </div>
             </div>
           </div>
           <div class="titan-settings-levelblock">
@@ -566,12 +593,44 @@ function buildingPositionSlots() {
     // 건물 4개끼리 깊이정렬 - 타일 위치가 고정이라 매 프레임 다시 잴 필요는 없지만, 정적으로
     // 손으로 미리 계산해두면(예전 방식) 배치가 바뀔 때 사람이 값을 다시 맞춰야 하는 유지보수
     // 리스크가 있어서 다이노 배틀과 같은 방식(카메라 실제 깊이 기반)으로 통일함 - 카메라에 가까운
-    // 타일일수록 큰 값(위에 그려짐). 공룡(.building-dino-slot)은 항상 이 범위보다 높은
-    // z-index:10을 쓰므로 건물이 공룡을 가리는 일은 없음
+    // 타일일수록 큰 값(위에 그려짐). 공룡(buildingUpdateDinoPosition)도 같은 공식을 쓰므로 실제로
+    // 더 가까운 쪽이 그때그때 위에 그려짐(둘 중 하나가 항상 이긴다고 못 박아두지 않음)
     if (pct.visible) slot.style.zIndex = Math.round(10000 - pct.distance);
+
     const hitbox = document.getElementById(`buildingHexHitbox${i}`);
     hitbox.style.left = pct.left;
     hitbox.style.top = pct.top;
+    // 히트박스를 이 타일의 실제 투영된 육각형 모양 그대로 clip-path로 잘라냄 - 예전엔 4칸 전부
+    // 고정 38%×48%(스테이지 기준) 사각형을 그대로 썼는데, 타일마다 카메라 원근상 실제 화면
+    // 크기가 다르고, 사각형(육각형의 축정렬 바운딩 박스)은 육각형 자체보다 넓어서 인접 타일과
+    // 실제로 겹치지 않는데도 그 바운딩 박스끼리는 겹쳐 보이는 문제가 있었음(사용자 지적, 실측
+    // 확인 - 단순히 바운딩 박스 크기만 타일별로 다르게 줘도 겹침이 크게 안 줄었음) - 6개
+    // 꼭짓점을 각각 투영해서 그 타일 중심 기준으로 살짝(1.15배) 바깥으로 벌린 뒤(육각형 꼭짓점
+    // 근처를 못 누르는 문제를 완화하려는 기존 설계 의도 "옆 타일과 살짝 겹치는 게 낫다"는 유지),
+    // 그 점들로 만든 다각형만 클릭 가능하게 함 - 진짜 육각형 이웃끼리는 원근 투영 후에도 변을
+    // 맞대고 있을 뿐 면적이 겹치지 않으므로(직선을 직선으로 보내는 투영이라 공유 변도 그대로
+    // 공유됨) 이러면 침범이 사실상 사라짐
+    if (buildingScene3d) {
+      const margin = 1.15;
+      const centerL = parseFloat(pct.left), centerT = parseFloat(pct.top);
+      const corners = HEX_LOCAL_POINTS.map(([lx, ly]) => {
+        const p = buildingScene3d.projectToScreen(BUILDING_HEX_CENTERS[i][0] + lx, BUILDING_HEX_CENTERS[i][1] + ly);
+        return {
+          l: centerL + (parseFloat(p.left) - centerL) * margin,
+          t: centerT + (parseFloat(p.top) - centerT) * margin
+        };
+      });
+      const minLeft = Math.min(...corners.map((c) => c.l)), maxLeft = Math.max(...corners.map((c) => c.l));
+      const minTop = Math.min(...corners.map((c) => c.t)), maxTop = Math.max(...corners.map((c) => c.t));
+      hitbox.style.width = `${maxLeft - minLeft}%`;
+      hitbox.style.height = `${maxTop - minTop}%`;
+      // clip-path의 %는 이 엘리먼트 자기 자신의 박스 기준이라, 꼭짓점을 방금 정한 박스 안
+      // 상대좌표(0~100%)로 다시 환산해야 함
+      const points = corners
+        .map((c) => `${((c.l - minLeft) / (maxLeft - minLeft)) * 100}% ${((c.t - minTop) / (maxTop - minTop)) * 100}%`)
+        .join(", ");
+      hitbox.style.clipPath = `polygon(${points})`;
+    }
   });
 }
 
@@ -594,6 +653,13 @@ function buildingUpdateDinoPosition() {
   const dinoSlot = document.getElementById("buildingDinoSlot");
   dinoSlot.style.left = pct.left;
   dinoSlot.style.top = pct.top;
+  // 공룡도 건물과 같은 카메라 실제 깊이 기반 공식으로 z-index를 계산 - 예전엔 공룡을 항상 맨 위로
+  // 고정했었는데(사용자 확정이었으나, 중앙 타일에 있을 땐 어차피 제일 가까워서 티가 안 났을 뿐),
+  // 다른 타일로 이동해서 공룡이 카메라에서 더 먼데도 앞쪽 건물보다 계속 위에 그려지는 게
+  // 부자연스럽다는 지적(사용자 - "카메라 시점을 기준으로 거리를 계산해서 누가누가 앞에 있고
+  // 뒤에 있는지 해봐야겠는데")으로 정정 - 건물(.building-wall-slot)과 동일한 수식을 써서 실제로
+  // 더 가까운 쪽이 그때그때 위에 그려짐
+  if (pct.visible) dinoSlot.style.zIndex = Math.round(10000 - pct.distance);
   // 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js) - 매머드의 힘/압축된 힘 룬 배율까지 반영
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
   const sizeScale = hexSceneDinoRuneSizeScale(buildingDinoInputs(profile).selectedRunes);
@@ -698,20 +764,30 @@ function buildingRenderMetricDetail() {
   let title = "";
   let rows = [];
 
+  // 크리티컬 대미지(치확/치피를 평균으로 안 섞고, 크리티컬이 "떴을 때" 그대로 들어가는 값) - 평타/
+  // 지진 공용(사용자 확정 - 타이탄과 같은 패턴)
+  const critDmgOf = (baseAmount) => baseAmount * (buildingSafeNum(m.cDmg) / 100);
+
   if (buildingActiveMetricKey === "basicDmg") {
     title = "평타 대미지 계산 내역";
+    // 치명타 확률/피해 수치는 빼고, 증폭 후 공격력에 실제 크리티컬이 떴을 때의 대미지를 보여줌
+    // (사용자 확정 - "치명타 확률, 피해 수치를 빼고 증폭 후 크리티컬 대미지 추가하기")
     rows = [
       { label: "증폭 전 공격력", value: Math.round(buildingSafeNum(m.preAmpAtk)).toLocaleString() },
       { label: "증폭 후 공격력", value: Math.round(buildingSafeNum(m.atk)).toLocaleString() },
-      { label: "치명타 확률", value: `${buildingSafeNum(m.cRate).toFixed(2)}%` },
-      { label: "치명타 피해", value: `${buildingSafeNum(m.cDmg).toFixed(2)}%` }
+      { label: "증폭 후 크리티컬 대미지", value: Math.round(critDmgOf(buildingSafeNum(m.atk))).toLocaleString() }
     ];
   } else if (buildingActiveMetricKey === "quakeDmg") {
     title = "지진 대미지 계산 내역";
+    // 사용자 확정 - "지진의 원래 대미지를 넣은 다음 그 밑에줄에 크리티컬 대미지를 추가" - 원래
+    // 대미지는 치확/치피를 안 섞은 기본 스플래시 값(주기/발동 확률과 무관하게 "한 번 터졌을 때"
+    // 들어가는 값), 그 아래 크리티컬 대미지는 그 발동이 확정 크리티컬이었을 때의 값
     if (m.earthquake) {
+      const rawQuakeDmg = buildingSafeNum(m.atk) * (m.earthquake.burst_p / 100);
       rows = [{
         label: `지진 (${m.earthquake.count}타마다 ${m.earthquake.burst_p}% 스플래시)`,
-        value: Math.round(buildingSafeNum(m.avgEarthquakeDamage)).toLocaleString()
+        value: Math.round(rawQuakeDmg).toLocaleString(),
+        subs: [`크리티컬 대미지 ${Math.round(critDmgOf(rawQuakeDmg)).toLocaleString()}`]
       }];
     }
   } else if (buildingActiveMetricKey === "atkAmp") {
@@ -732,7 +808,7 @@ function buildingRenderMetricDetail() {
     box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">장착된 관련 룬이 없습니다</div>`;
   } else {
     box.innerHTML = `<div class="metric-detail-title">${title}</div>${rows
-      .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div></div>`)
+      .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${(r.subs || []).map((s) => `<div class="metric-detail-row-sub">${s}</div>`).join("")}</div>`)
       .join("")}`;
   }
   box.style.display = "block";
@@ -1473,18 +1549,29 @@ function buildingStartAttack() {
   buildingRunning = true;
   document.getElementById("buildingStartBtn").textContent = "일시정지";
   document.getElementById("buildingRestartBtn").disabled = false;
+
+  // "전투 설정" 탭을 건드리면(카테펄트 레벨 등) 지금 켜져있는 "시뮬레이션" 탭을 자동으로
+  // 멈추게 돼있어서(buildingInitModeTabs 참고) 재생 도중엔 이 값들이 바뀔 수 없음 - 그러니 매
+  // 틱 다시 읽을 필요 없이 여기서 한 번만 캐싱(사용자 지적 - 사이트 전체 점검, 매 틱 localStorage
+  // 재읽기 낭비)
+  buildingCachedCombatConfig = loadBuildingCombatConfig();
+  buildingCachedInputs = buildingDinoInputs(loadMyDinoProfile(MY_DINO_PROFILE_KEY));
+  buildingCachedTileCfg = loadBuildingTileSettings();
+
   buildingAttackTimer = setInterval(buildingRunAttackTick, buildingGetSpeedMs());
 }
 
 function buildingPauseAttack() {
   buildingRunning = false;
   clearInterval(buildingAttackTimer);
+  buildingClearPendingCatapultTimers();
   document.getElementById("buildingStartBtn").textContent = "재개";
 }
 
 function buildingResetDisplay() {
   buildingRunning = false;
   clearInterval(buildingAttackTimer);
+  buildingClearPendingCatapultTimers();
   buildingElapsedSec = 0;
   buildingTotalDmg = 0;
   buildingAttackCount = 0;
@@ -1560,7 +1647,10 @@ function buildingApplyDinoRevives() {
 
 // 적 캐터펄트 반격 - 통계 시뮬레이션(runBuildingSimulation)과 같은 규칙: 살아있는 공룡 전원
 // 동시에 광역 피해(사용자 확정), 강인함1/2로 감소(퍼센트 먼저, 그다음 정수), 연속 전투면 부활
-// 타이머를 검(getRespawnDelaySec)
+// 타이머를 검(getRespawnDelaySec). 발사(투사체 스폰)와 명중(대미지 적용)을 분리함(사용자 확정 -
+// "투사체가 타일에 명중한 뒤에 대미지가 터지도록" - 빠른 계산/조합 찾기는 애초에 투사체 애니메이션
+// 자체가 없는 통계 계산이라 해당 없음, 라이브 화면 전용) - 대미지 계산 자체(perShotDmg 등)는
+// 발사 시점 설정 그대로 얼려서 클로저로 넘기고, 실제 반영만 비행 시간만큼 늦춤
 function buildingApplyCatapultTick(combatConfig, inputs) {
   if (combatConfig.catapultLevel === null) return;
   if (buildingElapsedSec < buildingNextCatapultFireSec) return;
@@ -1573,6 +1663,14 @@ function buildingApplyCatapultTick(combatConfig, inputs) {
   const rawDmg = BUILDING_CATAPULT_DAMAGE[combatConfig.catapultLevel];
   const perShotDmg = Math.max(1, rawDmg * (1 - reduction.percent / 100) - reduction.flat);
 
+  const timer = setTimeout(() => {
+    buildingPendingCatapultTimers = buildingPendingCatapultTimers.filter((t) => t !== timer);
+    buildingApplyCatapultHit(combatConfig, inputs, perShotDmg);
+  }, BUILDING_PROJECTILE_FLIGHT_MS);
+  buildingPendingCatapultTimers.push(timer);
+}
+
+function buildingApplyCatapultHit(combatConfig, inputs, perShotDmg) {
   for (let i = 0; i < BUILDING_MAX_DINO_COUNT; i++) {
     if (buildingDinoHp[i] <= 0) continue;
     buildingDinoHp[i] = Math.max(0, buildingDinoHp[i] - perShotDmg);
@@ -1611,9 +1709,8 @@ function buildingRunAttackTick() {
     return;
   }
 
-  const combatConfig = loadBuildingCombatConfig();
-  const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
-  const inputs = buildingDinoInputs(profile);
+  const combatConfig = buildingCachedCombatConfig;
+  const inputs = buildingCachedInputs;
 
   buildingApplyDinoRevives();
   const aliveDinoCount = buildingDinoHp.filter((hp) => hp > 0).length;
@@ -1630,12 +1727,21 @@ function buildingRunAttackTick() {
 
   buildingElapsedSec++;
 
-  const tileCfg = loadBuildingTileSettings();
+  const tileCfg = buildingCachedTileCfg;
 
   // 살아있는 공룡이 하나도 없으면(연속 전투로 부활을 기다리는 중) 이번 틱은 공격 없이 시간만
   // 흘려보냄 - 공격력도 지금 실제로 살아있는 마릿수만큼만 반영(통계 시뮬레이션과 같은 방식으로
   // count를 매번 다시 계산 - 예전엔 항상 고정 7마리로 계산해서 죽어도 대미지가 안 줄었음)
   if (aliveDinoCount > 0) {
+    // 최대체력도 공격력과 같은 이유로 마릿수 조건부 룬(협동 공격/고독한 분노) 임계값을 넘나들면
+    // 바뀔 수 있음 - 예전엔 buildingResetDinoState()/부활 시점에만 계산해두고 전투 중엔 안
+    // 바꿨는데(건물 페이지 특유의 의도된 단순화였음), 다른 3개 엔진(타이탄/다이노배틀/아레나)과
+    // 통일하기 위해 여기서도 매 틱 재계산 - 바뀌었을 때만 비율 재조정(stat-calc.js의
+    // rescaleHpArrayForMaxHpChange, 안 바뀌었으면 내부적으로 그냥 아무 일도 안 함)
+    const newMaxHp = computeBuildingDinoMaxHp({ ...inputs, count: aliveDinoCount }, tileCfg);
+    rescaleHpArrayForMaxHpChange(buildingDinoHp, newMaxHp, buildingDinoMaxHp);
+    buildingDinoMaxHp = newMaxHp;
+
     buildingAttackCount++;
     const values = computeBuildingCombatValues({ ...inputs, count: aliveDinoCount }, tileCfg);
     const { dmg, isCrit } = rollBuildingAttack(values);

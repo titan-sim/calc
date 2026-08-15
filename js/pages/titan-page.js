@@ -168,6 +168,7 @@ function titanCombinations(arr, k) {
 
 function renderTitanPage(container) {
   container.innerHTML = `
+    <h2 class="sr-only">타이탄</h2>
     <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
 
     <div id="myDinoSection"></div>
@@ -380,6 +381,12 @@ function renderTitanPage(container) {
 // 정확히 지목해서 지울 수 있음(사용자 지적 - "theme-changed 리스너가 페이지를 오갈 때마다 계속
 // 쌓임" - 클로저 안에 두면 매번 새 함수 객체라 removeEventListener가 무효함, 실측/코드 검증 완료)
 let titanThemeChangeHandler = null;
+// 재생 중(setInterval)에 다른 페이지로 이동해도 안 멈추고 계속 titanReplayTick을 불러서 이미
+// 사라진 DOM을 건드리다 콘솔 에러가 나던 걸 막는 hashchange 리스너도 위 titanThemeChangeHandler와
+// 똑같은 이유로 진짜 모듈 스코프에 둬야 함 - 예전엔 initTitanPage() 안에서 매 방문마다 재등록돼서
+// 방문할 때마다 리스너가 하나씩 계속 쌓이고 있었음(사이트 전체 점검에서 발견, theme-changed
+// 리스너는 이미 고쳤었는데 이 리스너는 그때 안 건드려서 빠져있었음)
+let titanHashChangeHandler = null;
 
 function initTitanPage() {
   let lastMetrics = null;
@@ -488,13 +495,19 @@ function initTitanPage() {
     let title = "";
     let rows = [];
 
+    // 크리티컬 대미지(치확/치피를 평균으로 섞지 않고, 크리티컬이 "떴을 때" 그대로 들어가는 값) -
+    // 평타는 여기서 바로 계산(getTitanCombatMetrics가 안 돌려주는 값이라), 스킬은 발동 확률까지
+    // 얽혀있어서 같은 개념을 getTitanCombatMetrics 쪽(skillDetails.critDmg)에서 미리 계산해둠
+    const critDmgOf = (baseAmount) => baseAmount * (m.cDmg / 100);
+
     if (activeMetricKey === "basicDmg") {
       title = "평타 대미지 계산 내역";
+      // 치명타 확률/피해 수치는 빼고, 증폭 후 공격력에 실제 크리티컬이 떴을 때의 대미지를 보여줌
+      // (사용자 확정 - "치명타 확률, 피해 수치를 빼고 증폭 후 크리티컬 대미지 추가하기")
       rows = [
         { label: "증폭 전 공격력", value: Math.round(m.finalAtk).toLocaleString() },
         { label: "증폭 후 공격력", value: Math.round(m.ampFinalAtk).toLocaleString() },
-        { label: "치명타 확률", value: `${m.cRate.toFixed(2)}%` },
-        { label: "치명타 피해", value: `${m.cDmg.toFixed(2)}%` }
+        { label: "증폭 후 크리티컬 대미지", value: Math.round(critDmgOf(m.ampFinalAtk)).toLocaleString() }
       ];
     } else if (activeMetricKey === "atkAmp") {
       title = "공격력 증폭 내역";
@@ -503,10 +516,17 @@ function initTitanPage() {
       }
     } else if (activeMetricKey === "skillDmg") {
       title = "스킬 대미지 내역";
+      // 사용자 확정 - "원래 대미지 적고... 평균 대미지로 변경(즉 서로 위치 교환) 그리고 그 밑에
+      // 크리티컬 대미지 추가" - 메인 값은 원래 대미지(발동 확률은 안 곱했지만 치확/치피 평균은
+      // 반영된 값), 그 아래 평균 대미지(발동 확률까지 반영)와 크리티컬 대미지(치확/치피 평균 대신
+      // 크리티컬 확정으로 가정한 값) 두 줄
       rows = m.skillDetails.map((d) => ({
         label: d.prob !== undefined ? `${d.name} (${d.prob}% 확률)` : `${d.name} (3타마다 확정 발동)`,
-        value: Math.round(d.avgDmg).toLocaleString(),
-        sub: `원래 대미지 ${Math.round(d.rawDmg).toLocaleString()}`
+        value: Math.round(d.rawDmg).toLocaleString(),
+        subs: [
+          `평균 대미지 ${Math.round(d.avgDmg).toLocaleString()}`,
+          `크리티컬 대미지 ${Math.round(d.critDmg).toLocaleString()}`
+        ]
       }));
     } else if (activeMetricKey === "finalAvgDmg") {
       title = "최종 평균 대미지 계산 내역";
@@ -516,6 +536,7 @@ function initTitanPage() {
       ];
     } else if (activeMetricKey === "reduction") {
       title = "대미지 감소 내역";
+      // 사용자 확정 - "원래 감소량을 적고 그 밑에... 평균 감소량"(메인/서브 위치 교환)
       rows = m.reductions.map((r) => {
         if (r.type === "shield") {
           return { label: `${r.name} (${r.turn}회 ${r.red_p}% 감소)`, value: "-" };
@@ -523,18 +544,19 @@ function initTitanPage() {
         if (r.type === "prob") {
           return {
             label: `${r.name} (${r.prob}% 확률)`,
-            value: Math.round(r.avg).toLocaleString(),
-            sub: `원래 감소량 ${Math.round(r.value).toLocaleString()}`
+            value: Math.round(r.value).toLocaleString(),
+            subs: [`평균 감소량 ${Math.round(r.avg).toLocaleString()}`]
           };
         }
         return { label: r.name, value: Math.round(r.avg).toLocaleString() };
       });
     } else if (activeMetricKey === "recovery") {
       title = "회복량 내역";
+      // 사용자 확정 - "원래 회복량을 적고 그 밑에... 평균 회복량"(메인/서브 위치 교환)
       rows = m.recoveries.map((r) => ({
         label: `${r.name} (${r.prob}% 확률)`,
-        value: Math.round(r.avg).toLocaleString(),
-        sub: `원래 회복량 ${Math.round(r.rawAmount).toLocaleString()}`
+        value: Math.round(r.rawAmount).toLocaleString(),
+        subs: [`평균 회복량 ${Math.round(r.avg).toLocaleString()}`]
       }));
     }
 
@@ -542,7 +564,7 @@ function initTitanPage() {
       box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">장착된 관련 룬이 없습니다</div>`;
     } else {
       box.innerHTML = `<div class="metric-detail-title">${title}</div>${rows
-        .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${r.sub ? `<div class="metric-detail-row-sub">${r.sub}</div>` : ""}</div>`)
+        .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${(r.subs || []).map((s) => `<div class="metric-detail-row-sub">${s}</div>`).join("")}</div>`)
         .join("")}`;
     }
     box.style.display = "block";
@@ -671,11 +693,11 @@ function initTitanPage() {
   }
   timeSelectedValue.onclick = () => toggleDropdownList(timeSelectedValue, timeList);
 
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".custom-dropdown")) {
-      document.querySelectorAll(".dropdown-list").forEach((el) => (el.style.display = "none"));
-    }
-  });
+  // 드롭다운 바깥 클릭 시 닫기는 my-dino-page.js가 이미 전역으로 한 번만 등록해둠(window.
+  // __dinoDropdownCloseHandlerBound 가드, 같은 .custom-dropdown/.dropdown-list 클래스를 그대로
+  // 씀 - renderMyDinoPage가 항상 이 페이지보다 먼저 호출돼서 이미 등록돼있음) - 여기서 또
+  // document.addEventListener("click", ...)를 매 방문마다 새로 등록하던 중복 리스너를 제거함
+  // (사이트 전체 점검에서 발견, 사용자 확정)
 
   // 타이탄과의 거리 / 연속 전투
   const fDistance = document.getElementById("fDistance");
@@ -862,15 +884,22 @@ function initTitanPage() {
   let titanReplayTimer = null;
   let titanReplayRunning = false;
   let titanFirstDeathTick = null;
+  // titanLiveReset()에서 한 번만 계산해서 재생 내내 재사용하는 아바타 크기 배율 캐시(성능 최적화) -
+  // 매 리플레이 틱마다 titanDinoInputs()를 다시 불러 룬 목록을 읽던 걸 정리(사용자 지적 - 사이트
+  // 전체 점검, 매 틱 localStorage 재읽기 낭비)
+  let titanCachedSizeScale = 1;
 
   // 재생 중(setInterval)에 다른 페이지로 이동해도 이 타이머가 안 멈추고 계속 titanReplayTick을
   // 불러서, 이미 사라진 DOM(#titanBossHpFill 등)에 접근하다 "Cannot read properties of null"
   // 콘솔 에러가 나던 버그(다이노 배틀 페이지에서 같은 종류의 버그를 이미 hashchange로 고쳤던 것과
-  // 동일 - 실측으로 발견) - 페이지를 벗어나는 순간 타이머를 확실히 멈춤
-  window.addEventListener("hashchange", () => {
+  // 동일 - 실측으로 발견) - 페이지를 벗어나는 순간 타이머를 확실히 멈춤. 리스너 자체는 매 방문마다
+  // 쌓이지 않도록 파일 상단의 진짜 모듈 스코프 titanHashChangeHandler로 remove-then-add
+  window.removeEventListener("hashchange", titanHashChangeHandler);
+  titanHashChangeHandler = () => {
     clearInterval(titanReplayTimer);
     titanReplayRunning = false;
-  });
+  };
+  window.addEventListener("hashchange", titanHashChangeHandler);
 
   function titanInitSpeedDropdown() {
     const currentMs = titanGetSpeedMs();
@@ -1018,8 +1047,9 @@ function initTitanPage() {
   // titanUpdateMyDisplay(매 틱, 죽어서 마릿수가 줄 때)에서 호출
   function titanPositionMyAvatars(count) {
     const points = titanFormationPoints(TITAN_HEX_CENTERS.mine, count);
-    // 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js) - 매머드의 힘/압축된 힘 룬 배율까지 반영
-    const sizeScale = hexSceneDinoRuneSizeScale(titanDinoInputs().selectedRunes);
+    // 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js) - 매머드의 힘/압축된 힘 룬 배율까지 반영.
+    // titanLiveReset()이 채워둔 캐시를 읽기만 함(매 리플레이 틱마다 다시 계산하지 않음)
+    const sizeScale = titanCachedSizeScale;
     const diamPx = titanScene3d
       ? titanScene3d.projectDiameterPx(TITAN_HEX_CENTERS.mine[0], TITAN_HEX_CENTERS.mine[1], DINO_AVATAR_DIAMETER_WORLD * sizeScale)
       : 0;
@@ -1079,7 +1109,9 @@ function initTitanPage() {
     setHpFillWidth(document.getElementById("titanBossHpFill"), 1, 1);
     document.getElementById("titanBossHpText").textContent =
       `${TITAN_STATS[titanLevel].hp.toLocaleString()} / ${TITAN_STATS[titanLevel].hp.toLocaleString()}`;
-    const myCount = titanDinoInputs().count || 1;
+    const dino = titanDinoInputs();
+    const myCount = dino.count || 1;
+    titanCachedSizeScale = hexSceneDinoRuneSizeScale(dino.selectedRunes);
     titanBuildHpBars(myCount);
     // 처음 3마리(정확히는 min(3, 공룡 수))는 타일 위 아바타로 이미 표시되므로, 사이드바 쪽 같은
     // 인덱스는 숨겨야 함(안 그러면 시뮬레이션 시작 전에는 타일 3마리 + 사이드바 전체 N마리가 같이

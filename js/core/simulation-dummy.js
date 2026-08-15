@@ -45,21 +45,19 @@ function computeDummyCombatValues(inputs, tileCfg) {
 }
 
 /**
- * 공격 한 틱(1초에 한 번)의 결과.
+ * 공격 한 틱(1초에 한 번)의 결과 - 실제 계산은 stat-calc.js의 rollCritHit 공용 함수(사용자 지적 -
+ * "4개 페이지 모두 각각 따로따로... 그건 너무 비효율적인 코드 작성", 전투 수식 공용화 작업의
+ * 일부). 여기 남은 건 값 객체(values)를 그 함수의 인자로 풀어주는 얇은 래퍼뿐.
  * @returns {{dmg:number, isCrit:boolean}}
  */
 function rollDummyAttack(values) {
-  const isCrit = Math.random() * 100 < values.cRate;
-  const dmg = isCrit ? values.atk * (values.cDmg / 100) : values.atk;
-  return { dmg, isCrit };
+  return rollCritHit(values.atk, values.cRate, values.cDmg);
 }
 
 /**
- * 빠른 계산용 - 크리티컬 확률/피해까지 반영한 "1초당 기댓값"을 직접 계산(매 틱이 서로 독립이라
- * 여러 번 무작위 시행을 돌려 평균낼 필요 없이 기댓값 공식 그대로가 정확한 답).
- * 기댓값 = 공격력 × (평타 확률×1 + 크리 확률×(치명타피해/100))
- *        = 공격력 × (1 + 크리확률/100 × (치명타피해/100 - 1))
+ * 빠른 계산용 - 크리티컬 확률/피해까지 반영한 "1초당 기댓값"(stat-calc.js의
+ * computeExpectedDpsFromCrit 공용 함수를 그대로 호출하는 얇은 래퍼)
  */
 function computeDummyExpectedDps(values) {
-  return values.atk * (1 + (values.cRate / 100) * (values.cDmg / 100 - 1));
+  return computeExpectedDpsFromCrit(values.atk, values.cRate, values.cDmg);
 }

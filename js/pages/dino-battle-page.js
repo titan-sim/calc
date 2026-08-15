@@ -216,6 +216,7 @@ function saveTileSettings(settings) {
 
 function renderDinoBattlePage(container) {
   container.innerHTML = `
+    <h2 class="sr-only">공룡 대전</h2>
     <div class="card battle-tile-card">
       <h2 class="battle-tile-heading">타일 설정</h2>
 
@@ -1316,6 +1317,9 @@ function popupOffsetStyle(popupIndex) {
 function spawnDamagePopup(fighterElId, dmg, isCrit, label, delayMs, popupIndex = 0) {
   setTimeout(() => {
     const fighter = document.getElementById(fighterElId);
+    // building-page.js의 buildingSpawnDamagePopupOn과 동일한 null 가드 - 페이지를 벗어난 뒤
+    // 밀린 setTimeout이 실행되면 fighter가 이미 사라진 상태일 수 있음(사이트 전체 점검에서 발견)
+    if (!fighter) return;
     const isSkill = !!label && label !== "평타";
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup" + (isSkill ? " skill" : "") + (isCrit ? " crit" : "");
@@ -1329,6 +1333,7 @@ function spawnDamagePopup(fighterElId, dmg, isCrit, label, delayMs, popupIndex =
 function spawnHealPopup(fighterElId, amount, cause, delayMs, popupIndex = 0) {
   setTimeout(() => {
     const fighter = document.getElementById(fighterElId);
+    if (!fighter) return;
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup heal";
     popup.style.cssText = popupOffsetStyle(popupIndex);

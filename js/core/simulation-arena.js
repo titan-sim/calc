@@ -30,8 +30,14 @@ function pseudoSideFor(side, slot) {
 
 // slotRunesList: 슬롯 0~4 각각의 룬 배열을 담은 길이 5 배열(js/pages/arena-page.js의
 // arenaGetActiveSlotRunes(sideKey)) - "포메이션" 하나가 5마리 전원의 룬을 통째로 담고 있어서,
-// 여기선 그 5개 룬 배열을 그대로 받기만 하면 됨(프리셋 풀에서 인덱스로 찾아오던 이전 방식 폐지)
-function buildArenaSide(profile, slotRunesList, key) {
+// 여기선 그 5개 룬 배열을 그대로 받기만 하면 됨(프리셋 풀에서 인덱스로 찾아오던 이전 방식 폐지).
+// runArenaQuickCalc가 트라이얼(기본 2000회)마다 이 함수를 처음부터 다시 불러 RUNES_DATA 조회 +
+// 배열 할당을 반복하던 걸 정리(사용자 지적 - 사이트 전체 점검) - 룬/기본 스탯은 트라이얼 내내
+// 안 바뀌므로 "룬 조립"(이 함수, 트라이얼 루프 밖에서 1회)과 "체력/턴 포인터 등 매 트라이얼
+// 초기화"(resetArenaSideMutableState, 매 트라이얼)를 분리함. runArenaSimulation(실전 1회용)과
+// arena-page.js의 다른 호출자들은 원래처럼 이 함수(buildArenaSide) 그대로 씀 - 매 트라이얼
+// 반복 호출이 아니라서 분리할 이유가 없음
+function buildArenaSideRunes(profile, slotRunesList, key) {
   const inputs = dinoProfileToBattleInputs(profile);
   const slots = slotRunesList.map((runesRaw, slotIndex) => {
     const runes = buildDinoSideRunes(runesRaw || [], ARENA_UNSUITABLE_RUNE_LIST);
@@ -56,6 +62,27 @@ function buildArenaSide(profile, slotRunesList, key) {
     bonusPercent: inputs.bonusPercent,
     slots
   };
+}
+
+function buildArenaSide(profile, slotRunesList, key) {
+  return buildArenaSideRunes(profile, slotRunesList, key);
+}
+
+// 트라이얼(또는 실전 1회) 시작 전에 룬/기본 스탯은 그대로 두고, 직전 트라이얼에서 전투 중 변했을
+// 수 있는 상태만 초기값으로 되돌림(hp/maxHp는 곧이어 initSlotHp가 다시 채움 - 여기선 그 전에
+// 확실히 0으로 정리만 해둠)
+function resetArenaSideMutableState(side) {
+  side.pointer = 0;
+  side.slots.forEach((slot) => {
+    slot.hp = 0;
+    slot.maxHp = 0;
+    slot.giftAtk = 0;
+    slot.giftSteps = 0;
+    slot.warCryAtkP = 0;
+    slot.warCrySteps = 0;
+    slot.shieldSteps = 0;
+    slot.attackCount = 0;
+  });
 }
 
 function aliveSlots(side) {
@@ -136,13 +163,12 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
     // 협동 공격/고독한 분노 등 인원수 조건부 룬으로 최대 체력이 바뀔 수 있음 - 게임사 공식 답변
     // 확인: 조건을 잃어도 즉사하거나 현재 체력이 그대로 유지되는 게 아니라 "감소 전 최대 체력
     // 대비 남은 체력의 비율"로 재조정됨(공룡 대전과 동일 원칙, 최대치를 넘을 때만 깎던 예전
-    // clamp 방식과 다름)
+    // clamp 방식과 다름). stat-calc.js의 rescaleOneUnitHp 공용 함수 사용(전투 수식 공용화 작업)
     [mySide, oppSide].forEach((side) => {
       const aliveCount = aliveSlots(side).length;
       aliveSlots(side).forEach((slot) => {
         const v = computeSideCombatValues(pseudoSideFor(side, slot), aliveCount, tileCfg);
-        if (slot.maxHp > 0 && slot.maxHp !== v.maxHp) slot.hp *= v.maxHp / slot.maxHp;
-        slot.maxHp = v.maxHp;
+        rescaleOneUnitHp(slot, v.maxHp);
       });
     });
 
@@ -162,9 +188,6 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
       hits: [], heals: [], aoe: null, deaths: [],
       mySlots: null, oppSlots: null, myAliveCount: 0, oppAliveCount: 0
     };
-
-    const rollCrit = (vals) => rand() * 100 < vals.cRate;
-    const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
 
     function hitDefender(rawDmg, isCrit, label, target, targetKey) {
       let dmg = rawDmg;
@@ -198,19 +221,19 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
 
     // 평타
     const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
-    const basicCrit = rollCrit(attackerVals);
-    hitDefender(withCrit(finalAtk, basicCrit, attackerVals), basicCrit, "평타", defender, defenderKey);
+    const basicHit = rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg, rand);
+    hitDefender(basicHit.dmg, basicHit.isCrit, "평타", defender, defenderKey);
 
     // 공격측 스킬 룬들(그 공격 슬롯 본인의 룬)
     attacker.runes.forEach((r) => {
       if (defender.hp <= 0) return;
       if (r.name === "트리플 임팩트" && attacker.attackCount % 3 === 0) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, "트리플 임팩트", defender, defenderKey);
+        const tripleHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+        hitDefender(tripleHit.dmg, tripleHit.isCrit, "트리플 임팩트", defender, defenderKey);
       }
       if (r.name === "낙뢰" && rand() * 100 < r.s.prob) {
-        const c = rollCrit(attackerVals);
-        hitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), c, r.name, defender, defenderKey);
+        const lightningHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+        hitDefender(lightningHit.dmg, lightningHit.isCrit, r.name, defender, defenderKey);
         if (r.s.insta_hp !== undefined && defender.hp > 0) {
           const hpPct = (defender.hp / defender.maxHp) * 100;
           if (hpPct < r.s.insta_hp && rand() * 100 < r.s.insta_prob) {
@@ -225,11 +248,11 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
       if (r.name === "메테오" && rand() * 100 < r.s.prob) {
         const targets = [];
         aliveSlots(defenderSide).forEach((d) => {
-          const c = rollCrit(attackerVals);
-          const dmg = Math.max(0, withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+          const meteorHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+          const dmg = Math.max(0, meteorHit.dmg);
           const before = d.hp;
           d.hp = Math.max(0, d.hp - dmg);
-          targets.push({ slot: d.slotIndex, before, after: d.hp, isTarget: d === defender, isCrit: c });
+          targets.push({ slot: d.slotIndex, before, after: d.hp, isTarget: d === defender, isCrit: meteorHit.isCrit });
         });
         event.aoe = { label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets };
       }
@@ -350,9 +373,12 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
   let myWins = 0, oppWins = 0, draws = 0;
   let myFrontFirst = 0, oppFrontFirst = 0;
 
+  const mySide = buildArenaSideRunes(myProfile, mySlotRunes, "my");
+  const oppSide = buildArenaSideRunes(oppProfile, oppSlotRunes, "opp");
+
   for (let trial = 0; trial < trials; trial++) {
-    const mySide = buildArenaSide(myProfile, mySlotRunes, "my");
-    const oppSide = buildArenaSide(oppProfile, oppSlotRunes, "opp");
+    resetArenaSideMutableState(mySide);
+    resetArenaSideMutableState(oppSide);
     initSlotHp(mySide, tileCfg);
     initSlotHp(oppSide, tileCfg);
 
@@ -381,13 +407,13 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
       const attacker = nextAttacker(attackerSide);
       if (!attacker) break;
 
-      // 협동 공격/고독한 분노 인원수 변화 시 체력 비율 재조정(위 runArenaSimulation과 동일 원칙)
+      // 협동 공격/고독한 분노 인원수 변화 시 체력 비율 재조정(위 runArenaSimulation과 동일 원칙,
+      // stat-calc.js의 rescaleOneUnitHp 공용 함수 사용)
       [mySide, oppSide].forEach((side) => {
         const aliveCount = aliveSlots(side).length;
         aliveSlots(side).forEach((slot) => {
           const v = computeSideCombatValues(pseudoSideFor(side, slot), aliveCount, tileCfg);
-          if (slot.maxHp > 0 && slot.maxHp !== v.maxHp) slot.hp *= v.maxHp / slot.maxHp;
-          slot.maxHp = v.maxHp;
+          rescaleOneUnitHp(slot, v.maxHp);
         });
       });
 
@@ -400,9 +426,6 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
       const attackerVals = computeSideCombatValues(pseudoSideFor(attackerSide, attacker), aliveSlots(attackerSide).length, tileCfg);
       const defenderVals = computeSideCombatValues(pseudoSideFor(defenderSide, defender), aliveSlots(defenderSide).length, tileCfg);
 
-      const rollCrit = (vals) => Math.random() * 100 < vals.cRate;
-      const withCrit = (val, isCrit, vals) => (isCrit ? val * (vals.cDmg / 100) : val);
-
       defender.runes.forEach((r) => {
         if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
           defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
@@ -410,18 +433,15 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
       });
 
       const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
-      const basicCrit = rollCrit(attackerVals);
-      arenaQuickHitDefender(withCrit(finalAtk, basicCrit, attackerVals), "평타", defender);
+      arenaQuickHitDefender(rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg).dmg, "평타", defender);
 
       attacker.runes.forEach((r) => {
         if (defender.hp <= 0) return;
         if (r.name === "트리플 임팩트" && attacker.attackCount % 3 === 0) {
-          const c = rollCrit(attackerVals);
-          arenaQuickHitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), "트리플 임팩트", defender);
+          arenaQuickHitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, "트리플 임팩트", defender);
         }
         if (r.name === "낙뢰" && Math.random() * 100 < r.s.prob) {
-          const c = rollCrit(attackerVals);
-          arenaQuickHitDefender(withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals), "낙뢰", defender);
+          arenaQuickHitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, "낙뢰", defender);
           if (r.s.insta_hp !== undefined && defender.hp > 0) {
             const hpPct = (defender.hp / defender.maxHp) * 100;
             if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) defender.hp = 0;
@@ -429,8 +449,7 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
         }
         if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
           aliveSlots(defenderSide).forEach((d) => {
-            const c = rollCrit(attackerVals);
-            const dmg = Math.max(0, withCrit(finalAtk * (r.s.burst_p / 100), c, attackerVals));
+            const dmg = Math.max(0, rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg);
             d.hp = Math.max(0, d.hp - dmg);
           });
         }

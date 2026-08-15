@@ -88,6 +88,8 @@ let dummyAttackTimer = null;
 let dummyRunning = false;
 let dummyElapsedSec = 0;
 let dummyTotalDmg = 0;
+// dummyStartAttack()에서 한 번만 계산해서 매 틱 재사용하는 전투 수치 캐시(성능 최적화)
+let dummyCachedValues = null;
 
 // 재생 중(setInterval)에 다른 페이지로 이동해도 안 멈추고 계속 dummyRunAttackTick을 불러서, 이미
 // 사라진 DOM에 접근하다 "Cannot set properties of null" 콘솔 에러가 나던 버그(타이탄 페이지의
@@ -99,6 +101,7 @@ window.addEventListener("hashchange", () => {
 
 function renderDummyPage(container) {
   container.innerHTML = `
+    <h2 class="sr-only">허수아비</h2>
     <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
 
     <div id="dummyMyDinoSection"></div>
@@ -523,6 +526,15 @@ function dummyStartAttack() {
   document.getElementById("dummyStartBtn").textContent = "일시정지";
   document.getElementById("dummyRestartBtn").disabled = false;
 
+  // 이 시뮬레이터는 인게임과 달리 선택한 스탯/룬을 공룡 수만큼 전부 똑같이 쓰고, 재생 도중엔
+  // 설정을 못 바꾸게 돼있음(설정 변경 핸들러가 전부 dummyResetDisplay를 불러서 재생을 멈추고
+  // "공격 시작"으로 되돌림) - 그러니 재생 내내 안 바뀌는 값을 매 틱 다시 계산할 필요가 없어서
+  // 여기서 한 번만 계산해 캐싱(사용자 지적 - 사이트 전체 점검, 매 틱 localStorage 재읽기 낭비)
+  const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
+  const inputs = dummyDinoInputs(profile);
+  const tileCfg = loadDummyTileSettings();
+  dummyCachedValues = computeDummyCombatValues(inputs, tileCfg);
+
   dummyAttackTimer = setInterval(dummyRunAttackTick, dummyGetSpeedMs());
 }
 
@@ -551,11 +563,7 @@ function dummyResetDisplay() {
 function dummyRunAttackTick() {
   dummyElapsedSec++;
 
-  const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
-  const inputs = dummyDinoInputs(profile);
-  const tileCfg = loadDummyTileSettings();
-  const values = computeDummyCombatValues(inputs, tileCfg);
-  const { dmg, isCrit } = rollDummyAttack(values);
+  const { dmg, isCrit } = rollDummyAttack(dummyCachedValues);
 
   dummyTotalDmg += dmg;
   dummyShakeScarecrow();

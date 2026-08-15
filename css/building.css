@@ -53,11 +53,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  /* "건물까지의 거리"(라벨+입력칸 2줄, .titan-settings-stack)가 "연속 전투"(라벨+토글 1줄,
-     .titan-settings-row - 자기 높이가 고정이라 grid 기본 stretch가 안 먹힘)보다 키가 커서, 이
-     정렬이 없으면 연속 전투 쪽이 칸 맨 위에 붙어 두 블록의 세로 위치(y좌표)가 어긋나 보였음
-     (사용자 지적 - "연속 전투는 블록과 y좌표를 맞춰야해") - 세로 중앙 정렬로 맞춤 */
-  align-items: center;
+  /* 예전엔 "연속 전투"(라벨+토글 1줄)가 "건물까지의 거리"(라벨+입력칸 2줄)보다 키가 작아서
+     align-items:center로 세로 중앙만 맞췄었는데, 그러면 토글이 입력칸과 다른 y좌표에 옴(중간
+     어딘가) - 이제 js(building-page.js)에서 "연속 전투" 위에도 보이지 않는 라벨을 하나 더 둬서
+     두 블록의 실제 높이 자체가 같아졌으므로 별도 정렬이 필요 없음 */
 }
 
 /* 전투 설정 탭 안에서 "타일풍" 설정(자연/부족점령/버프타워/캡)과 "전투풍" 설정(공격할 건물/투석기/
@@ -111,8 +110,12 @@
   flex-direction: column;
   align-items: center;
   /* 맨 뒤 성벽(육각형 4번째, 화면상 가장 위쪽)일수록 체력바+수치 텍스트가 스택 위로 더 높이
-     솟아서 탭 바와 겹치기 쉬움(실측 확인) - 위쪽 여백을 넉넉히 둠 */
-  padding: clamp(34px, 11cqw, 56px) 0 clamp(16px, 5cqw, 28px);
+     솟아서 탭 바와 겹치기 쉬움(실측 확인) - 위쪽 여백을 넉넉히 둠. 아래쪽엔 패딩을 안 줌 - 예전엔
+     여기 패딩으로 다음 형제(#buildingDinoReserveHpBars)와의 간격까지 만들었는데, 그 목록 자신도
+     margin-top을 가지고 있어서 위/아래 여백이 이중으로 겹쳐 육각형 쪽 간격만 유독 벌어져 보였음
+     (사용자 지적 - "정확히 중간에 들어가도록") - 이제 그 목록의 위아래 대칭 margin(%)이 간격을
+     전담함 */
+  padding: clamp(34px, 11cqw, 56px) 0 0;
 }
 
 .building-stage {
@@ -133,9 +136,9 @@
 
 /* 육각형 타일(4칸 전부 - 중앙 포함) 클릭으로 건물 선택 모달을 염 - 예전엔 바닥 SVG의 polygon
    자체가 클릭 대상이었는데, 바닥이 Three.js(캔버스)로 바뀌면서 그 자리를 대신하는 투명 히트박스.
-   실제 육각형(가로 100/세로 86.6, 세계 250x173.2 기준)보다 살짝 넉넉한 사각형으로 클릭 영역을
-   잡음(육각형 모양 그대로 클리핑하지 않음 - 꼭짓점 근처를 못 누르는 것보다 옆 타일과 살짝 겹치는
-   쪽이 사용성에 낫다고 판단) */
+   실제 육각형 모양 그대로 clip-path로 잘라내되(buildingPositionSlots() 참고), 꼭짓점 쪽만 살짝
+   (1.15배) 바깥으로 벌려서 꼭짓점 근처를 못 누르는 문제를 완화함(옆 타일과 아주 살짝 겹치는 건
+   허용 - 완전히 못 누르는 것보다 사용성에 낫다고 판단) */
 .building-hex-hitbox-layer {
   position: absolute;
   inset: 0;
@@ -143,6 +146,11 @@
 
 .building-hex-hitbox {
   position: absolute;
+  /* 여기 크기/모양은 씬이 마운트되기 전(잠깐) 쓰이는 사각형 폴백일 뿐 - 실제로는
+     buildingPositionSlots()(js/pages/building-page.js)가 타일마다 실제 투영된 육각형 경계와
+     clip-path를 매번 계산해서 심어줌(타일 4개가 화면상 크기·모양이 서로 달라서 고정값 하나로는
+     안 맞음 - 예전엔 이 고정 38%×48% 사각형을 그대로 써서 육각형이 아닌 그 바운딩 박스 크기로
+     옆 타일과 크게 겹쳐, 중앙 타일 안쪽인데도 옆 타일이 클릭되는 버그가 있었음, 사용자 지적) */
   width: 38%;
   height: 48%;
   transform: translate(-50%, -50%);
@@ -179,14 +187,14 @@
   /* 이동 버튼으로 타겟을 바꾸면 left/top이 바뀌는데, 순간이동보다 걸어가는 느낌이 나도록 부드럽게
      전환(사용자 확정 - 공룡은 반드시 공격할 타일에 직접 가있어야 함) */
   transition: left 0.4s ease, top 0.4s ease;
-  /* 공룡은 무엇보다 우선해서 항상 위에 그려져야 함(사용자 확정 - "공룡은 그 무엇보다 우선되어
-     스프라이트가 위쪽 판정이어야 함"). 건물 슬롯(.building-wall-slot)이 카메라 실제 깊이 기반
-     동적 z-index(js의 buildingPositionSlots, Math.round(10000 - distance) - 대략 9700~9990대)로
-     바뀐 뒤에는 예전 값(10)이 그보다 한참 작아서 건물이 공룡(체력바 포함)을 덮어버리는 회귀가
-     생겼음(사용자 지적 - "중앙 타일에 있는 건물이 공룡의 체력바보다 위에 있는데?") - distance는
-     항상 양수라 wall z-index는 항상 10000 미만이므로, 10000보다 확실히 큰 값이면 어떤 거리에서도
-     건물보다 항상 위에 그려짐 */
-  z-index: 10001;
+  /* z-index는 이제 건물(.building-wall-slot)과 같은 공식(js의 buildingUpdateDinoPosition,
+     Math.round(10000 - distance))으로 매번 동적 계산됨 - 한때 공룡을 항상 최상단 고정값
+     (10001)으로 뒀었는데(사용자 확정이었으나, 중앙 타일에 있을 땐 어차피 카메라에 제일 가까워서
+     티가 안 났을 뿐), 다른 타일로 이동하면 공룡이 카메라에서 더 먼데도 앞쪽 건물보다 계속 위에
+     그려지는 게 부자연스럽다는 지적으로 정정함(사용자 - "카메라 시점을 기준으로 거리를 계산해서
+     누가누가 앞에 있고 뒤에 있는지 해봐야겠는데") - 여기 값은 씬이 마운트되기 전(잠깐) 쓰이는
+     폴백일 뿐 */
+  z-index: 1;
 }
 
 /* 실제로는 최대 7마리가 동시에 공격하지만(building-page.js의 BUILDING_MAX_DINO_COUNT), 한
@@ -282,13 +290,18 @@
 }
 
 /* 화면에 안 보이는 나머지 공룡(최대 7 - 표시 3 = 4마리)의 체력바 - 타이탄의
-   .titan-hex-hpbar-list와 같은 개념, 건물은 세로 사이드바 대신 무대 아래 가로 줄 */
+   .titan-hex-hpbar-list와 같은 개념, 건물은 세로 사이드바 대신 무대 아래 가로 줄. 위(육각형)/
+   아래(이동 버튼) 항목 정확히 중간에 오도록 위아래 여백을 같은 %(카드 폭 기준, 고정 px 대신 -
+   사용자 확정 "여백을 px로 주지 말고... 퍼센트로 해줘")로 동일하게 줌 - 아래쪽 이웃인
+   .building-move-controls 자신의 margin-top은 0으로 빼서(flex 형제 간 마진은 안 겹쳐지므로 그대로
+   두면 이 여백에 그만큼 더해져 아래쪽이 위쪽보다 더 벌어짐) 이 마진만으로 위아래가 정확히
+   같아지게 함 */
 .building-dino-reserve-hpbar-list {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
+  margin: 3% 0;
 }
 
 .building-dino-reserve-hpbar {
@@ -463,7 +476,10 @@
 .building-move-controls {
   display: flex;
   gap: 8px;
-  margin-top: 4px;
+  /* 위쪽 여백은 이제 .building-dino-reserve-hpbar-list의 margin(위아래 대칭 %)이 전담함 - 여기
+     margin-top까지 남아있으면 flex 형제 마진은 안 겹쳐지므로 그 위 여백에 그대로 더해져서
+     위(육각형 쪽)보다 아래쪽이 더 벌어짐 */
+  margin-top: 0;
 }
 
 .building-move-btn {
