@@ -47,7 +47,9 @@ function animateStatValue(el, newText) {
   el.classList.remove("stat-roll-up", "stat-roll-down");
   void el.offsetWidth; // 강제 리플로우 - 연달아 바뀌어도 강조 애니메이션이 매번 처음부터 재생되게 함
   el.classList.add(increased ? "stat-roll-up" : "stat-roll-down");
-  setTimeout(() => el.classList.remove("stat-roll-up", "stat-roll-down"), 650);
+  // css/my-dino.css의 stat-roll-flash-up/down 애니메이션 시간(0.9s)과 맞춤 - 사용자 요청으로
+  // 카운트 모션을 조금 늘림
+  setTimeout(() => el.classList.remove("stat-roll-up", "stat-roll-down"), 900);
 
   const oldTokens = statRollTokenize(String(oldText));
   const newTokens = statRollTokenize(String(newText));
@@ -82,7 +84,43 @@ function animateStatValue(el, newText) {
   // 되돌림 - 그 사이에 또 다른 값 변경이 들어와 이 el을 다시 그렸다면(토큰 불일치) 덮어쓰지 않음
   const token = String(++statRollTokenSeq);
   el.dataset.statRollToken = token;
+  // css/my-dino.css의 .stat-roll-strip transition(0.85s)이 다 끝난 뒤에 되돌려야 롤링이 덜 끝난
+  // 채로 텍스트가 끊겨 보이지 않음 - 사용자 요청으로 모션을 늘리면서 같이 동기화(0.55s->0.85s에
+  // 맞춰 600ms->850ms)
   setTimeout(() => {
     if (el.dataset.statRollToken === token) el.textContent = newText;
-  }, 600);
+  }, 850);
+}
+
+// "관련 수치" 카드(h2 + .metrics-grid + .metric-tile들 + 클릭 시 펼쳐지는 .metric-detail) 공용
+// 마크업 - 타이탄/건물 페이지가 같은 모양을 각자 손으로 중복 작성하고 있었음(사용자 지적 - "관련
+// 수치 카드 자체 양식을 만들어서 공유해", "페이지마다 어디에 뭘 채울지 정하기만 하면 되는거잖아").
+// 페이지는 타일 목록(각 타일의 id/label/data-metric용 key)과 그리드/디테일 컨테이너 id만 넘기면
+// 됨 - 타일 클릭 시 펼쳐지는 세부 내역(수식 브레이크다운)은 페이지마다 계산 방식이 달라서 그대로
+// 페이지 쪽 로직(각자의 metric-detail 렌더 함수)에 남겨둠, 여기선 마크업 뼈대만 공용화
+function renderMetricsCard(gridId, detailId, tiles) {
+  const tileHtml = tiles.map((t) => `
+        <button type="button" class="metric-tile" data-metric="${t.key}">
+          <div class="metric-label">${t.label}</div>
+          <div class="metric-value" id="${t.id}">0</div>
+        </button>`).join("");
+  return `
+    <div class="card">
+      <h2>관련 수치</h2>
+      <div class="metrics-grid" id="${gridId}">${tileHtml}
+      </div>
+      <div class="metric-detail" id="${detailId}" style="display:none;"></div>
+    </div>`;
+}
+
+// 관련 수치 타일 하나의 값을 갱신 - NaN/undefined/null은 항상 0으로 정리하고(표시용 숫자를 다루는
+// 곳이므로 "NaN"/"null" 글자가 그대로 노출되는 일이 없게 함), animateStatValue로 오도미터 롤링 +
+// 색 플래시 모션을 줌(css/titan.css의 .metric-value.stat-roll-up/down이 전역 스타일이라 어느
+// 페이지의 .metric-value든 동일하게 적용됨). 건물 페이지에서 먼저 쓰던 걸 타이탄에도 통일(사용자
+// 지적 - "모든 페이지의 관련 수치에 모션을 넣어줘")
+function setMetricTileValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const safeValue = Number.isFinite(value) ? value : 0;
+  animateStatValue(el, Math.round(safeValue).toLocaleString());
 }

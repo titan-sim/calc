@@ -336,15 +336,11 @@
   text-align: right;
 }
 
-/* ===== 타이탄: 실전 시뮬레이션 탭 - 육각형 2개(인접 타일)를 각각 따로 3D 회전시켜 모서리를
-   맞추면 계산이 어긋나기 쉬워서, 애초에 두 육각형을 회전 "전" 평면 좌표계 위에 정확한 인접
-   좌표(정육각형 타일 좌표 공식)로 함께 그려두고, 그 전체(SVG 하나)를 통째로 한 번만 rotateX 함 -
-   회전은 강체 변환이라 회전 전에 맞아있던 인접 관계가 그대로 보존되어 별도 계산 없이 항상 맞음.
-   결합 좌표계: 육각형 1개 100x86.6, 우상단 이웃은 (+75,-43.3) 오프셋 -> 합친 뷰박스 175x129.9,
-   내 타일 중심 (50,86.6)=28.57%/66.67%, 상대 타일 중심 (125,43.3)=71.43%/33.33%.
-   공룡/타이탄 아바타는 3D 변환을 아예 쓰지 않는 평면 레이어 - rotateX(55deg) 순수 회전 가정 하의
-   좌표 압축 공식(세로는 무대 중심 기준 cos(55°)≈0.5736배, 가로는 회전축이라 그대로)을 좌표
-   계산으로 직접 적용해서 배치함(중첩 3D에서 나던 렌더링 아티팩트를 구조적으로 피함) */
+/* ===== 타이탄: 실전 시뮬레이션 탭 - 육각형 2개(인접 타일). 결합 좌표계: 육각형 1개 100x86.6,
+   내 타일 중심은 원점(0,0), 상대(보스) 타일은 그 오른쪽 위 이웃(+75,-43.3) - js/pages/
+   titan-page.js의 TITAN_HEX_CENTERS/HEX_NEIGHBOR 참고(SVG viewBox 시절 절대좌표 아님). 바닥은
+   Three.js(js/core/hex-scene3d.js)가 이 좌표 그대로 진짜 3D로 그리고, 공룡/타이탄 아바타는
+   hexScene.projectToScreen()이 계산한 화면 좌표를 받는 평면 2D 레이어 */
 .titan-duel-wrap {
   container-type: inline-size;
   display: flex;
@@ -356,20 +352,25 @@
      클리핑 때와 같은 원인 - 근접 오브젝트가 자기 레이아웃 박스를 넘어서 튀어나옴) */
   padding: 40px 0 10px;
   /* 사이드바 체력바 폭을 육각형 스테이지와 같은 기준으로 맞추기 위해 여기(공통 부모)에 선언해서
-     .titan-hex-hpbar-list와 .titan-duel-field가 같은 값을 공유하게 함 - 기존 280px 기준에서
-     전체적으로 약 30% 키움(280 * 1.3 = 364) */
-  --duel-w: min(364px, 90cqw);
+     .titan-hex-hpbar-list와 .titan-duel-field가 같은 값을 공유하게 함. 카드 폭이 넓은 화면에서도
+     364px에 막혀 여백만 남고 내용물은 작게 보이던 문제(사용자 지적 - "최대한 크게 볼 수 있어야
+     해") - 카드 자체 폭(실측 약 620px)에 맞춰 상한을 520px로 올림(사이드바+gap을 빼고도 잘리지
+     않는 선) */
+  --duel-w: min(520px, 92cqw);
 }
 
 .titan-duel-field {
   position: relative;
   padding: clamp(10px, 4cqw, 20px) 0;
-  perspective: 1000px;
 }
 
-/* 바닥(3D 기울임)과 아바타 오버레이(평면)가 정확히 같은 박스를 공유하는 기준 무대 - 두 레이어가
+/* 바닥(Three.js canvas)과 아바타 오버레이가 정확히 같은 박스를 공유하는 기준 무대 - 두 레이어가
    서로 다른 padding/여백을 가지면 좌표가 어긋나므로, 결합 좌표계(175x129.9) 박스는 이 하나로만
-   정의하고 두 레이어 모두 여기 꽉 채워 겹침 */
+   정의하고 두 레이어 모두 여기 꽉 채워 겹침. CSS 3D(perspective/rotateX)는 더 이상 안 씀 - 바닥은
+   Three.js(js/core/hex-scene3d.js)가 진짜 3D로 그리고, 아바타는 hexScene.projectToScreen()이
+   계산한 화면 좌표를 그대로 left/top에 심는 평범한 2D 오버레이임(CSS rotateX+perspective 방식이
+   이번 세션 내내 겪은 렌더링 버그들 - perspective 체인이 중간 래퍼에서 끊기는 버그, preserve-3d
+   중첩 안에서 오버레이가 안 그려지는 버그 등 - 을 원천 차단하려고 사용자 확정으로 전면 교체함) */
 .titan-duel-stage {
   position: relative;
   width: var(--duel-w);
@@ -377,34 +378,19 @@
   margin: 0 auto;
 }
 
-/* 바닥(SVG)만 진짜 3D로 기울임(preserve-3d + rotateX) */
+/* Three.js가 여기에 canvas를 붙임(js/core/hex-scene3d.js의 mount()) */
 .titan-duel-tilt {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(55deg);
-}
-
-.titan-duel-floor-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
   filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
 }
 
-/* 아바타는 3D 변환을 전혀 안 씀(중첩 3D에서 생기던 반투명/z-fighting 렌더링 버그를 구조적으로
-   피함) - 대신 rotateX(55deg) 순수 회전을 가정했을 때의 좌표 압축 공식을 그대로 계산해서 좌표만
-   대입: 세로 위치는 무대 중심(50%) 기준 cos(55°)≈0.5736배로 당겨오고, 가로는 그대로 둠(회전축이라
-   영향 없음). 두 진영 타일 중심 원래 좌표(28.57%/66.67%, 71.43%/33.33%)에 이 공식을 적용한 값 */
-/* 다이노 배틀과 같은 세계좌표+카메라 방식(사용자 확정) - 이 그룹이 바닥(.titan-duel-tilt)의
-   rotateX(55deg) 3D 공간에 실제로 들어가는 진짜 3D 자식(preserve-3d, 전체 무대를 그대로 채움).
-   내부 각 .titan-hex-billboard-slot이 카메라를 향해 빌보드되고, JS(titanPositionMyAvatars/
-   titanPositionBoss)가 세계좌표를 계산해 매번 left/top만 심어줌 - 예전의 앵커 박스별 손튜닝
-   퍼센트(.titan-hex-anchor)를 대체 */
+/* 아바타 오버레이 - 평범한 2D 절대 위치 레이어(3D 변환 없음). JS(titanPositionMyAvatars/
+   titanPositionBoss)가 hexScene.projectToScreen()으로 계산한 화면 좌표를 각 빌보드 슬롯의
+   left/top에 심음 */
 .titan-formation-group {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
 }
 
 .titan-hex-anchor-popup-layer {
@@ -413,37 +399,30 @@
   pointer-events: none;
 }
 
-/* 바닥의 rotateX(55deg)를 반대로 취소해서 아바타가 눕지 않고 서 있게 세운 뒤(빌보드),
-   translateZ로 바닥면과 같은 깊이에서 겹쳐 깜빡이는 z-fighting을 피해 카메라 쪽으로 살짝
-   들어올림 - translate(-50%,-50%)는 항상 마지막(가장 오른쪽)이어야 원래 좌표 기준점이 안
-   어긋남(다이노 배틀에서 행렬 계산으로 검증된 순서, 여기도 동일하게 적용). left/top 전환에
-   트랜지션을 걸어서 대형이 바뀔 때(공룡이 죽어 마릿수가 줄 때) 순간이동 대신 부드럽게 이동함 */
+/* 아바타 위치 앵커 - hexScene.projectToScreen()이 계산한 화면 좌표(left/top)를 그대로 받는 평범한
+   2D 요소. translate(-50%,-50%)만으로 정확히 그 지점에 중심이 오므로(Three.js 카메라가 이미 진짜
+   3D 투영을 해준 좌표라 CSS 쪽에서 원근을 흉내낼 필요가 없음), 예전에 이 페이지 특유로 필요했던
+   rotateX 역회전/translateZ/손튜닝 translateY 보정값들이 전부 필요 없어짐(공 중심이 육각형 중심과
+   안 맞던 문제, 이름표가 육각형 밖으로 나가던 문제 등 - 전부 이 보정값들을 실측으로 손튜닝해야 했던
+   근본 원인이었음). left/top 전환에 트랜지션을 걸어서 대형이 바뀔 때(공룡이 죽어 마릿수가 줄 때)
+   순간이동 대신 부드럽게 이동함 */
 .titan-hex-billboard-slot {
   position: absolute;
-  transform-style: preserve-3d;
-  transform: rotateX(-55deg) translateZ(4px) translate(-50%, -50%);
+  transform: translate(-50%, -50%);
   transition: left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* .titan-hex-avatar가 체력바+공을 세로로 쌓는 flex라, translate(-50%,-50%)는 "그 스택 전체의
-   중앙"을 세계좌표에 맞추는 거지 "공의 중앙"을 맞추는 게 아님 - 체력바 높이만큼 공의 실제 중심이
-   육각형 중심에서 위로 밀려나 보이던 버그(사용자 지적). 빌보드 로컬 Y로 더 내려서(translateY)
-   보정해 공의 중심이 정확히 세계좌표 지점에 오게 함 - 값은 (체력바 높이+간격)/2 어림값에서
-   시작해서 실제 화면 좌표 오차를 재 가며 미세조정함(육각형 중심 대비 오차 0px 확인). 내 공룡
-   (체력바 5px)과 타이탄(체력바 32px)은 체력바 높이가 달라서 보정값도 따로 나옴 */
-#titanMySlot0, #titanMySlot1, #titanMySlot2 {
-  transform: rotateX(-55deg) translateZ(4px) translate(-50%, -50%) translateY(8.2px);
-}
-#titanBossSlot0 {
-  transform: rotateX(-55deg) translateZ(4px) translate(-50%, -50%) translateY(13.9px);
-}
-
-/* 아바타는 이제 위치를 스스로 잡지 않음(부모 빌보드 슬롯이 이미 세계좌표로 배치됨) - 체력바(위)
-   + 공(아래)을 세로로 쌓는 flex 컨테이너. 원래는 체력바를 공 위로 겹쳐 올리는 음수 top(overflow)
-   트릭을 썼는데, preserve-3d가 여러 겹 중첩된 이 구조에서는 부모 박스 바깥으로 넘치는 자식이
-   그냥 안 그려지는 브라우저 렌더링 버그가 있어서(실측으로 확인 - 음수 top을 0으로 바꾸면 바로
-   보임) 겹치지 않는 flex 레이아웃으로 바꿈(다이노 배틀 페이지의 .battle-team-slot과 동일 원리) -
-   DOM 순서는 공이 먼저지만 시각적으로는 체력바가 위에 와야 해서 hpbar에 order:-1을 줌 */
+/* .titan-hex-avatar는 체력바(order:-1) → 공 → 이름표를 순서대로 쌓는 flex 컬럼(다이노 배틀의
+   .battle-team-slot과 동일한 방식 - 이름표도 진짜 flex 자식으로 둬서 위/아래 무게가 균형 잡히게
+   함). 예전엔 이름표가 공 안의 position:absolute 오버레이였는데, 그러면 "공의 중심"만 세계좌표에
+   맞추는 translateY 보정이 필요했고, 그 보정이 계산에서 안 잡히는 이름표를 육각형 밖으로 밀어내는
+   버그가 있었음(사용자 지적 - 스크린샷으로 직접 확인, 이름표가 육각형 바닥 밖에 떠 있었음) - 이제는
+   이름표도 flex 스택 안에 들어가서 별도 보정 없이 자연스럽게 육각형 안에 들어감.
+   ※ 한때 다이노 배틀/건물 페이지처럼 체력바/텍스트를 공의 절대 위치(bottom:100%) 오버레이 자식으로
+   바꿔서 아예 flex 자체를 없애려고 시도했었는데, getBoundingClientRect()로는 정상적인 박스가
+   잡히는데도 실제 화면엔 전혀 그려지지 않는 현상이 실측으로 재현됨(이 구조 특유의 중첩 preserve-3d
+   렌더링 버그로 추정 - 아래 .titan-hex-avatar-hpbar 주석 참고) - 그래서 flex 인-플로우 방식은
+   유지하고, 이름표만 그 스택 안으로 편입시키는 방향으로 감 */
 .titan-hex-avatar {
   position: relative;
   display: flex;
@@ -454,7 +433,10 @@
 
 .titan-hex-avatar-ball {
   position: relative;
-  width: clamp(30px, 11cqw, 52px);
+  /* 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js의 projectDiameterPx) - titanPositionMyAvatars/
+     titanPositionBoss가 --avatar-diam-px로 심어줌. clamp()는 씬이 아직 마운트되기 전(탭이 열리기
+     직전) 잠깐 쓰이는 폴백일 뿐 - 그 사이엔 안 보이므로 값 자체는 중요하지 않음 */
+  width: var(--avatar-diam-px, clamp(30px, 11cqw, 52px));
   aspect-ratio: 1;
   border-radius: 50%;
   /* 흔들림 회전의 중심을 바닥(아래쪽)에 둠 - 리팩터 전에는 이 요소(공 모양+흔들림)가 위치
@@ -464,21 +446,39 @@
   transform-origin: 50% 100%;
 }
 
+/* 공 밑에 이름표(로그인 시 닉네임, js/ui/dino-display-ui.js) - 체력바/공과 같은 flex 스택의 정식
+   자식(다이노 배틀의 .battle-team-slot-name과 동일한 방식, 사용자 확정 "공룡 밑에 이름도 넣고").
+   예전엔 공(.titan-hex-avatar-ball) 안의 절대 위치(top:100%) 오버레이였는데, 그러면 이름표가
+   중앙 정렬 계산에서 완전히 빠져서 육각형 밖으로 튀어나가는 버그가 있었음(사용자 지적, 위
+   .titan-hex-avatar 주석 참고) - flex 자식으로 바꿔서 부모의 gap(3px)이 자동으로 공과의 간격을
+   줌, 흔들림 애니메이션은 공(.titan-hex-avatar-ball)에만 걸려있어서 이름표는 흔들리지 않고
+   제자리에 고정됨(체력바와 동일한 기존 동작) */
+.titan-hex-avatar-name {
+  font-size: 9px;
+  /* "내 공룡" 이름표 색 - 다이노 배틀의 #myFormationGroup .battle-team-slot-name과 통일(사용자
+     지적 - "어느 페이지는 초록색이고 어떤 페이지는 하얀색이고") */
+  color: #4ade80;
+  white-space: nowrap;
+  /* 로그인 닉네임은 길이가 제각각이라(사용자가 직접 정함) 다이노 배틀의 .battle-team-slot-name과
+     같은 방식으로 잘라냄 - 안 그러면 옆 공룡 이름표와 겹침(건물 페이지에서 실측으로 먼저 발견) */
+  max-width: 46px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 아바타 삼각 대형(공룡 1~3마리)과 보스 위치는 이제 titanPositionMyAvatars()/titanPositionBoss()가
    세계좌표로 계산해서 부모 .titan-hex-billboard-slot의 left/top에 직접 심음(다이노 배틀의
    updateStackDisplay와 같은 원리) - 예전의 slot별 고정 %, [data-count] 재배치 규칙은 필요 없어짐.
-   z-index: DOM 순서상 slot2(오른쪽 뒤)가 slot1(앞)보다 나중에 그려져서 slot1의 체력바 오른쪽
-   절반을 덮어버렸음(왼쪽은 slot0가 먼저 그려져서 우연히 안 덮였던 것) - 앞쪽(slot1)이 항상 위에
-   오도록 명시해서 그 체력바 테두리가 양쪽 다 뒤쪽 공룡과 또렷이 구분되게 함 */
-#titanMySlot0 { z-index: 1; }
-#titanMySlot1 { z-index: 2; }
-#titanMySlot2 { z-index: 1; }
+   z-index는 titanPositionMyAvatars()가 카메라 실제 깊이(projectToScreen의 distance) 기반으로 매번
+   심어줌(다이노 배틀/건물과 같은 방식으로 통일) - 한때 정적값을 손으로 미리 매겨뒀었는데 앞/뒤
+   방향을 반대로 착각해서 더 먼 뒤쪽 공룡이 가까운 앞쪽 공룡을 가리는 버그가 났었음(사용자 지적) -
+   동적 계산으로 바꾸면 이런 실수 자체가 불가능해짐 */
 
-/* 타이탄(보스) 아바타는 공룡 쪽보다 큼 - 항상 1마리뿐이라 위치는 항상 고정 중심점 */
+/* 타이탄(보스) 아바타는 공룡 쪽보다 큼(육각형 기준 통일 크기의 1.6배 - js/core/hex-scene3d.js의
+   TITAN_BOSS_DIAMETER_WORLD) - 항상 1마리뿐이라 위치는 항상 고정 중심점. clamp()는 씬 마운트 전
+   폴백 */
 .titan-hex-avatar-boss .titan-hex-avatar-ball {
-  /* 타이탄(보스) 크기 1.6배 확대(사용자 확정 - 처음에 2배로 했더니 너무 커졌다는 피드백으로
-     다시 줄임) */
-  width: clamp(67px, 24cqw, 115px);
+  width: var(--avatar-diam-px, clamp(67px, 24cqw, 115px));
 }
 
 .titan-hex-avatar-mine .titan-hex-avatar-ball {
@@ -495,20 +495,25 @@
   animation: titan-hex-shake 0.35s ease-in-out;
 }
 
+/* 피격 흔들림 폭을 절반으로(사용자 확정 - "사이트의 모든 피격 시 떨림 정도를 절반으로 줄여") */
 @keyframes titan-hex-shake {
   0%, 100% { transform: rotate(0deg); }
-  20% { transform: rotate(-6deg); }
-  40% { transform: rotate(5deg); }
-  60% { transform: rotate(-4deg); }
-  80% { transform: rotate(2deg); }
+  20% { transform: rotate(-3deg); }
+  40% { transform: rotate(2.5deg); }
+  60% { transform: rotate(-2deg); }
+  80% { transform: rotate(1deg); }
 }
 
 /* 앞 3자리(삼각 대형) 각자의 체력바 - 아바타 원 바로 위(order:-1로 시각 순서만 앞당김, DOM
-   순서는 그대로 유지해서 기존 js의 querySelector 로직을 안 건드림) */
+   순서는 그대로 유지해서 기존 js의 querySelector 로직을 안 건드림).
+   ※ 건물/다이노 배틀 페이지처럼 공의 절대 위치(bottom:100%) 오버레이 자식으로 바꿔서 flex 흐름을
+   아예 안 타게 해보려는 시도가 있었는데, 이 페이지의 중첩 preserve-3d 구조에서는
+   getBoundingClientRect() 상으로는 박스가 정상인데도 실제 화면엔 그려지지 않는 현상이 실측으로
+   재현됨(위 .titan-hex-avatar 주석 참고) - 그래서 order 기반 flex 방식을 유지함 */
 .titan-hex-avatar-hpbar {
   position: relative;
   order: -1;
-  width: calc(clamp(30px, 11cqw, 52px) * 0.9);
+  width: calc(var(--avatar-diam-px, clamp(30px, 11cqw, 52px)) * 0.9);
   height: 5px;
   border-radius: 999px;
   background: var(--input-bg);
@@ -528,27 +533,22 @@
    판단해서 되돌림) - 두께보다는 폭으로 여유를 확보함. 아바타 원보다 넓어져도(1.8배) 겹치는
    요소가 없어서 괜찮음 */
 .titan-hex-avatar-hpbar-boss {
-  /* width는 지금 아바타 크기(clamp(67px,24cqw,115px))를 그대로 참조해서 자동으로 비례 -
-     예전에 옛날(2.5배) 아바타 크기값을 그대로 참조하고 있어서 아바타를 줄여도 체력바만 안 줄고
-     옆으로 튀어나와 보이던 버그였음(사용자 지적 - 실측으로 원인 확인). 배율도 1.8 -> 1.5로
-     낮춰서 육각형 밖으로 덜 튀어나오게 함 */
-  width: calc(clamp(67px, 24cqw, 115px) * 1.5);
-  height: 32px;
+  /* width는 아바타 크기(--avatar-diam-px)를 그대로 참조해서 자동으로 비례. 사용자 확정 -
+     "타이탄 체력바 더 얇고 양옆으로 길게" - 두께는 32px -> 9px로 줄이고(수치 글자를 안에
+     넣으려고 두꺼웠던 것인데, 이제 글자를 바 위로 뺐으니(.titan-hex-avatar-hp-text) 얇아도 됨),
+     배율은 1.5 -> 2.2로 늘려서 옆으로 더 길게 */
+  width: calc(var(--avatar-diam-px, clamp(67px, 24cqw, 115px)) * 2.2);
+  height: 9px;
 }
 
-/* 현재/최대 수치를 체력바 안쪽 정중앙에 표시 - 부모(.titan-hex-avatar-hpbar-boss)가
-   이미 absolute라 이 안에서 inset:0으로 꽉 채우면 그 좌표계 기준으로 깔림. 좌우 padding은
-   막대가 둥근 알약 모양(border-radius:999px)이라 양 끝 곡선 부분까지 글자가 닿지 않게 하는
-   최소한의 여유만 둠(예전엔 8%로 과했다는 피드백 - 4%로 줄임). 큰 수(수백만~수억)라도 줄바꿈
-   없이 한 줄로 보이게 white-space:nowrap + 카드 폭 비례 스케일링(cqw) 적용, 채워진 바 색
-   위에서도 읽히도록 흰 글씨 + 그림자 처리 */
+/* 현재/최대 수치를 체력바 "위"에 표시(사용자 확정 - "체력바 위에 체력 텍스트를 표시해줘") - 예전엔
+   체력바 안쪽에 꽉 채워 넣었지만(두께 32px일 때나 가능했던 방식) 체력바가 얇아지면서 더는 안 들어가
+   체력바(order:-1)와 똑같은 방식으로 .titan-hex-avatar 플렉스 컬럼의 정식 자식으로 두고 order:-2로
+   체력바보다 한 칸 더 위에 오게 함(음수 오프셋 없이 정상 flow라 위 오버레이 시도와 달리 확실하게
+   그려짐). 큰 수(수백만~수억)라도 줄바꿈 없이 한 줄로 보이게 white-space:nowrap + 카드 폭 비례
+   스케일링(cqw) 적용, 어두운 배경 위에서도 잘 읽히도록 흰 글씨 + 그림자는 그대로 유지 */
 .titan-hex-avatar-hp-text {
-  position: absolute;
-  inset: 0;
-  padding: 0 4%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  order: -2;
   white-space: nowrap;
   font-size: clamp(10px, 2.6cqw, 16px);
   font-weight: 700;

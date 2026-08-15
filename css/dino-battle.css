@@ -152,65 +152,47 @@
   justify-content: center;
 }
 
-/* 3D 원근(rotateX+perspective)으로 카메라에 가까운 쪽(특히 내 쪽 육각형의 왼쪽)이 스테이지의
-   평평한 레이아웃 박스보다 더 튀어나와 보이는데, .battle-hex-stage가 max-width:640px라서 카드
-   폭이 640px보다 넓을 때는 자연스러운 여유 공간이 생겨 문제가 없지만, 카드 폭이 640px보다 좁아
-   지면(모바일뿐 아니라 사이드바가 펼쳐진 데스크톱에서도 카드 폭이 640px 밑으로 내려가는 경우가
-   있어서 실측으로 확인 - 뷰포트 기준 media query로는 안 맞음) 그 여유가 없어 왼쪽이 카드의
-   overflow:hidden에 잘려나감(사용자 지적 - "내 공룡 타일 왼쪽이 잘림"). .battle-main-card가
-   이미 container-type:inline-size라서 뷰포트 대신 카드 자신의 실제 폭 기준 컨테이너 쿼리를 씀 -
-   카드가 640px보다 좁을 때만 폭을 81%로 줄여 좌우에 원근 튀어나옴을 위한 여백을 둠(여러 카드
-   폭에서 실측 - 640px 근처가 가장 여유가 적어서 그 경계에서도 안전하도록 보정). box-sizing이
-   content-box라 padding으로 하면 오히려 박스가 밖으로 확장돼버려서 width 자체를 줄이고 부모
-   (.battle-arena)의 align-items:center가 가운데로 밀어주게 함 */
-@container (max-width: 640px) {
-  .battle-hex-field {
-    width: 81%;
-  }
-}
+/* 예전 CSS rotateX+perspective 가짜 3D 시절엔 카메라에 가까운 쪽이 스테이지의 평평한 레이아웃
+   박스보다 더 튀어나와 보여서(사용자 지적 - "내 공룡 타일 왼쪽이 잘림") 카드가 좁을 때 여백을 더
+   주는 보정(width:81%)이 필요했는데, 바닥이 Three.js 진짜 3D로 바뀌면서 아바타는
+   projectToScreen()이 주는 %좌표로만 배치되고 항상 [0,100]% 안에 있어서 더는 박스 밖으로
+   튀어나오지 않음 - 이 보정 자체가 불필요해짐(사용자 지적 - "최대한 크게 볼 수 있어야 해"에 맞춰
+   제거, 남겨두면 카드 폭이 640px 밑일 때 내용물만 쓸데없이 더 작아 보임) */
 
-/* perspective는 반드시 rotateX가 걸린 .battle-hex-tilt의 "직계 부모"에 있어야 실제로 원근이
-   적용됨(조상이라도 한 단계만 떨어지면 원근이 안 먹힘) - 그래서 가운데 정렬용 래퍼인
-   .battle-hex-field가 아니라 .battle-hex-tilt의 바로 위인 여기(.battle-hex-stage)에 둠 */
 .battle-hex-stage {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  /* 카드 폭이 넓은 화면에서 640px에 막히지 않도록 상한을 넉넉히 올림(실제 병목은 3열 레이아웃의
+     가운데 카드 자체 폭이라 이 값이 걸릴 일은 거의 없지만, 좁은 사이드바 없이 혼자 넓게 보일 수
+     있는 경우까지 대비) */
+  max-width: 900px;
   aspect-ratio: 250 / 173.2;
   margin: 0 auto;
-  perspective: 700px;
 }
 
+/* Three.js가 여기에 canvas를 붙임(js/core/hex-scene3d.js의 mount()) - 바닥은 이제 진짜 WebGL 3D,
+   CSS rotateX+perspective는 더 이상 안 씀 */
 .battle-hex-tilt {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(55deg);
-}
-
-.battle-hex-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
 }
 
 /* ===== 세계좌표 + 카메라 촬영 방식(사용자 확정 - "싹 갈아엎자") =====
-   예전엔 육각형 절반/전체를 감싸는 앵커 박스 12개가 각자 다른 크기라 대형(1/2/3마리)을 만들
-   때마다 앵커마다 손으로 % 튜닝을 따로 해야 했음(정삼각형 하나만 5번 넘게 재조정). 이제 앵커
-   박스 없이 formationGroup 딱 2개(내/상대)만 두고, 그 안 슬롯들의 left/top은 js/pages/dino-
-   battle-page.js의 updateStackDisplay()가 바닥 SVG와 완전히 같은 결합 좌표계(0~250, 0~173.2)
-   위에서 실제 삼각함수(정삼각형 등)로 계산해서 매번 직접 심음(worldToPercent) - 여기 CSS엔
-   위치 관련 규칙이 없음. */
+   formationGroup 2개(내/상대)만 두고, 그 안 슬롯들의 left/top은 js/pages/dino-battle-page.js의
+   updateStackDisplay()가 바닥과 완전히 같은 결합 좌표계(0~250, 0~173.2) 위에서 실제 삼각함수
+   (정삼각형 등)로 계산해서 hexScene.projectToScreen()으로 매번 직접 심음 - 여기 CSS엔 위치 관련
+   규칙이 없음. */
 .battle-formation-group {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
 }
 
-.battle-formation-group.defeated .battle-avatar {
-  filter: grayscale(1) brightness(0.6);
-}
+/* 앞장끼리(내 편 vs 상대 편) 화면에서 맞붙어 겹칠 때, 카메라에 더 가까운 쪽(항상 내 편 - 세계좌표
+   상 내 대기 타일이 상대 대기 타일보다 카메라에 가까움)이 위에 그려져야 함(사용자 확정 - "공룡끼리도
+   앞쪽에 위치한 공룡이 위쪽에 위치해야 함") */
+#myFormationGroup { z-index: 2; }
+#oppFormationGroup { z-index: 1; }
 
 .battle-team-slot {
   position: absolute;
@@ -218,27 +200,22 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  transform-style: preserve-3d;
-  /* 바닥(.battle-hex-tilt)의 rotateX(55deg)를 반대로 취소해서 아바타가 눕지 않고 서 있게
-     세운 뒤(빌보드), translateZ로 바닥면과 같은 깊이에서 겹쳐 깜빡이는 z-fighting을 피해 카메라
-     쪽으로 살짝 들어올림 - translate(-50%,-50%)는 항상 마지막(가장 오른쪽)이어야 원래 좌표
-     기준점이 안 어긋남. rotateX와 translateZ 순서를 바꾸면 발밑 기준점이 위로 밀려버리므로
-     (행렬 계산으로 확인됨) 이 순서를 절대 바꾸지 말 것 */
-  transform: rotateX(-55deg) translateZ(6px) translate(-50%, -50%);
+  /* 평범한 2D 위치 앵커(hexScene.projectToScreen()이 계산한 좌표) - 예전엔 CSS 3D(rotateX 역회전
+     +translateZ)로 빌보드를 흉내내고, 슬롯 전체가 preserve-3d 스택 안에 실제로 들어가 있어서 근/원
+     크기 차이(가까운 내 편 크게/먼 상대 작게)가 체력바/공/이름표 통째로 저절로 생겼는데, 이제
+     바닥이 Three.js로 바뀌면서 슬롯은 평면 DOM이 됐으니 그 원근 축소를 scale()로 직접 재현함
+     (--perspective-scale은 hexScene.projectToScreen()의 distance 값으로 updateStackDisplay()가
+     계산해서 심어줌) - scale은 translate 이후(왼쪽)에 와도 %기반 translate 자체는 항상 이 요소의
+     원래(스케일 전) 레이아웃 박스 크기 기준이라 순서와 무관하게 정확히 목표 지점에 중심이 옴 */
+  transform: translate(-50%, -50%) scale(var(--perspective-scale, 1));
 }
 
-/* 앞장(avatar)은 팀이 살아있는 한 항상 보이고(대기는 js가 display를 직접 토글), 대기보다
-   항상 위에 그려짐(예전엔 [data-count="3"]일 때만 z-index를 줬는데, 이제 대형/개수와 무관하게
-   "앞장이 항상 맨 위"라는 규칙 하나로 충분해서 정적 규칙으로 단순화) */
+/* 앞장(avatar)은 팀이 살아있는 한 항상 보임(대기는 js가 display를 직접 토글). z-index는 더 이상
+   정적 tier가 아니라 js/pages/dino-battle-page.js의 updateStackDisplay()가 카메라와의 실제 거리로
+   매 프레임 계산해서 심음(가까울수록 위) - 대기 3마리 중 실제로 카메라에 가장 가까운(앞) 자리가
+   항상 위에 오도록(사용자 지적 - "가까이 있는게 되려 가려져") */
 .battle-team-slot-avatar {
   display: flex;
-  z-index: 2;
-}
-
-.battle-team-slot-behind1,
-.battle-team-slot-behind2,
-.battle-team-slot-behind3 {
-  z-index: 1;
 }
 
 .battle-hp-bar-mini {
@@ -281,16 +258,21 @@
 #myFormationGroup .battle-team-slot-name { color: #4ade80; }
 #oppFormationGroup .battle-team-slot-name { color: #e0473f; }
 
-/* --dino-scale은 매머드의 힘(1.12배)/압축된 힘(0.88배) 룬 장착 여부에 따라 applyDinoScale()이
-   formationGroup에 심어주는 배율. --avatar-formation-scale은 중앙 절반처럼 좁은 자리에 3마리가
-   들어갈 때만 updateStackDisplay()가 슬롯별로 심어주는 축소 배율(둘 다 js/pages/dino-battle-
-   page.js) - 서로 독립적으로 곱해짐(룬 배율은 대형과 무관하게 항상 적용) */
+/* --avatar-base-px는 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js의 DINO_AVATAR_DIAMETER_WORLD)
+   를 center 타일 위에 투영한 픽셀 지름 - dinoBattleRefreshReferenceSize()가 #battleArena에 심어줌
+   (자식으로 상속). --dino-scale은 매머드의 힘(1.12배)/압축된 힘(0.88배) 룬 장착 여부에 따라
+   applyDinoScale()이 formationGroup에 심어주는 배율. --avatar-formation-scale은 중앙 절반처럼
+   좁은 자리에 3마리가 들어갈 때만 updateStackDisplay()가 슬롯별로 심어주는 축소 배율(둘 다
+   js/pages/dino-battle-page.js) - 서로 독립적으로 곱해짐(룬 배율은 대형과 무관하게 항상 적용).
+   카메라 원근 축소(가까운 내 편 크게/먼 상대 작게)는 --perspective-scale로 따로 처리 - 예전엔
+   아바타가 CSS 3D preserve-3d 스택 안에 실제로 들어있어서 체력바/이름표까지 통째로 저절로 커지고
+   작아졌는데, 바닥이 Three.js로 바뀌며 슬롯 전체가 평면 DOM이 된 뒤로는 그 통째 축소를
+   .battle-team-slot의 transform에 scale()로 재현함(아래 참고) - 여기(개별 공 크기)는 그것과
+   독립적으로 곱해짐 */
 .battle-avatar {
   position: relative;
-  /* 원본 대비 35% 크기(0.65배)로 축소(사용자 확정 - 10% 축소 -> 추가 10% 축소(0.81배) -> 그래도
-     커서 0.65배로 더 줄임) - 룬 배율/대형 축소/원근 축소는 그대로 곱해짐 */
-  width: calc(clamp(44px, 17cqw, 78px) * 0.65 * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
-  height: calc(clamp(44px, 17cqw, 78px) * 0.65 * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
+  width: calc(var(--avatar-base-px, 60px) * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
+  height: calc(var(--avatar-base-px, 60px) * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
   border-radius: 50%;
   transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -331,12 +313,15 @@
   100% { transform: translateX(0) scale(1); }
 }
 
+/* 피격 흔들림 폭을 절반으로(사용자 확정 - "사이트의 모든 피격 시 떨림 정도를 절반으로 줄여") -
+   밝기 플래시(filter)는 흔들림 자체가 아니라서 그대로 둠. 아레나 페이지도 이 keyframe을 그대로
+   재사용함(css/arena.css) */
 @keyframes battle-hit-shake {
   0%, 100% { transform: translateX(0); filter: brightness(1); }
-  20% { transform: translateX(-6px); filter: brightness(1.8); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(4px); }
+  20% { transform: translateX(-3px); filter: brightness(1.8); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
 }
 
 /* 피격 이펙트 이미지는 허수아비/타이탄과 완전히 같은 것을 재사용함(assets/sprites/Hit_Effect.png,

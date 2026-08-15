@@ -1105,6 +1105,27 @@ function arenaSpawnPopup(sideKey, slotIndex, text, extraClass, delayMs, popupInd
   }, delayMs);
 }
 
+// 피격 이펙트 - 다른 3개 페이지(타이탄/건물/다이노배틀)와 허수아비가 이미 공유 중인
+// dummy-hit-effect(-fixed) 클래스를 그대로 재사용(사용자 지적 - 아레나에만 이게 빠져있었음. "이건
+// 다른 페이지에서 하는거 그대로 배끼면 됨"). js/pages/dino-battle-page.js의 spawnDinoHitEffect와
+// 완전히 같은 패턴(대상의 getBoundingClientRect()를 읽어 position:fixed로 띄우고
+// animationend에 제거) - 대상만 슬롯 인덱스 기반으로 다름
+function arenaSpawnHitEffect(sideKey, slotIndex) {
+  const target = document.getElementById(`arenaAvatar_${sideKey}_${slotIndex}`);
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const fx = document.createElement("img");
+  fx.src = "./assets/sprites/Hit_Effect.png";
+  fx.className = "dummy-hit-effect dummy-hit-effect-fixed";
+  fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
+  fx.style.left = `${rect.left + rect.width / 2}px`;
+  fx.style.top = `${rect.top + rect.height / 2}px`;
+  fx.style.width = `${rect.width * 0.9}px`;
+  document.body.appendChild(fx);
+  fx.addEventListener("animationend", () => fx.remove());
+}
+
 function arenaRenderBattleEvent(ev) {
   arenaPlayAttackAnim(ev.attackerSide, ev.attackerSlot, ev.defenderSide, ev.defenderSlot);
 
@@ -1124,6 +1145,7 @@ function arenaRenderBattleEvent(ev) {
     const cls = `${isSkill ? "skill " : ""}${hit.isCrit ? "crit" : ""}`.trim();
     const text = (isSkill ? `${hit.label} ` : "") + Math.round(hit.dmg).toLocaleString() + (hit.isCrit ? "!" : "");
     arenaSpawnPopup(hit.targetSide, hit.targetSlot, text, cls, nextDelay[k], popupIndex[k]);
+    arenaSpawnHitEffect(hit.targetSide, hit.targetSlot);
     popupIndex[k]++;
     nextDelay[k] += STAGGER_MS;
   });
@@ -1146,6 +1168,7 @@ function arenaRenderBattleEvent(ev) {
       const k = slotKey(ev.defenderSide, t.slot);
       const dmg = Math.max(0, t.before - t.after);
       arenaSpawnPopup(ev.defenderSide, t.slot, Math.round(dmg).toLocaleString(), t.isCrit ? "skill crit" : "skill", nextDelay[k], popupIndex[k]);
+      arenaSpawnHitEffect(ev.defenderSide, t.slot);
       popupIndex[k]++;
       nextDelay[k] += STAGGER_MS;
     });
@@ -1167,7 +1190,7 @@ function arenaFinishBattleDisplay(result) {
   resultEl.style.display = "block";
   if (result.winner === "draw") resultEl.innerText = "무승부!";
   else if (result.winner === "my") resultEl.innerText = "승리!";
-  else resultEl.innerText = "패배...";
+  else resultEl.innerText = "패배";
 
   arenaBattlePhase = "finished";
   const startBtn = document.getElementById("arenaStartBtn");

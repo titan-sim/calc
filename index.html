@@ -118,6 +118,11 @@
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
   <script src="js/data/constellation-data.js"></script>
+  <!-- Three.js(WebGL) - 다이노 배틀/타이탄/허수아비/건물 페이지의 육각형 바닥을 진짜 3D로 렌더링
+       (js/core/hex-scene3d.js가 이걸 씀). CSS rotateX+perspective 가짜 3D의 렌더링 버그를 겪은
+       뒤 사용자 확정으로 전면 교체 - hex-scene3d.js보다 반드시 먼저 로드돼야 함 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/core/hex-scene3d.js"></script>
   <script src="js/core/stat-calc.js"></script>
   <script src="js/core/simulation-titan.js"></script>
   <script src="js/core/simulation-dino-battle.js"></script>
@@ -130,6 +135,7 @@
   <script src="js/ui/rune-ui.js"></script>
   <script src="js/ui/auth-modal.js"></script>
   <script src="js/ui/auth-ui.js"></script>
+  <script src="js/ui/dino-display-ui.js"></script>
   <script src="js/ui/settings-ui.js"></script>
   <script src="js/pages/home.js"></script>
   <script src="js/pages/my-dino-page.js"></script>

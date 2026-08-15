@@ -837,7 +837,13 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
     setVal(id("sumCritRate"), `${stats.cRate.toFixed(2)}%`);
     setVal(id("sumCritDmg"), `${stats.cDmg.toFixed(2)}%`);
   } else {
-    setVal(id("sumCrit"), `${stats.cRate.toFixed(2)}% / ${stats.cDmg.toFixed(2)}%`);
+    // "/" 앞뒤 공백으로만 자연 줄바꿈에 맡기면, 값이 바뀔 때 js/ui/stat-roll-ui.js의 자릿수 롤링
+    // 애니메이션 도중엔 오도미터 <span>들이 섞인 구조라 줄바꿈 지점이 최종 텍스트 상태와 미묘하게
+    // 달라져서(부분픽셀 폭 차이로 추정) 모션 중에만 순간적으로 다른 위치에서 줄이 갈렸음(사용자
+    // 지적 - "모션이 일어날 때는 1줄로 길게 되었다가 모션 끝나면 다시 /로 위아래 나뉨"). "/" 뒤에
+    // 실제 개행문자를 넣어서 항상 같은 지점에서 줄이 갈리게 고정(.stat-readout-value의
+    // white-space:pre-line과 짝) - 애니메이션 중이든 끝난 뒤든 완전히 같은 지점에서 끊김
+    setVal(id("sumCrit"), `${stats.cRate.toFixed(2)}% /\n${stats.cDmg.toFixed(2)}%`);
     setVal(id("sumCount"), `${profile.dinoCount}마리`);
   }
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)

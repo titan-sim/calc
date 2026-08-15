@@ -163,11 +163,19 @@ function rollBuildingAttack(values) {
   return { dmg, isCrit };
 }
 
-// 지진 발동 시 "주변 1칸" 건물이 받는 추가 피해 - 룬 설명대로 방금 들어간 주공격의 최종 피해량
-// 기준 % (크리티컬 여부와 무관하게 그 한 번의 실제 피해량에 곱함 - 별도로 크리를 다시 굴리지
-// 않음, 룬 설명에 그런 언급이 없어서). 지진 자체의 발동 여부(주기 도달)는 페이지 쪽에서 판정함.
-function computeEarthquakeSplashDamage(mainHitDmg, earthquake) {
-  return mainHitDmg * (earthquake.burst_p / 100);
+// 지진은 낙뢰/메테오/트리플 임팩트 같은 "스킬형" 룬과 같은 종류라(타이탄의
+// simulation-titan.js에서 스킬 대미지가 rollHit()으로 주공격과 별도로 크리를 다시 굴리는 것과
+// 동일한 원리) 주공격의 크리 여부를 그대로 물려받지 않고, 증폭 후 공격력(values.atk)에서 새로
+// 시작해 맞는 건물마다 각각 독립적으로 크리를 판정함(사용자 확정 - "지진도 결국에는 스킬이잖아.
+// 크리티컬 독립시행이지. 모든 건물에 각각 확률 적용이야. 한번 크리 터졌다고 모든 건물에 동시
+// 크리티컬 적용되는 게 아니거든") - 그래서 타겟/뒤 건물(또는 실전 시뮬레이션의 인접 건물들)에
+// 이 함수를 맞은 건물 수만큼 각각 따로 호출해야 하고, 한 번 굴린 값을 재사용하면 안 됨. 지진
+// 자체의 발동 여부(주기 도달)는 호출하는 쪽(페이지/runBuildingSimulation)에서 판정함.
+function rollEarthquakeHit(values) {
+  const skillBaseDmg = values.atk * (values.earthquake.burst_p / 100);
+  const isCrit = Math.random() * 100 < values.cRate;
+  const dmg = isCrit ? skillBaseDmg * (values.cDmg / 100) : skillBaseDmg;
+  return { dmg, isCrit };
 }
 
 /**
@@ -336,16 +344,19 @@ function runBuildingSimulation(cfg) {
             attackTickCount++;
 
             if (values.earthquake && attackTickCount % values.earthquake.count === 0) {
-              const splash = computeEarthquakeSplashDamage(dmg, values.earthquake);
+              // 스킬형 룬이라 맞는 건물마다 크리를 독립적으로 각각 굴림(사용자 확정 - 위
+              // rollEarthquakeHit 주석 참고) - 타겟과 뒤 건물이 같은 발동에서도 크리 여부가 다를 수 있음
               if (frontHpNow > 0) {
-                frontHpNow = Math.max(0, frontHpNow - splash);
-                totalDmg += splash;
-                earthquakeDmg += splash;
+                const frontSplash = rollEarthquakeHit(values).dmg;
+                frontHpNow = Math.max(0, frontHpNow - frontSplash);
+                totalDmg += frontSplash;
+                earthquakeDmg += frontSplash;
               }
               if (behindHpNow !== null && behindHpNow > 0) {
-                behindHpNow = Math.max(0, behindHpNow - splash);
-                totalDmg += splash;
-                earthquakeDmg += splash;
+                const behindSplash = rollEarthquakeHit(values).dmg;
+                behindHpNow = Math.max(0, behindHpNow - behindSplash);
+                totalDmg += behindSplash;
+                earthquakeDmg += behindSplash;
                 if (behindHpNow <= 0 && behindBreakTime === null) behindBreakTime = time;
               }
             }

@@ -3,13 +3,11 @@
    원본과 동일하게 유지되도록 주의할 것 ===== */
 
 /* ===== 허수아비 =====
-   다이노 배틀/타이탄 페이지와 같은 세계좌표+카메라 방식(사용자 확정) - 정육각형(바닥)이
-   preserve-3d로 진짜 3D 공간을 열고, 허수아비(.dummy-target-layer)가 그 안의 실제 3D 자식으로
-   들어가 반대로 회전해서("빌보드") 카메라를 향해 똑바로 섬. 바닥과 정확히 같은 크기/중심을
-   공유하는 자식이라 안쪽 상대 위치(%)는 예전 그대로 재사용됨. 대미지 팝업(.dummy-popup-layer)만
-   여전히 별도 grid 칸에 포개진 평평한 오버레이로 남김(텍스트라 3D 여부와 무관하게 항상 똑같이
-   보이고, preserve-3d 중첩 안에서 static negative 오프셋이 안 그려지는 렌더링 버그를 피하기
-   위함 - 타이탄 페이지에서 실측으로 확인된 문제) */
+   바닥(육각형)은 Three.js(js/core/hex-scene3d.js)가 그리는 진짜 WebGL 3D - CSS rotateX+
+   perspective 가짜 3D를 쓰다가 이번 세션에서 여러 렌더링 버그를 겪은 뒤 사용자 확정으로 전면
+   교체함. 허수아비 자신(.dummy-scarecrow)과 타격 이펙트/데미지 팝업은 여전히 평범한 2D DOM+CSS -
+   위치만 dummy-page.js가 hexScene.projectToScreen()으로 계산해서 JS로 심어줌(3D 변환은 이제
+   여기 전혀 없음) */
 .dummy-field-card {
   container-type: inline-size;
 }
@@ -25,7 +23,6 @@
   /* 육각형/허수아비 크기에 비해 위아래 여백이 과했다는 피드백 - 여백만 줄여서 그 아래 대미지/
      경과시간 카드가 더 위로 붙게 함(육각형 자체 크기는 그대로 둠) */
   padding: clamp(10px, 4cqw, 22px) 0 clamp(16px, 5cqw, 28px);
-  perspective: 1000px;
 }
 
 .dummy-hexagon,
@@ -36,49 +33,30 @@
   aspect-ratio: 1 / 0.866;
 }
 
+/* Three.js가 이 안에 canvas를 붙임(js/core/hex-scene3d.js의 mount()) - ResizeObserver가
+   이 요소 크기를 직접 관찰하므로 별도 크기 지정 불필요, 위 .dummy-hexagon 규칙의 width/
+   aspect-ratio가 그대로 캔버스 크기의 기준이 됨 */
 .dummy-hexagon {
   position: relative;
-  transform-style: preserve-3d;
-  transform: rotateX(55deg);
-}
-
-/* clip-path + border 조합은 대각선 변에서 테두리가 끊겨 보이는 고질적인 문제가 있어서(border는
-   클리핑 전의 사각 박스 기준으로 그려짐), 진짜 육각형 다각형을 그리는 SVG polygon으로 바꿈 -
-   stroke가 꼭짓점을 그대로 잇는 하나의 이어진 선이라 테두리가 절대 끊기지 않음. filter는
-   .dummy-hexagon이 아니라 여기(바닥 svg)에만 걸어둠 - CSS 스펙상 filter가 걸린 요소는
-   transform-style:preserve-3d가 있어도 강제로 평면화(flatten)돼서, .dummy-hexagon에 걸려있으면
-   그 자식인 허수아비 빌보드(.dummy-target-layer)의 반대 회전이 진짜 3D로 상쇄되지 못하고
-   찌그러져 보이는 버그가 있었음(사용자 지적 - 다이노 배틀/타이탄은 애초에 filter를 바닥 svg에만
-   걸어서 이 문제가 없었음, 실측으로 원인 확인) */
-.dummy-hexagon-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
   filter: drop-shadow(0 30px 34px rgba(0, 0, 0, 0.45));
 }
 
-/* 허수아비(빌보드) - 바닥(.dummy-hexagon)과 정확히 같은 크기·중심의 진짜 3D 자식. 바닥의
-   rotateX(55deg)를 반대로 취소해서 눕지 않고 서게 세운 뒤(빌보드), translateZ로 바닥면과 같은
-   깊이에서 겹쳐 깜빡이는 z-fighting을 피해 카메라 쪽으로 살짝 들어올림. 부모와 크기/중심이
-   완전히 같아서(inset:0) 이동/센터링 트릭 없이 두 rotateX가 그대로 상쇄되어 딱 그 자리에 섬 */
+/* 허수아비를 담는 평범한 2D 오버레이(3D 변환 없음) - 바닥(.dummy-hexagon)과 정확히 같은 크기·
+   중심을 공유하는 자식이라, 위치는 dummy-page.js가 hexScene.projectToScreen()으로 계산해서
+   .dummy-scarecrow에 직접 left/top을 심어줌 */
 .dummy-target-layer {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(-55deg) translateZ(4px);
   pointer-events: none;
 }
 
-/* 허수아비의 "가장 밑부분"이 육각형의 기하학적 중심(마주보는 꼭짓점끼리 이은 대각선들의 교차점 -
-   정육각형이라 바운딩 박스의 정중앙과 같음)에 오도록 함. top:50%에 이미지 자기 자신의 전체 높이만큼
-   위로(translateY(-100%)) 밀어올리면 "이미지의 아래쪽 끝"이 정확히 그 50% 지점에 위치하게 됨.
-   추가로 translateX(6%)를 더 준 건 - 이미지 박스 자체는 정확히 중앙에 있어도 Scarecrow_1.png
+/* 허수아비의 "가장 밑부분"이 위치(left/top, JS가 심어줌)에 오도록 함. 자기 자신의 전체 높이만큼
+   위로(translateY(-100%)) 밀어올리면 "이미지의 아래쪽 끝"이 정확히 그 지점에 위치하게 됨.
+   추가로 translateX(6%)를 더 준 건 - 이미지 박스 자체는 정확히 그 위치에 있어도 Scarecrow_1.png
    원본 그림 안에서 실제 허수아비 그림(캐릭터)이 여백 없이 딱 붙어있지 않고 왼쪽으로 치우쳐 그려져
    있어서(오른쪽에 빈 여백이 더 많음), 그 안쪽 그림 기준으로 보정해서 육각형 중심과 맞춘 것 */
 .dummy-scarecrow {
   position: absolute;
-  left: 50%;
-  top: 50%;
   width: 40%;
   height: auto;
   /* Scarecrow_1.png 원본 비율(366x405)을 명시해서 어떤 상황에서도(로딩 중 레이아웃, 극단적인
@@ -98,12 +76,14 @@
   animation: dummy-shake 0.35s ease-in-out;
 }
 
+/* 피격 흔들림 폭을 절반으로(사용자 확정 - "사이트의 모든 피격 시 떨림 정도를 절반으로 줄여") -
+   위치 보정용 translate(-50%,-100%) translateX(6%)는 흔들림이 아니라서 그대로 둠 */
 @keyframes dummy-shake {
   0%, 100% { transform: translate(-50%, -100%) translateX(6%) rotate(0deg); }
-  20% { transform: translate(-50%, -100%) translateX(6%) rotate(-5deg); }
-  40% { transform: translate(-50%, -100%) translateX(6%) rotate(4deg); }
-  60% { transform: translate(-50%, -100%) translateX(6%) rotate(-3deg); }
-  80% { transform: translate(-50%, -100%) translateX(6%) rotate(2deg); }
+  20% { transform: translate(-50%, -100%) translateX(6%) rotate(-2.5deg); }
+  40% { transform: translate(-50%, -100%) translateX(6%) rotate(2deg); }
+  60% { transform: translate(-50%, -100%) translateX(6%) rotate(-1.5deg); }
+  80% { transform: translate(-50%, -100%) translateX(6%) rotate(1deg); }
 }
 
 .dummy-popup-layer {

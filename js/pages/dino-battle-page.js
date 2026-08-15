@@ -17,24 +17,103 @@ const BATTLE_SPEED_OPTIONS = [
 ];
 
 // ===== 육각형 바닥과 완전히 같은 결합 좌표계(세계좌표) 위에 공룡을 "카메라로 촬영"하듯 배치 =====
-// 예전엔 육각형 절반/전체를 감싸는 앵커 박스마다 서로 다른 %를 손으로 튜닝했음(박스 크기가
-// 위치마다 달라서 대형을 만들 때마다 매번 눈대중 재조정 필요). 이제는 이 바닥 SVG와 정확히 같은
-// 0~250 x 0~173.2 좌표계 하나에 정삼각형/나란히 배치를 실제 삼각함수로 계산해서 배치하고, 이미
-// 걸려있는 CSS 3D(perspective+rotateX)가 그 좌표를 그대로 원근 투영해줌 - 그래서 이 상수/함수
-// 몇 개만 손보면 어디(내 대기/중앙/상대 대기)든 동시에 반영됨. rotateX(55deg) 행렬을 직접 풀어보면
-// local y가 클수록(내 쪽, y=129.9) 회전 후 z가 커져서 perspective 공식(scale=d/(d-z))상 확대되고,
-// y가 작을수록(상대 쪽, y=43.3) 덜 확대됨 - 이미 걸린 3D 파이프라인 자체가 정확한 카메라라서
-// JS로 원근 나누기를 따로 구현하지 않음(정답이 두 군데가 되는 유지보수 리스크만 생김).
-const WORLD_W = 250, WORLD_H = 173.2;
-const HEX_CENTERS = { myReserve: [50, 129.9], center: [125, 86.6], oppReserve: [200, 43.3] };
+// 타일 중심은 원점(0,0)에 내 대기 타일을 두고 HEX_NEIGHBOR 방향 벡터를 더해가며 명시적으로
+// 선언함(CSS 3D 시절 SVG viewBox 절대좌표를 재사용하지 않기 위함 - 그렇게 했다가 타일 중심과
+// 아바타 좌표가 어긋나는 버그가 났었음). 내 대기 -> 중앙 -> 상대 대기가 일직선 계단이 되도록
+// 같은 방향(upperRight)을 두 번 적용.
+const HEX_CENTERS = {
+  myReserve: [0, 0],
+  center: hexAdd([0, 0], HEX_NEIGHBOR.upperRight),
+  oppReserve: hexAdd(hexAdd([0, 0], HEX_NEIGHBOR.upperRight), HEX_NEIGHBOR.upperRight),
+};
 const CENTER_SPLIT_OFFSET = 20;          // 중앙 육각형 내/상대 절반 기준점 간격
 const OUTWARD_1V1 = 12;                  // 1v1일 때 서로 반대쪽으로 더 벌리는 거리(중앙 타일엔
                                           // 배치 설정과 무관하게 항상 이 1v1 공식만 씀 - 사용자 확정)
 const R2_RESERVE = 22;                   // 대기 육각형 2마리 나란히 반지름
 const R3_RESERVE = 22;                   // 대기 육각형 3마리 정삼각형 반지름
 
+// Three.js 육각형 바닥(js/core/hex-scene3d.js) - 이 페이지는 탭 뒤에 안 숨어있고(다른 3개 페이지와
+// 달리 "live"가 항상 기본으로 보이는 상태) 페이지 로드 즉시 마운트됨(initDinoBattlePage 참고)
+let dinoBattleScene3d = null;
+// theme-changed 리스너 핸들 - 페이지를 여러 번 오가도 리스너가 계속 쌓이지 않도록, 새로 등록하기
+// 전에 이 참조로 이전 방문 몫을 먼저 지움
+let dinoBattleThemeChangeHandler = null;
+// center 타일 위에서 "보통 크기 공룡"(js/core/hex-scene3d.js의 DINO_AVATAR_DIAMETER_WORLD)이
+// 실제로 몇 px로 보이는지를 1배 기준으로 삼아서, 그보다 가까운 내 쪽은 확대(>1)/먼 상대 쪽은
+// 축소(<1)되게 함(dinoBattlePerspectiveScale이 매번 실제 지점의 투영 크기와 비교해서 재계산) -
+// 육각형 크기 자체를 기준으로 삼으므로 페이지가 달라도 "보통 크기"가 같은 비율로 보임
+let dinoBattleReferenceDiamPx = null;
+
+// "보통 크기 공룡"의 기준 픽셀 지름을 다시 재서 --avatar-base-px로 심음(.battle-avatar가 이 값에
+// --avatar-formation-scale/--dino-scale을 곱해서 자기 크기를 정함) - 마운트 시점과 창 크기 변경
+// 시점 둘 다에서 호출됨
+function dinoBattleRefreshReferenceSize() {
+  dinoBattleReferenceDiamPx = dinoBattleScene3d.projectDiameterPx(HEX_CENTERS.center[0], HEX_CENTERS.center[1], DINO_AVATAR_DIAMETER_WORLD);
+  const arena = document.getElementById("battleArena");
+  if (arena && dinoBattleReferenceDiamPx > 0) arena.style.setProperty("--avatar-base-px", `${dinoBattleReferenceDiamPx}px`);
+}
+
+function dinoBattleInitScene3d() {
+  const mountEl = document.getElementById("battleHexTilt") || document.querySelector(".battle-hex-tilt");
+  if (!mountEl) return;
+  // "지금 이 mountEl"에 이미 캔버스가 붙어있으면(같은 페이지 세션 안에서의 재호출) 리사이즈만 -
+  // dinoBattleScene3d(안 null)만 보고 판단하면 안 됨(실측으로 재현한 버그: 페이지를 나갔다
+  // 재방문하면 mountEl은 라우터가 완전히 새로 만든 엘리먼트인데 dinoBattleScene3d는 예전
+  // 인스턴스를 그대로 들고 있어서 "이미 마운트됨"으로 착각 - 새 mountEl엔 캔버스가 영영 안 붙어
+  // 바닥이 통째로 안 보였음)
+  if (dinoBattleScene3d && mountEl.querySelector("canvas")) { dinoBattleScene3d.resize(); return; }
+  if (typeof createHexFloorScene !== "function") return;
+  dinoBattleScene3d = createHexFloorScene({
+    // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
+    // 맞으면 됨
+    worldW: 6 * HEX_HALF_W,
+    worldH: 4 * HEX_HALF_H,
+    hexTiles: [
+      { center: HEX_CENTERS.myReserve, tintVar: "--accent" },
+      { center: HEX_CENTERS.center, tintVar: "--accent" }, // 부족 점령 색은 applyCenterTileColor()가 rebake로 반영(아래 참고)
+      { center: HEX_CENTERS.oppReserve, tintVar: "#e0473f" },
+    ],
+    // 카메라는 중앙 타일을 내려다보게 잡음(타일 좌표에서 직접 유도). lookAt/fov는 그대로 두고
+    // position만 같은 비율로 씬에 당김(순수 줌인, 타이탄/건물과 같은 방식) - 예전 값(220/173.4)은
+    // 여백이 너무 많이 남아서(사용자 지적 - "공룡 대전이 여백이 너무 많아서 폰에 눈 가까이 대고
+    // 겨우 봐야해") 실제 Three.js 카메라로 육각형 3개(내 대기/중앙/상대 대기) 전체 꼭짓점을
+    // 직접 투영해서 스캔한 결과, 0.73배가 잘림 없이(가장 타이트한 왼쪽 변도 여백 4%+ 유지) 안전한
+    // 최대 확대치였음 - 그보다 더 당기면(0.7 이하) 왼쪽 육각형 모서리가 프레임을 벗어남
+    camera: {
+      position: [HEX_CENTERS.center[0], 220 * 0.73, HEX_CENTERS.center[1] + 173.4 * 0.73],
+      lookAt: [HEX_CENTERS.center[0], 0, HEX_CENTERS.center[1]],
+      fov: 56,
+    },
+    // 창 크기가 바뀌면 육각형이 화면에서 차지하는 실제 픽셀 크기도 바뀌므로, 기준 크기부터
+    // 다시 재고 양쪽 진영 배치를 다시 그림(--perspective-scale/--avatar-diam-px가 이 기준값에서
+    // 파생됨)
+    onResize: () => {
+      dinoBattleRefreshReferenceSize();
+      updateStackDisplay("my", lastAliveCount.my);
+      updateStackDisplay("opp", lastAliveCount.opp);
+    },
+  });
+  dinoBattleScene3d.mount(mountEl);
+  dinoBattleRefreshReferenceSize();
+  document.removeEventListener("theme-changed", dinoBattleThemeChangeHandler);
+  dinoBattleThemeChangeHandler = () => {
+    if (dinoBattleScene3d && mountEl.isConnected) dinoBattleScene3d.rebakeColors();
+  };
+  document.addEventListener("theme-changed", dinoBattleThemeChangeHandler);
+}
+
 function worldToPercent([x, y]) {
-  return { left: `${(x / WORLD_W) * 100}%`, top: `${(y / WORLD_H) * 100}%` };
+  if (dinoBattleScene3d) return dinoBattleScene3d.projectToScreen(x, y);
+  return { left: "50%", top: "50%" }; // 씬 마운트 전 폴백(이 페이지는 로드 즉시 마운트되므로 사실상 안 씀)
+}
+
+// 특정 세계좌표 지점 -> --perspective-scale 배율. 기준(center 타일)보다 카메라에 가까우면 1보다
+// 커지고(확대), 멀면 1보다 작아짐(축소) - 예전에 CSS 3D preserve-3d가 저절로 해주던 원근 확대/축소를
+// 직접 계산해서 재현(dinoBattleReferenceDiamPx와 같은 세계 단위 지름을 이 지점에 투영해서 비율만 봄)
+function dinoBattlePerspectiveScale(point) {
+  if (!dinoBattleScene3d || !dinoBattleReferenceDiamPx) return 1;
+  const diamPx = dinoBattleScene3d.projectDiameterPx(point[0], point[1], DINO_AVATAR_DIAMETER_WORLD);
+  return diamPx > 0 ? diamPx / dinoBattleReferenceDiamPx : 1;
 }
 
 // 반지름 R짜리 정삼각형 꼭짓점 3개(+y가 카메라 쪽/가까움이라 apex가 앞으로 나오는 모양) -
@@ -257,62 +336,16 @@ function renderDinoBattlePage(container) {
 
           <div class="battle-mode-panel" id="liveModeCard">
             <div class="battle-arena" id="battleArena">
-              <!-- flat-top 육각형(위/아래 변이 평행 - 허수아비/타이탄 페이지와 같은 계열) 3개를
-                   대각선 이웃 스텝 (+75,-43.3)을 한 방향으로 두 번 이어서(지그재그 아님, 일직선
-                   계단) 배치 - flat-top은 가로 일직선으로는 변이 안 맞물리고 이 대각선 스텝으로만
-                   진짜 변공유가 됨(내-중앙, 중앙-상대 이음매 좌표 직접 대조 검증 완료).
-                   결합 viewBox 250x173.2, 내 쪽이 아래(큰 y)/상대 쪽이 위(작은 y) - 이 좌표계가
-                   그대로 공룡 배치의 "세계좌표"임(WORLD_W/WORLD_H, HEX_CENTERS 등 참고).
-                   허수아비 페이지의 perspective+rotateX 기법을 그대로 가져오되, 내용물(아바타)까지
-                   같은 preserve-3d 스택 안에 넣어서 진짜 원근 축소가 걸리게 함 - 안 그러면
-                   "상대 쪽이 작게 보인다"를 구현할 방법이 없음(허수아비/타이탄은 내용물을 3D 밖의
-                   평면 오버레이로 뺐지만 그래서 크기 차이가 안 생김). 대신 아바타 카드(.battle-
-                   team-slot)에는 rotateX(-55deg) 반대회전 + translateZ(6px)를 순서 그대로 줘서
-                   바닥과 같은 깊이에서 겹쳐 깜빡이는 z-fighting을 피함(순서를 바꾸면 발밑 기준점이
-                   위로 밀려버림 - 절대 순서 바꾸지 말 것).
-                   예전엔 육각형 절반/전체를 감싸는 앵커 박스 12개가 각자 다른 크기라 대형마다
-                   손으로 % 튜닝을 따로 해야 했음(사용자 지적) - 이제 앞/대기 8칸(myAvatarSlot~
-                   oppBehind3Slot) 전부 formationGroup 딱 2개의 직계 자식이고, 위치(left/top)는
-                   updateStackDisplay()가 세계좌표 함수로 계산해서 매번 직접 심음(worldToPercent) -->
+              <!-- 육각형 3개(내 대기/중앙/상대 대기) - 결합 좌표계 250x173.2, 내 쪽이 아래(큰
+                   y)/상대 쪽이 위(작은 y). 바닥은 Three.js(js/core/hex-scene3d.js)가 이 좌표
+                   그대로 진짜 3D로 그림. 아바타는 hexScene.projectToScreen()이 계산한 화면 좌표를
+                   받는 평면 DOM(.battle-team-slot) - "가까운 내 편 크게/먼 상대 작게" 원근 축소는
+                   projectToScreen()의 distance 값으로 --perspective-scale을 직접 계산해서 재현함
+                   (updateStackDisplay(), dinoBattlePerspectiveScale() 참고 - 예전엔 아바타까지
+                   CSS preserve-3d 스택 안에 넣어서 저절로 생기던 효과였음) -->
               <div class="battle-hex-field">
                 <div class="battle-hex-stage" id="battleHexStage">
-                  <div class="battle-hex-tilt">
-                    <svg class="battle-hex-svg" viewBox="0 0 250 173.2" preserveAspectRatio="xMidYMid meet">
-                      <defs>
-                        <radialGradient id="battleHexGradMine" gradientUnits="userSpaceOnUse" cx="50" cy="129.9" r="55">
-                          <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.3"></stop>
-                          <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                        </radialGradient>
-                        <radialGradient id="battleHexGradCenter" gradientUnits="userSpaceOnUse" cx="125" cy="86.6" r="60">
-                          <stop id="battleHexCenterStop" offset="0%" style="stop-color:#ffffff; stop-opacity:0.18"></stop>
-                          <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                        </radialGradient>
-                        <radialGradient id="battleHexGradOpp" gradientUnits="userSpaceOnUse" cx="200" cy="43.3" r="55">
-                          <stop offset="0%" style="stop-color:#e0473f; stop-opacity:0.3"></stop>
-                          <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                        </radialGradient>
-                      </defs>
-                      <polygon points="25,86.6 75,86.6 100,129.9 75,173.2 25,173.2 0,129.9" fill="url(#battleHexGradMine)"></polygon>
-                      <polygon points="100,43.3 150,43.3 175,86.6 150,129.9 100,129.9 75,86.6" fill="url(#battleHexGradCenter)"></polygon>
-                      <polygon points="175,0 225,0 250,43.3 225,86.6 175,86.6 150,43.3" fill="url(#battleHexGradOpp)"></polygon>
-                      <!-- 육각형 테두리를 "대각선 변"과 "위/아래 수평 변" 두 그룹으로 나눠서 따로
-                           그림 - .battle-hex-tilt의 rotateX(55deg)가 화면상 세로(Y) 방향만 압축하는
-                           변환이라, 수평 변(위/아래)은 그 굵기 방향이 통째로 Y축이라 온전히 다
-                           압축되어 유독 얇아 보이고, 대각선 변은 굵기 방향에 X 성분도 섞여 있어
-                           덜 압축됨(사용자 지적 - "노란 육각형 밑변이 얇다"). 그래서 수평 변만 stroke-
-                           width를 더 굵게(3.6) 줘서 압축 후에도 대각선 변과 비슷한 두께로 보이게
-                           보정함(실측 스크린샷으로 보정값 조정) */-->
-                      <path d="M75,86.6 L100,129.9 L75,173.2 M25,173.2 L0,129.9 L25,86.6" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                      <path d="M25,86.6 L75,86.6 M75,173.2 L25,173.2" fill="none" stroke="var(--accent)" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-                      <path d="M225,0 L250,43.3 L225,86.6 M175,86.6 L150,43.3 L175,0" fill="none" stroke="#e0473f" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                      <path d="M175,0 L225,0 M225,86.6 L175,86.6" fill="none" stroke="#e0473f" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-                      <!-- 중앙(전투) 타일 - 두 유저가 만나 싸우는 자리(사용자 확정 - 중립을 상징하는
-                           흰색 기본, applyCenterTileColor()가 "부족 점령 상태" 설정에 따라 노랑/
-                           빨강으로 바꿔줌 - 대각선/수평 두 path 모두 .battle-hex-center-border
-                           클래스로 묶어서 같이 갱신) -->
-                      <path class="battle-hex-center-border" d="M150,43.3 L175,86.6 L150,129.9 M100,129.9 L75,86.6 L100,43.3" fill="none" stroke="#ffffff" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                      <path class="battle-hex-center-border" d="M100,43.3 L150,43.3 M150,129.9 L100,129.9" fill="none" stroke="#ffffff" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-                    </svg>
+                  <div class="battle-hex-tilt" id="battleHexTilt"></div>
 
                     <div class="battle-formation-group" id="myFormationGroup">
                       <div class="battle-team-slot battle-team-slot-avatar" id="myAvatarSlot">
@@ -358,7 +391,6 @@ function renderDinoBattlePage(container) {
                         <div class="battle-team-slot-name">상대 공룡</div>
                       </div>
                     </div>
-                  </div>
                 </div>
               </div>
 
@@ -442,11 +474,16 @@ function initDinoBattlePage() {
     document.getElementById("friendPickerOverlay").style.display = "none";
   };
 
-  // 로그인 상태면 친구 초대/불러오기 버튼을 쓸 수 있게 내 uid/닉네임을 채움
+  // 로그인 상태면 친구 초대/불러오기 버튼을 쓸 수 있게 내 uid/닉네임을 채움. 이 페이지는 uid도
+  // 같이 필요해서(친구 초대 기능) getCurrentUser()를 직접 부르되, 그 결과로 얻은 닉네임을
+  // js/ui/dino-display-ui.js의 공용 캐시에도 채워 넣어서 타이탄/건물 페이지와 공유(Supabase를
+  // 또 조회하지 않고도 같은 값을 씀 - 사용자 확정 "로그인 하면 닉네임 보이는거... 통일시켜...
+  // 하나 함수로")
   getCurrentUser().then((user) => {
     if (user && user.username) {
       myUserId = user.id;
       myNickname = user.username;
+      setMyDisplayNameCache(user.username);
       renderOppPanelToolbar();
       updateFriendLabels();
     }
@@ -475,6 +512,9 @@ function initDinoBattlePage() {
   };
   document.getElementById("quickCalcBtn").onclick = startQuickCalc;
   initModeTabs();
+  // 이 페이지는 타이탄/건물과 달리 "시뮬레이션" 탭이 처음부터 보이는 상태라(탭 뒤에 안 숨어있음 -
+  // 실측 확인), 다른 페이지들처럼 탭 클릭을 기다리지 않고 페이지 로드 시점에 바로 마운트함
+  dinoBattleInitScene3d();
   resetBattleDisplay();
 }
 
@@ -876,12 +916,13 @@ function refreshSharedTileDisplayFromSession() {
 // "내 공룡"/"상대 공룡" 라벨(타일 설정 카드의 좌우 라벨, 전투 카드의 좌우 파이터 이름, 좌우 설정
 // 패널의 헤더 타이틀)을 실시간 세션 중이거나 "친구 설정 불러오기" 스냅샷을 쓰는 중이면 실제
 // 닉네임으로 바꿈(스냅샷은 실시간이 아니라 "내" 쪽은 그대로 두고 상대 쪽만 닉네임으로 바꿈).
-// 세션 중이 아니어도 로그인 상태라면(myNickname이 채워져 있으면) "내 공룡" 대신 내 닉네임을
-// 보여줌(사용자 지적 - 이미 로그인해서 닉네임을 정했는데 굳이 "내 공룡"이라고 뭉뚱그릴 필요 없음)
+// 세션 중이 아니어도 로그인 상태라면 "내 공룡" 대신 내 닉네임을 보여줌(사용자 확정 - 이미
+// 로그인해서 닉네임을 정했는데 굳이 "내 공룡"이라고 뭉뚱그릴 필요 없음) - 폴백 문자열까지 포함해서
+// js/ui/dino-display-ui.js의 getMyDisplayNameSync()로 통일(타이탄/건물 페이지와 같은 기준)
 function updateFriendLabels() {
   const session = getActiveSession();
   const active = session && session.status === "active";
-  const myLabel = active ? session.myNickname : (myNickname || "내 공룡");
+  const myLabel = active ? session.myNickname : getMyDisplayNameSync();
   const oppLabel = active ? session.friendNickname : (friendSnapshotProfile ? friendSnapshotNickname : "상대 공룡");
   const targets = [
     [".tile-side-col-label.my-side-label", myLabel],
@@ -1130,6 +1171,11 @@ function updateStackDisplay(sideKey, aliveCount) {
   avatarSlot.style.left = avatarPct.left;
   avatarSlot.style.top = avatarPct.top;
   avatarSlot.style.setProperty("--avatar-formation-scale", 1);
+  avatarSlot.style.setProperty("--perspective-scale", dinoBattlePerspectiveScale(avatarPoint));
+  // 카메라와의 실제 거리로 z-index를 매김(가까울수록 위) - 예전엔 앞장/대기가 정적 tier(2/1)였는데,
+  // 대기 3마리끼리는 전부 tier가 같아서 셋 중 실제로 가장 가까운(앞) 자리가 DOM 순서 때문에
+  // 오히려 뒤 두 마리에게 가려지는 버그가 있었음(사용자 지적 - "가까이 있는게 되려 가려져")
+  if (avatarPct.distance) avatarSlot.style.zIndex = Math.round(10000 - avatarPct.distance);
 
   behindSlots.forEach((slotEl, idx) => {
     const point = reservePoints[idx];
@@ -1139,6 +1185,8 @@ function updateStackDisplay(sideKey, aliveCount) {
     slotEl.style.left = pct.left;
     slotEl.style.top = pct.top;
     slotEl.style.setProperty("--avatar-formation-scale", 1);
+    slotEl.style.setProperty("--perspective-scale", dinoBattlePerspectiveScale(point));
+    if (pct.distance) slotEl.style.zIndex = Math.round(10000 - pct.distance);
   });
 }
 
@@ -1150,8 +1198,13 @@ function updateReserveHpBars(sideKey, dinos) {
     const fill = document.getElementById(`${sideKey}${suffix}`);
     if (!fill) return;
     const d = dinos && dinos[idx];
-    const pct = d && d.maxHp > 0 ? Math.max(0, (d.hp / d.maxHp) * 100) : 100;
-    fill.style.width = `${pct}%`;
+    // 이 함수는 전투 중(renderBattleEvent)에만 불리고 dinos 배열은 죽은 공룡을 splice로 제거하며
+    // 줄어드는 구조라, 인덱스에 값이 없다는 건 "아직 데이터 없음"이 아니라 "죽어서 배열에서
+    // 빠짐"을 의미함 - 풀피로 되돌리면 죽은 공룡의 체력바가 다시 가득 찬 것처럼 보이는 버그가
+    // 있었음(사용자 지적). 그 외엔 js/ui/dino-display-ui.js의 setHpFillWidth로 통일(사용자 확정
+    // "체력바 로직이랑... 전부 통일시켜")
+    if (d && d.maxHp > 0) setHpFillWidth(fill, d.hp, d.maxHp);
+    else fill.style.width = "0%";
   });
 }
 
@@ -1178,20 +1231,19 @@ function renderOverflowBars(sideKey, dinos, aliveCount) {
     return;
   }
   existing.forEach((bar, i) => {
-    bar.querySelector(".battle-overflow-bar-fill").style.width = `${pctOf(items[i])}%`;
+    const d = items[i];
+    const fill = bar.querySelector(".battle-overflow-bar-fill");
+    if (d && d.maxHp > 0) setHpFillWidth(fill, d.hp, d.maxHp);
+    else fill.style.width = "100%";
   });
 }
 
 // 매머드의 힘/압축된 힘 룬(둘은 동시 장착 불가) 장착 여부에 따라 그 진영 공룡 전체의 시각적
-// 크기를 키우거나 줄임 - 룬 설명 문구("유닛의 크기가 커지며"/"유닛의 크기가 작아지며")를 그대로
-// 반영. CSS --dino-scale 변수로 넘겨서 .battle-avatar 크기에 곱해짐
+// 크기를 키우거나 줄임 - js/core/hex-scene3d.js의 hexSceneDinoRuneSizeScale로 통일(다이노 배틀에서
+// 처음 확정된 배율을 4개 페이지 전부 공용으로 씀). CSS --dino-scale 변수로 넘겨서 .battle-avatar
+// 크기에 곱해짐
 function dinoScaleFor(selectedRunes) {
-  const names = (selectedRunes || []).filter(Boolean).map((r) => r.name);
-  // 룬 자체 수치(공격력/체력 ±25%)를 시각적 크기에 그대로 곱하면 차이가 너무 커 보여서(사용자
-  // 피드백), 시각적 배율은 절반 정도로만 완만하게 적용함
-  if (names.includes("매머드의 힘")) return 1.12;
-  if (names.includes("압축된 힘")) return 0.88;
-  return 1;
+  return hexSceneDinoRuneSizeScale(selectedRunes);
 }
 
 // 앞장/대기가 이제 formationGroup 하나를 공유하므로(예전엔 별개 DOM 2곳에 따로 심어야 했음) 한
@@ -1205,16 +1257,17 @@ function applyDinoScale(sideKey, selectedRunes) {
 // 중앙(전투) 타일 색상 - 중립은 흰색, "부족 점령 상태"(tileTribeControl - 이미 있는 설정, 전투
 // 수치에도 영향을 주는 값)에 따라 내 부족이면 골드, 상대 부족이면 빨강으로 바꿔서 시각적으로도
 // 누가 그 타일을 점령했는지 바로 보이게 함(사용자 확정)
+// "--"로 시작하면 hexSceneResolveColor(js/core/hex-scene3d.js)가 CSS 커스텀 프로퍼티로 읽어서
+// 테마에 맞춰 자동 반영함(mine=--accent, 테마 토글에도 안전) - none/opponent는 테마와 무관한
+// 고정색이라 리터럴 그대로 둠
 const CENTER_TILE_COLORS = {
   none: "#ffffff",
-  mine: "var(--accent)",
+  mine: "--accent",
   opponent: "#e0473f"
 };
 function applyCenterTileColor(tribeControl) {
   const color = CENTER_TILE_COLORS[tribeControl] || CENTER_TILE_COLORS.none;
-  const stop = document.getElementById("battleHexCenterStop");
-  if (stop) stop.style.setProperty("stop-color", color);
-  document.querySelectorAll(".battle-hex-center-border").forEach((border) => border.setAttribute("stroke", color));
+  if (dinoBattleScene3d) dinoBattleScene3d.setTileTint(1, color); // 인덱스 1 = center 타일(hexTiles 순서 참고)
 }
 
 function resetBattleDisplay() {
@@ -1233,7 +1286,7 @@ function resetBattleDisplay() {
   updateStackDisplay("opp", oppInputs.count);
   lastAliveCount = { my: myInputs.count, opp: oppInputs.count };
   ["myHpFill", "myBehind1HpFill", "myBehind2HpFill", "myBehind3HpFill", "oppHpFill", "oppBehind1HpFill", "oppBehind2HpFill", "oppBehind3HpFill"].forEach((id) => {
-    document.getElementById(id).style.width = "100%";
+    setHpFillWidth(document.getElementById(id), 1, 1);
   });
   renderOverflowBars("my", null, myInputs.count);
   renderOverflowBars("opp", null, oppInputs.count);
@@ -1287,10 +1340,32 @@ function spawnHealPopup(fighterElId, amount, cause, delayMs, popupIndex = 0) {
 
 const DEATH_ANIM_MS = 350;
 
-function playDeathFlash(sideKey) {
+// 앞장 슬롯(myAvatar/oppAvatar)은 죽을 때마다 다음 공룡이 같은 엘리먼트를 재사용하므로, 공격속도가
+// 빨라 350ms 안에 연달아 죽으면(예: 압도적으로 밀릴 때) 이전 죽음이 예약해둔 제거 타이머가 나중에
+// 뒤늦게 발동해서, 그 사이 새로 걸린 "전멸(최종)" 상태를 무시하고 클래스를 지워버리는 경쟁 상태가
+// 있었음(실측으로 재현 - 5연킬 테스트에서 마지막 죽음이 회색 대신 "완전히 안 보임"이어야 하는데
+// 4번째 죽음의 낡은 타이머가 뒤늦게 지워버려 다시 보였음). 진영별로 타이머 핸들을 저장해뒀다가
+// 새 죽음이 생기면 이전 타이머를 확실히 취소함(playLungeAndShake의 lungeShakeTimeout과 같은 패턴)
+const deathFlashTimeout = { my: null, opp: null };
+// handlePromotionEffects()가 죽는 애니메이션 뒤에 잇는 승격 연출도 같은 종류의 낡은 타이머 문제가
+// 있어서(별도 함수의 별도 타이머라 위 deathFlashTimeout과는 다른 핸들 필요) 같이 취소 대상에 둠
+const promotionTimeout = { my: null, opp: null };
+
+// isFinalDeath: 이 죽음으로 그 진영이 전멸했는지(더 이상 승격할 공룡이 없음) - 전멸이면
+// front-defeated(축소+투명화)를 지우지 않고 그대로 둠(사용자 확정 - 회색 처리 대신 "없어지면
+// 그걸로 끝"). 승격이 있는 경우에만 예전처럼 350ms 뒤 지워서 handlePromotionEffects가 이어서
+// 등장 애니메이션을 재생하게 함 - 안 그러면(예전 버그) 전멸 시에도 무조건 지워져서 죽은 공룡이
+// 완전히 보이는 상태로 튕겨 돌아왔었음(사용자 지적 - "회색 처리가... 다시 생기면서"). 새 죽음은
+// 그 슬롯에 대해 예약돼있던 이전 죽음/승격 타이머를 전부 무효화함(공속이 빨라 350ms 안에 연달아
+// 죽으면 낡은 타이머가 뒤늦게 발동해서 방금 막 걸린 전멸 상태를 지워버리는 경쟁 상태가 있었음 -
+// 5연킬 실측으로 재현/확인)
+function playDeathFlash(sideKey, isFinalDeath) {
   const avatar = document.getElementById(`${sideKey}Avatar`);
+  clearTimeout(deathFlashTimeout[sideKey]);
+  clearTimeout(promotionTimeout[sideKey]);
   avatar.classList.add("front-defeated");
-  setTimeout(() => avatar.classList.remove("front-defeated"), DEATH_ANIM_MS);
+  if (isFinalDeath) return;
+  deathFlashTimeout[sideKey] = setTimeout(() => avatar.classList.remove("front-defeated"), DEATH_ANIM_MS);
 }
 
 // 앞장이 죽어서 대기 중이던 공룡이 그 자리로 올라올 때 짧게(0.2~0.3초) 티가 나는 연출(사용자 확정) -
@@ -1305,8 +1380,10 @@ function handlePromotionEffects(sideKey, before, after, prevBehind1Rect) {
   // 이 함수가 여기까지 왔다는 건 방금 같은 턴에 이 앞장이 죽어서(playDeathFlash가 이미
   // front-defeated를 걸어둔 상태) 다음 공룡이 그 자리로 승격됐다는 뜻 - 죽는 축소 애니메이션이
   // 다 끝난 뒤에 등장 이동이 이어서 재생되도록 지연시킴(같은 엘리먼트에 두 애니메이션을 동시에
-  // 걸면 CSS가 하나만 적용해서 순서대로 안 보임)
-  setTimeout(() => {
+  // 걸면 CSS가 하나만 적용해서 순서대로 안 보임). 핸들을 저장해서, 이 타이머가 발동하기 전에
+  // 같은 슬롯에서 또 죽음이 생기면(playDeathFlash) 취소될 수 있게 함(낡은 타이머 경쟁 상태 방지)
+  clearTimeout(promotionTimeout[sideKey]);
+  promotionTimeout[sideKey] = setTimeout(() => {
     avatar.classList.remove("front-defeated", "promote-in-left", "promote-in-right", "promote-in-flip", "promote-in-flip-active");
     void avatar.offsetWidth; // 강제 리플로우 - 같은 클래스를 연달아 붙여도 애니메이션이 매번 처음부터 재생되게 함
 
@@ -1440,7 +1517,10 @@ function renderBattleEvent(ev) {
   }
 
   if (ev.deaths.length > 0) {
-    ev.deaths.forEach((d) => playDeathFlash(d.side));
+    ev.deaths.forEach((d) => {
+      const aliveAfter = d.side === "my" ? ev.myAliveCount : ev.oppAliveCount;
+      playDeathFlash(d.side, aliveAfter === 0);
+    });
   }
 
   // 평타 100회 교환 동시사망(무한 교착 방지 규칙) - 양쪽 다 표시
@@ -1469,14 +1549,11 @@ function renderBattleEvent(ev) {
 }
 
 function finishBattleDisplay(result) {
-  document.getElementById("myFormationGroup").classList.toggle("defeated", result.myFinalCount === 0);
-  document.getElementById("oppFormationGroup").classList.toggle("defeated", result.oppFinalCount === 0);
-
   const resultEl = document.getElementById("battleResult");
   resultEl.style.display = "block";
   if (result.winner === "draw") resultEl.innerText = "무승부!";
   else if (result.winner === "my") resultEl.innerText = "승리!";
-  else resultEl.innerText = "패배...";
+  else resultEl.innerText = "패배";
 
   battlePhase = "finished";
   const startBtn = document.getElementById("battleStartBtn");

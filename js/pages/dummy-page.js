@@ -171,28 +171,15 @@ function renderDummyPage(container) {
 
       <div class="battle-mode-panel" id="dummyLiveModeCard">
         <div class="dummy-field-wrap">
-          <!-- 다이노 배틀/타이탄 페이지와 같은 세계좌표+카메라 방식(사용자 확정) - 허수아비는
-               타일이 하나뿐이라 포메이션 계산은 필요 없지만, 구조 자체는 통일함: 육각형(바닥)이
-               preserve-3d로 진짜 3D 공간을 열고, 그 안의 .dummy-target-layer가 반대로 회전해서
-               카메라를 향해 서는 빌보드가 됨. 바닥과 정확히 같은 크기/중심으로 배치해서 안쪽의
-               허수아비/타격 이펙트 상대 위치(%)는 예전 그대로 재사용 가능 -->
-          <div class="dummy-hexagon">
-            <svg class="dummy-hexagon-svg" viewBox="0 0 100 86.6" preserveAspectRatio="none">
-              <defs>
-                <radialGradient id="dummyHexGradient" cx="50%" cy="38%" r="75%">
-                  <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.32"></stop>
-                  <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                </radialGradient>
-              </defs>
-              <polygon points="25,0 75,0 100,43.3 75,86.6 25,86.6 0,43.3" fill="url(#dummyHexGradient)"></polygon>
-              <!-- 대각선 변과 위/아래 수평 변을 따로 그림 - rotateX(55°)가 화면상 세로(Y) 방향만
-                   압축하는 변환이라, 수평 변은 굵기 방향이 통째로 Y축이라 유독 얇아 보이고 대각선
-                   변은 덜 압축됨(다이노 배틀/타이탄과 같은 이유) - 수평 변만 stroke-width 보정 -->
-              <path d="M75,0 L100,43.3 L75,86.6 M25,86.6 L0,43.3 L25,0" fill="none" stroke="var(--accent)" stroke-width="2.4" vector-effect="non-scaling-stroke"></path>
-              <path d="M25,0 L75,0 M75,86.6 L25,86.6" fill="none" stroke="var(--accent)" stroke-width="4.2" vector-effect="non-scaling-stroke"></path>
-            </svg>
+          <!-- 다이노 배틀/타이탄/건물과 같은 Three.js 육각형 바닥(js/core/hex-scene3d.js) - CSS
+               rotateX+perspective 가짜 3D를 버리고 진짜 WebGL 3D로 바닥을 그림(이번 세션 내내
+               CSS 3D 특유의 렌더링 버그를 겪은 뒤 사용자 확정 - "완벽한 3D공간을 구현하자"). 허수아비
+               자신(.dummy-scarecrow)과 타격 이펙트는 여전히 기존 DOM+CSS 그대로 - 위치만
+               hexScene.projectToScreen()으로 계산해서 심음. #dummyHexagonMount에 Three.js가
+               canvas를 붙임 -->
+          <div class="dummy-hexagon" id="dummyHexagonMount">
             <div class="dummy-target-layer" id="dummyTarget">
-              <img src="./assets/tribe/Scarecrow_1.png" class="dummy-scarecrow" alt="허수아비">
+              <img src="./assets/tribe/Scarecrow_1.png" class="dummy-scarecrow" id="dummyScarecrowImg" alt="허수아비">
             </div>
           </div>
           <div class="dummy-popup-layer" id="dummyPopupLayer"></div>
@@ -232,6 +219,47 @@ function renderDummyPage(container) {
   dummyInitControls();
   dummyInitOwnedRuneGrid();
   dummyUpdateStatsDisplay();
+
+  dummyInitScene3d();
+}
+
+// Three.js 육각형 바닥 - 타일이 하나뿐이라 세계좌표계도 그 육각형 자체 크기(100x86.6)로 충분함.
+// 허수아비 라이브 탭이 페이지 로드 즉시 보이는 상태라(다른 탭들과 달리 display:none 시작이 아님 -
+// 실측 확인) 바로 마운트해도 됨(타이탄/건물처럼 탭 클릭 시점까지 미룰 필요 없음)
+let dummyScene3d = null;
+// theme-changed 리스너 핸들 - 재진입 가드가 없어 dummyInitScene3d()가 방문마다 무조건 다시 불려서
+// (mount() 내부에서 dispose()가 먼저 돌아 캔버스 자체는 안전하게 재생성됨), 이 참조 없이 그냥
+// addEventListener만 하면 방문할 때마다 리스너가 계속 쌓임(사용자 지적 - 페이지를 오갈 때마다
+// theme-changed 리스너 누적) - 새로 등록하기 전에 이전 방문 몫을 먼저 지움
+let dummyThemeChangeHandler = null;
+
+function dummyInitScene3d() {
+  if (typeof createHexFloorScene !== "function") return;
+  const mountEl = document.getElementById("dummyHexagonMount");
+  if (!mountEl) return;
+  dummyScene3d = createHexFloorScene({
+    worldW: 100,
+    worldH: 86.6,
+    hexTiles: [{ center: [50, 43.3], tintVar: "--accent" }],
+    camera: { position: [50, 127, 150], lookAt: [50, 0, 43.3], fov: 45 },
+  });
+  dummyScene3d.mount(mountEl);
+  dummyPositionScarecrow();
+
+  document.removeEventListener("theme-changed", dummyThemeChangeHandler);
+  dummyThemeChangeHandler = () => {
+    if (dummyScene3d && mountEl.isConnected) dummyScene3d.rebakeColors();
+  };
+  document.addEventListener("theme-changed", dummyThemeChangeHandler);
+}
+
+function dummyPositionScarecrow() {
+  if (!dummyScene3d) return;
+  const img = document.getElementById("dummyScarecrowImg");
+  if (!img) return;
+  const pos = dummyScene3d.projectToScreen(50, 43.3);
+  img.style.left = pos.left;
+  img.style.top = pos.top;
 }
 
 function dummyInitTileSettings() {

@@ -172,36 +172,14 @@ function renderTitanPage(container) {
 
     <div id="myDinoSection"></div>
 
-    <div class="card">
-      <h2>관련 수치</h2>
-      <div class="metrics-grid" id="metricsGrid">
-        <button type="button" class="metric-tile" data-metric="basicDmg">
-          <div class="metric-label">평타 대미지</div>
-          <div class="metric-value" id="metricBasicDmg">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="skillDmg">
-          <div class="metric-label">스킬 대미지</div>
-          <div class="metric-value" id="metricSkillDmg">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="atkAmp">
-          <div class="metric-label">공격력 증폭량</div>
-          <div class="metric-value" id="metricAtkAmp">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="finalAvgDmg">
-          <div class="metric-label">최종 평균 대미지</div>
-          <div class="metric-value" id="metricFinalAvgDmg">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="reduction">
-          <div class="metric-label">대미지 감소량</div>
-          <div class="metric-value" id="metricReduction">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="recovery">
-          <div class="metric-label">회복량</div>
-          <div class="metric-value" id="metricRecovery">0</div>
-        </button>
-      </div>
-      <div class="metric-detail" id="metricDetail" style="display:none;"></div>
-    </div>
+    ${renderMetricsCard("metricsGrid", "metricDetail", [
+      { id: "metricBasicDmg", key: "basicDmg", label: "평타 대미지" },
+      { id: "metricSkillDmg", key: "skillDmg", label: "스킬 대미지" },
+      { id: "metricAtkAmp", key: "atkAmp", label: "공격력 증폭량" },
+      { id: "metricFinalAvgDmg", key: "finalAvgDmg", label: "최종 평균 대미지" },
+      { id: "metricReduction", key: "reduction", label: "대미지 감소량" },
+      { id: "metricRecovery", key: "recovery", label: "회복량" },
+    ])}
 
     <div class="card battle-main-card" id="titanMainCard">
       <div class="battle-mode-tabs titan-mode-tabs-4" id="titanModeTabs" data-active-idx="0">
@@ -324,75 +302,39 @@ function renderTitanPage(container) {
       </div>
 
       <div class="battle-mode-panel" id="titanLiveModeCard" style="display:none;">
-        <!-- 다이노 배틀 페이지와 같은 세계좌표+카메라 방식(사용자 확정) - 바닥(육각형 2개, 인접
-             타일)과 공룡/타이탄 아바타가 전부 같은 결합 좌표계(175×129.9) 위에서 진짜 3D 공간에
-             rotateX로 함께 기울고, 아바타 쪽만 그 반대로 회전(빌보드)해서 카메라를 향해 똑바로
-             섬 - titanPositionMyAvatars()/titanPositionBoss()가 세계좌표를 계산해서 left/top을
-             심으면 이미 걸린 CSS 3D(perspective+rotateX)가 원근 투영을 그대로 해줌 -->
+        <!-- 바닥(육각형 2개)은 Three.js(js/core/hex-scene3d.js)가 그리는 진짜 WebGL 3D - CSS
+             rotateX+perspective 가짜 3D를 쓰다가 이번 세션에서 여러 렌더링 버그(perspective 체인이
+             중간 래퍼에서 끊기는 버그 등)를 겪은 뒤 사용자 확정으로 전면 교체함. 공룡/타이탄
+             아바타는 여전히 평범한 2D DOM(체력바/이름표/피격 흔들림 로직 전부 그대로) - 위치만
+             titanPositionMyAvatars()/titanPositionBoss()가 hexScene.projectToScreen()으로
+             계산해서 left/top에 심음 -->
         <div class="titan-duel-wrap">
           <div class="titan-hex-hpbar-list" id="titanMyHpBars"></div>
 
           <div class="dummy-field-wrap titan-duel-field">
-            <!-- stage 하나가 곧 결합 좌표계(175x129.9) - 바닥(3D 기울임)과 아바타 오버레이(평면,
-                 좌표 계산만 적용)가 정확히 같은 박스를 공유해서 패딩 등으로 인한 어긋남이 없음 -->
-            <div class="titan-duel-stage">
-              <div class="titan-duel-tilt">
-                <svg class="titan-duel-floor-svg" viewBox="0 0 175 129.9" preserveAspectRatio="xMidYMid meet">
-                  <defs>
-                    <!-- gradientUnits를 기본값(objectBoundingBox)으로 두면 cx/cy%가 "각 폴리곤 자기
-                         bbox 기준" 퍼센트라서 육각형의 실제 시각적 중심과 어긋난 곳에 하이라이트가
-                         생김(색칠이 한쪽으로 쏠려 보이던 원인) - userSpaceOnUse로 바꿔서 뷰박스
-                         좌표(육각형의 진짜 중심)를 직접 지정 -->
-                    <radialGradient id="titanHexGradientMine" gradientUnits="userSpaceOnUse" cx="50" cy="86.6" r="45">
-                      <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.35"></stop>
-                      <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                    </radialGradient>
-                    <radialGradient id="titanHexGradientBoss" gradientUnits="userSpaceOnUse" cx="125" cy="43.3" r="45">
-                      <stop offset="0%" style="stop-color:#e0473f; stop-opacity:0.35"></stop>
-                      <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                    </radialGradient>
-                  </defs>
-                  <polygon points="25,43.3 75,43.3 100,86.6 75,129.9 25,129.9 0,86.6" fill="url(#titanHexGradientMine)"></polygon>
-                  <polygon points="100,0 150,0 175,43.3 150,86.6 100,86.6 75,43.3" fill="url(#titanHexGradientBoss)"></polygon>
-                  <!-- 테두리는 채우기와 분리한 열린 path로 그림: 두 육각형이 공유하는 변(75,43.3 ~
-                       100,86.6)은 금색/적색 어느 쪽 테두리에도 포함하지 않아서 겹쳐 그려지며
-                       anti-alias로 서로의 색이 "새는" 것처럼 번지던 문제를 없애고, 그 변만 따로
-                       중립(두 진영 색 혼합) 색 한 줄로 한 번만 그려서 경계선 자체는 살아있게 함.
-                       대각선 변과 위/아래 수평 변은 다이노 배틀과 같은 이유로 따로 그림 - rotateX(55°)가
-                       화면상 세로(Y) 방향만 압축하는 변환이라, 수평 변은 굵기 방향이 통째로 Y축이라
-                       유독 얇아 보이고 대각선 변은 덜 압축됨 - 수평 변만 stroke-width를 3.6으로 보정 -->
-                  <path d="M100,86.6 L75,129.9 M25,129.9 L0,86.6 L25,43.3" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                  <path d="M75,129.9 L25,129.9 M25,43.3 L75,43.3" fill="none" stroke="var(--accent)" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-                  <path d="M75,43.3 L100,0 M150,0 L175,43.3 L150,86.6" fill="none" stroke="#e0473f" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                  <path d="M100,0 L150,0 M150,86.6 L100,86.6" fill="none" stroke="#e0473f" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-                  <path d="M75,43.3 L100,86.6" fill="none" stroke="color-mix(in srgb, var(--accent) 50%, #e0473f)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                </svg>
+            <!-- stage 하나가 곧 결합 좌표계(175x129.9) - 바닥(Three.js canvas)과 아바타 오버레이
+                 (평면, 좌표 계산만 적용)가 정확히 같은 박스를 공유해서 패딩 등으로 인한 어긋남이
+                 없음 -->
+            <div class="titan-duel-stage" id="titanDuelStage">
+              <div class="titan-duel-tilt" id="titanDuelFloorMount"></div>
 
-              <!-- 다이노 배틀과 같은 세계좌표+카메라 방식(사용자 확정) - .titan-formation-group이
-                   preserve-3d로 바닥(.titan-duel-tilt)의 rotateX(55deg) 3D 공간에 실제로 들어가고,
-                   그 안의 .titan-hex-billboard-slot 각각이 rotateX(-55deg)로 반대 회전해서 카메라를
-                   향해 똑바로 서는("빌보드") 방식. titanPositionMyAvatars()/titanPositionBoss()가
-                   세계좌표를 계산해서 매번 left/top만 직접 심고, 안쪽(.titan-hex-avatar 이하)은
-                   기존 그대로 - 체력바/피격 흔들림/팝업 로직이 참조하는 클래스명·자식 순서·id를
-                   전혀 바꾸지 않아서 그쪽 로직은 안 건드려도 그대로 동작함 -->
               <div class="titan-formation-group" id="titanMyTarget">
-                <div class="titan-hex-billboard-slot" id="titanMySlot0"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot0" data-slot="0"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
-                <div class="titan-hex-billboard-slot" id="titanMySlot1"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot1" data-slot="1"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
-                <div class="titan-hex-billboard-slot" id="titanMySlot2"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot2" data-slot="2"><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div></div></div>
+                <div class="titan-hex-billboard-slot" id="titanMySlot0"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot0" data-slot="0"><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-name"></div></div></div>
+                <div class="titan-hex-billboard-slot" id="titanMySlot1"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot1" data-slot="1"><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-name"></div></div></div>
+                <div class="titan-hex-billboard-slot" id="titanMySlot2"><div class="titan-hex-avatar titan-hex-avatar-mine titan-hex-avatar-slot2" data-slot="2"><div class="titan-hex-avatar-hpbar"><div class="titan-hex-avatar-hpfill titan-hex-hpfill-mine"></div></div><div class="titan-hex-avatar-ball"></div><div class="titan-hex-avatar-name"></div></div></div>
                 <div class="titan-hex-anchor-popup-layer" id="titanMyPopupLayer"></div>
               </div>
               <div class="titan-formation-group" id="titanBossTarget">
                 <div class="titan-hex-billboard-slot" id="titanBossSlot0">
                   <div class="titan-hex-avatar titan-hex-avatar-boss">
                     <div class="titan-hex-avatar-ball"></div>
+                    <div class="titan-hex-avatar-hp-text" id="titanBossHpText"></div>
                     <div class="titan-hex-avatar-hpbar titan-hex-avatar-hpbar-boss">
                       <div class="titan-hex-avatar-hpfill titan-hex-hpfill-boss" id="titanBossHpFill"></div>
-                      <div class="titan-hex-avatar-hp-text" id="titanBossHpText"></div>
                     </div>
                   </div>
                 </div>
                 <div class="titan-hex-anchor-popup-layer" id="titanBossPopupLayer"></div>
-              </div>
               </div>
             </div>
           </div>
@@ -430,6 +372,14 @@ function renderTitanPage(container) {
 
   initTitanPage();
 }
+
+// 파일 최상단(initTitanPage 밖) - 라우터가 #titan을 방문할 때마다 renderTitanPage가
+// initTitanPage()를 처음부터 다시 실행하므로(js/router.js, "이미 이 페이지에 있으면 스킵" 같은
+// 로직 없음 - 확인함) initTitanPage() 안에 있는 지역 변수는 방문마다 전부 새로 만들어짐. 이
+// 핸들러 참조는 그 클로저 밖(진짜 모듈 스코프)에 둬야, 다음 방문에서 이전 방문이 등록한 리스너를
+// 정확히 지목해서 지울 수 있음(사용자 지적 - "theme-changed 리스너가 페이지를 오갈 때마다 계속
+// 쌓임" - 클로저 안에 두면 매번 새 함수 객체라 removeEventListener가 무효함, 실측/코드 검증 완료)
+let titanThemeChangeHandler = null;
 
 function initTitanPage() {
   let lastMetrics = null;
@@ -505,11 +455,12 @@ function initTitanPage() {
     });
   }
 
+  // 기본값에서 바뀐 값 강조(.value-changed)는 타이탄만 쓰던 기존 동작이라 그대로 유지하고, 실제
+  // 표시/롤링 모션은 공용 함수(js/ui/stat-roll-ui.js, 건물 페이지가 먼저 쓰던 것과 동일)에 위임
+  // (사용자 지적 - "모든 페이지의 관련 수치에 모션을 넣어줘")
   function setMetricTile(id, value) {
-    const el = document.getElementById(id);
-    const rounded = Math.round(value);
-    el.innerText = rounded.toLocaleString();
-    el.classList.toggle("value-changed", rounded !== 0);
+    document.getElementById(id).classList.toggle("value-changed", Math.round(value) !== 0);
+    setMetricTileValue(id, value);
   }
 
   function refreshMetricsCard() {
@@ -818,6 +769,9 @@ function initTitanPage() {
         // 채로 계속 재생되고 있었음(다음 틱 팝업이 안 보이는 곳에서 계속 쌓이는 등) - 탭을 벗어나면
         // 자동으로 멈추고 처음 상태로 되돌림
         if (m.mode !== "live" && titanReplayRunning) titanLiveReset();
+        // "live" 탭은 기본 display:none으로 시작해서(기본 활성 탭은 "설정") 페이지 로드 시점엔
+        // 캔버스가 0x0임(실측 확인) - 이 탭을 처음 열 때 Three.js 씬을 마운트/리사이즈함
+        if (m.mode === "live") titanInitScene3d();
       };
     });
     document.getElementById("titanQcBtn").onclick = titanRunQuickCalc;
@@ -948,17 +902,80 @@ function initTitanPage() {
   const TITAN_VISIBLE_DINO_SLOTS = 3;
 
   // ===== 육각형 바닥과 완전히 같은 결합 좌표계(세계좌표) 위에 아바타를 "카메라로 촬영"하듯 배치 =====
-  // 다이노 배틀 페이지(js/pages/dino-battle-page.js)와 완전히 같은 원리 - 예전엔 앵커 박스마다
-  // 손으로 튜닝한 %였는데, 이제 바닥 SVG와 정확히 같은 0~175 x 0~129.9 좌표계 하나에 정삼각형
-  // 배치를 실제 삼각함수로 계산하고, 이미 걸려있는 CSS 3D(perspective+rotateX)가 그 좌표를 그대로
-  // 원근 투영해줌. 육각형 1개 크기(100×86.6)가 다이노 배틀의 육각형과 완전히 같아서 반지름 값도
-  // 그대로 재사용함(TITAN_R3 = 다이노 배틀의 R3_RESERVE)
-  const TITAN_WORLD_W = 175, TITAN_WORLD_H = 129.9;
-  const TITAN_HEX_CENTERS = { mine: [50, 86.6], boss: [125, 43.3] };
+  // 타일 중심은 원점(0,0)에서 HEX_NEIGHBOR 방향 벡터를 더해가며 명시적으로 선언함(CSS 3D 시절
+  // SVG viewBox 좌표를 그대로 재사용하지 않기 위함 - 그렇게 했더니 타일 중심과 아바타 좌표가
+  // 어긋나는 버그가 났었음). mine을 원점에 두고 boss를 그 오른쪽 위 이웃 타일에 배치.
+  const TITAN_HEX_CENTERS = { mine: [0, 0], boss: hexAdd([0, 0], HEX_NEIGHBOR.upperRight) };
+  // 카메라는 두 타일의 중점을 내려다보게 잡음(worldW/H 같은 별도 상수 없이 타일 좌표에서 직접 유도)
+  const TITAN_CAM_TARGET = [
+    (TITAN_HEX_CENTERS.mine[0] + TITAN_HEX_CENTERS.boss[0]) / 2,
+    (TITAN_HEX_CENTERS.mine[1] + TITAN_HEX_CENTERS.boss[1]) / 2,
+  ];
   const TITAN_R3 = 22;
 
+  // "live" 탭을 처음 열 때 titanInitScene3d()가 마운트함(titanInitModeTabs 참고) - 그 전엔
+  // #titanLiveModeCard가 display:none이라 캔버스가 0x0이라서 로드 시점엔 안 만듦(실측 확인)
+  let titanScene3d = null;
+
+  function titanInitScene3d() {
+    const mountEl = document.getElementById("titanDuelFloorMount");
+    if (!mountEl) return;
+    // "지금 이 mountEl"에 이미 캔버스가 붙어있으면(같은 페이지 세션 안에서 탭만 왔다갔다 한 경우)
+    // 리사이즈만 하고 끝 - titanScene3d(안 null)만 보고 판단하면 안 됨(건물/다이노 배틀 페이지에서
+    // 실측으로 발견한 버그: 페이지를 나갔다 재방문하면 mountEl은 라우터가 완전히 새로 만든
+    // 엘리먼트인데 씬 변수는 예전 인스턴스를 그대로 들고 있어서, "이미 마운트됨"으로 착각해 새
+    // mountEl엔 캔버스를 영영 안 붙이는 바람에 바닥이 안 보였음 - 타이탄은 initTitanPage()가
+    // 방문마다 통째로 다시 실행돼서 titanScene3d가 매번 fresh null이라 우연히 이 버그를 안
+    // 겪었지만, 그 "우연"에 기대지 않고 다른 페이지와 같은 방식으로 명시적으로 확인함)
+    if (titanScene3d && mountEl.querySelector("canvas")) { titanScene3d.resize(); return; }
+    if (typeof createHexFloorScene !== "function") return;
+    titanScene3d = createHexFloorScene({
+      // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
+      // 맞으면 됨(육각형 크기 상수에서 유도 - SVG 시절 절대좌표 아님)
+      worldW: 3 * HEX_HALF_W,
+      worldH: 3 * HEX_HALF_H,
+      hexTiles: [
+        { center: TITAN_HEX_CENTERS.mine, tintVar: "--accent" },
+        // 보스 쪽은 예전 SVG에서도 테마와 무관한 고정 레드였음(CSS 변수 아님) - 리터럴 색상 그대로
+        { center: TITAN_HEX_CENTERS.boss, tintVar: "#e0473f" },
+      ],
+      camera: {
+        // 카메라 높이/거리(예전 190/160.05)가 fov 45도 기준으로 필요 이상으로 멀어서, 스테이지
+        // 박스 위쪽에 육각형/공이 전혀 없는 빈 공간이 크게 남았음(사용자 지적 - "타이탄은 왜 또
+        // 내려와있어" - 콘텐츠가 박스 아래쪽에 몰려 보임). lookAt/fov는 그대로 두고 카메라만 같은
+        // 비율로 씬에 가깝게 당김(순수 줌인 - 화면 중앙을 보는 지점은 안 바뀌므로 좌우 프레이밍은
+        // 그대로 유지됨) - 실측(getBoundingClientRect)으로 여러 뷰포트에서 잘리지 않는 선까지 확인
+        position: [TITAN_CAM_TARGET[0], 130, TITAN_CAM_TARGET[1] + 110],
+        lookAt: [TITAN_CAM_TARGET[0], 0, TITAN_CAM_TARGET[1]],
+        fov: 45,
+      },
+      // 창 크기가 바뀌면 육각형이 화면에서 차지하는 실제 픽셀 크기도 바뀌므로, 육각형 기준으로
+      // 잡은 아바타 크기(--avatar-diam-px)도 다시 계산해야 함(위치는 %라 CSS가 알아서 따라가지만
+      // 크기는 JS가 px로 직접 심으므로 재계산 트리거가 필요함)
+      onResize: () => {
+        const visibleCount = document.querySelectorAll("#titanMyTarget .titan-hex-avatar:not([style*='display: none'])").length || 1;
+        titanPositionMyAvatars(visibleCount);
+        titanPositionBoss();
+      },
+    });
+    titanScene3d.mount(mountEl);
+    // 페이지를 여러 번 오가도 리스너가 계속 쌓이지 않도록, 새로 등록하기 전에 이전 방문 몫을 먼저
+    // 제거(titanThemeChangeHandler는 initTitanPage() 밖의 진짜 모듈 스코프 - 파일 상단 선언부 참고)
+    document.removeEventListener("theme-changed", titanThemeChangeHandler);
+    titanThemeChangeHandler = () => {
+      if (titanScene3d && mountEl.isConnected) titanScene3d.rebakeColors();
+    };
+    document.addEventListener("theme-changed", titanThemeChangeHandler);
+    // "live" 탭이 display:none인 동안(페이지 로드 시점) titanLiveReset()이 이미 한 번 아바타
+    // 위치를 잡았는데, 그때는 씬이 없어서 titanWorldToPercent가 폴백(화면 중앙)을 썼음 - 씬이
+    // 막 마운트된 지금 실제 projectToScreen 좌표로 다시 잡아줘야 함(안 그러면 시뮬레이션을 시작하기
+    // 전까지 계속 화면 중앙에 겹쳐 있는 버그가 남음 - 실측으로 확인된 버그)
+    titanLiveReset();
+  }
+
   function titanWorldToPercent([x, y]) {
-    return { left: `${(x / TITAN_WORLD_W) * 100}%`, top: `${(y / TITAN_WORLD_H) * 100}%` };
+    if (titanScene3d) return titanScene3d.projectToScreen(x, y);
+    return { left: "50%", top: "50%" }; // 씬 마운트 전 폴백(탭이 열리기 전엔 안 보이므로 위치는 무의미)
   }
 
   // count(1~3)에 따른 삼각 대형 좌표 - 다이노 배틀의 trianglePoints와 같은 공식(앞 1 + 뒤 2),
@@ -975,10 +992,38 @@ function initTitanPage() {
     ];
   }
 
+  // .titan-hex-avatar는 체력바/체력수치/이름표가 공(.titan-hex-avatar-ball)과 같은 flex 컬럼 안에
+  // order로 위/아래에 쌓이는 구조라(중첩 preserve-3d 안에서는 건물/다이노 배틀처럼 체력바를 공의
+  // 절대위치 오버레이로 빼면 안 그려지는 렌더링 버그가 있어서 - 위 .titan-hex-avatar 주석 참고 -
+  // 이 방식을 씀), 부모 .titan-hex-billboard-slot의 translate(-50%,-50%)는 "박스 전체"를 육각형
+  // 중심에 맞출 뿐 공 자체를 맞추는 게 아님. 보스는 공 위(체력수치+체력바)에만 내용물이 있고
+  // 아래엔 없어서 실측상 공 중심이 박스 중심보다 카메라 쪽(아래)으로 17px 넘게 쏠려 있었음(공룡
+  // 쪽은 위/아래 내용물 크기가 비슷해서 훨씬 덜 눈에 띔) - 3D 좌표/카메라와는 무관한 순수 CSS
+  // 레이아웃 문제였음(제미나이는 "구체를 바닥에 심어서 생기는 원근 문제"로 진단했었는데, 체력바
+  // 두께를 실측해보면 worldZ를 전혀 안 건드려도 이 오프셋이 그대로 나와서 그 진단은 틀렸다고
+  // 결론남). 하드코딩 보정값 대신 실제 렌더링된 공/박스 위치를 재서 그 차이만큼 되돌림 - 체력바
+  // 두께나 글자 크기가 반응형(cqw)이라 뷰포트마다 필요한 보정량이 달라지는데, 실측 방식은 항상
+  // 자동으로 맞음
+  function titanCenterBallAtAnchor(slot) {
+    const ball = slot.querySelector(".titan-hex-avatar-ball");
+    if (!ball) return;
+    const ballRect = ball.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+    if (slotRect.height === 0) return;
+    const offsetY = (ballRect.top + ballRect.bottom) / 2 - (slotRect.top + slotRect.bottom) / 2;
+    slot.style.transform = `translate(-50%, calc(-50% - ${offsetY}px))`;
+  }
+
   // 공룡(내 편) 1~3마리를 mine 육각형 안에 삼각 대형으로 배치 - titanLiveReset(첫 배치)과
   // titanUpdateMyDisplay(매 틱, 죽어서 마릿수가 줄 때)에서 호출
   function titanPositionMyAvatars(count) {
     const points = titanFormationPoints(TITAN_HEX_CENTERS.mine, count);
+    // 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js) - 매머드의 힘/압축된 힘 룬 배율까지 반영
+    const sizeScale = hexSceneDinoRuneSizeScale(titanDinoInputs().selectedRunes);
+    const diamPx = titanScene3d
+      ? titanScene3d.projectDiameterPx(TITAN_HEX_CENTERS.mine[0], TITAN_HEX_CENTERS.mine[1], DINO_AVATAR_DIAMETER_WORLD * sizeScale)
+      : 0;
+    const slots = [];
     [0, 1, 2].forEach((i) => {
       const slot = document.getElementById(`titanMySlot${i}`);
       const point = points[i];
@@ -986,7 +1031,16 @@ function initTitanPage() {
       const pct = titanWorldToPercent(point);
       slot.style.left = pct.left;
       slot.style.top = pct.top;
+      // 대형 3마리끼리 깊이정렬 - 다이노 배틀과 같은 방식(카메라 실제 깊이 기반)으로 통일. 대형이
+      // 항상 고정된 상대 위치라 정적값으로도 맞릴 수 있지만(이전엔 그렇게 했었음), 나중에 대형
+      // 공식이 바뀌면 사람이 값을 다시 맞춰야 하는 유지보수 리스크가 있어서 동적 계산으로 바꿈
+      if (pct.visible) slot.style.zIndex = Math.round(10000 - pct.distance);
+      if (diamPx > 0) slot.querySelector(".titan-hex-avatar").style.setProperty("--avatar-diam-px", `${diamPx}px`);
+      slots.push(slot);
     });
+    // 위치/크기를 다 쓴 다음에만 측정(읽기)해서, 슬롯마다 읽기-쓰기가 번갈아 일어나며 강제
+    // 리플로우가 3번 나는 걸 피함(실시간 재생 중 매 틱 호출되므로 중요)
+    slots.forEach(titanCenterBallAtAnchor);
   }
 
   // 보스는 항상 1마리 고정 - 포메이션 계산 없이 boss 육각형 중심에 고정
@@ -995,6 +1049,11 @@ function initTitanPage() {
     const pct = titanWorldToPercent(TITAN_HEX_CENTERS.boss);
     slot.style.left = pct.left;
     slot.style.top = pct.top;
+    const diamPx = titanScene3d
+      ? titanScene3d.projectDiameterPx(TITAN_HEX_CENTERS.boss[0], TITAN_HEX_CENTERS.boss[1], TITAN_BOSS_DIAMETER_WORLD)
+      : 0;
+    if (diamPx > 0) slot.querySelector(".titan-hex-avatar").style.setProperty("--avatar-diam-px", `${diamPx}px`);
+    titanCenterBallAtAnchor(slot);
   }
 
   function titanResetLiveStats() {
@@ -1017,7 +1076,7 @@ function initTitanPage() {
     document.getElementById("titanLiveStartBtn").style.removeProperty("--progress");
     document.getElementById("titanLiveRestartBtn").disabled = true;
     titanResetLiveStats();
-    document.getElementById("titanBossHpFill").style.width = "100%";
+    setHpFillWidth(document.getElementById("titanBossHpFill"), 1, 1);
     document.getElementById("titanBossHpText").textContent =
       `${TITAN_STATS[titanLevel].hp.toLocaleString()} / ${TITAN_STATS[titanLevel].hp.toLocaleString()}`;
     const myCount = titanDinoInputs().count || 1;
@@ -1034,13 +1093,11 @@ function initTitanPage() {
     titanPositionBoss();
     document.querySelectorAll("#titanMyHpBars .titan-hex-hpbar").forEach((bar, i) => {
       bar.style.display = i < visibleCount ? "none" : "";
-      const fill = bar.querySelector(".titan-hex-hpfill");
-      if (fill) fill.style.width = "100%";
+      setHpFillWidth(bar.querySelector(".titan-hex-hpfill"), 1, 1);
     });
     document.querySelectorAll("#titanMyTarget .titan-hex-avatar").forEach((el, i) => {
       el.style.display = i < visibleCount ? "" : "none";
-      const fill = el.querySelector(".titan-hex-avatar-hpfill");
-      if (fill) fill.style.width = "100%";
+      setHpFillWidth(el.querySelector(".titan-hex-avatar-hpfill"), 1, 1);
     });
     ["titanMyTarget", "titanBossTarget"].forEach((id) => {
       const el = document.getElementById(id);
@@ -1063,10 +1120,22 @@ function initTitanPage() {
     titanReplayIdx = 0;
     titanFirstDeathTick = null;
     btn.disabled = false;
-    btn.textContent = "다시 시뮬레이션";
     document.getElementById("titanLiveRestartBtn").disabled = false;
     document.getElementById("titanLiveStats").style.display = "grid";
     titanReplayStart();
+  }
+
+  // 재생/일시정지 버튼 라벨 - titanLiveStartBtn 하나가 상태에 따라 세 가지 역할을 함(사용자 확정 -
+  // "시작 버튼을 눌렀다면 다시 시뮬레이션이 아니라 일시 정지여야 해. 초기화 버튼은 오른쪽에 있잖아" -
+  // ↻ titanLiveRestartBtn이 이미 "처음부터 다시" 역할을 맡고 있으니 이 버튼은 재생 상태 토글에만
+  // 집중함): 재생 중엔 "일시정지", 로그가 남아있는데 멈춰있으면(사용자가 일시정지함) "재생", 로그를
+  // 끝까지 다 재생했으면(더 재생할 게 없음) "다시 시뮬레이션"(새로 계산해서 처음부터). 초기 상태
+  // ("시뮬레이션 시작")는 titanLiveReset()이 직접 심어주므로 여기서 안 건드림
+  function titanUpdateStartBtnLabel() {
+    const btn = document.getElementById("titanLiveStartBtn");
+    if (titanReplayRunning) btn.textContent = "일시정지";
+    else if (titanReplayIdx < titanReplayLogs.length) btn.textContent = "재생";
+    else if (titanReplayLogs.length > 0) btn.textContent = "다시 시뮬레이션";
   }
 
   function titanReplayStart() {
@@ -1074,6 +1143,7 @@ function initTitanPage() {
     titanReplayRunning = true;
     clearInterval(titanReplayTimer);
     titanReplayTimer = setInterval(titanReplayTick, titanGetSpeedMs());
+    titanUpdateStartBtnLabel();
   }
 
   function titanUpdateMyDisplay(entry) {
@@ -1093,8 +1163,7 @@ function initTitanPage() {
       if (slot < frontIdx.length) {
         avatarEl.style.display = "";
         const hp = Number(entry.공룡상태[frontIdx[slot]].남은HP);
-        const fill = avatarEl.querySelector(".titan-hex-avatar-hpfill");
-        if (fill) fill.style.width = `${Math.max(0, (hp / dinoMaxHp) * 100)}%`;
+        setHpFillWidth(avatarEl.querySelector(".titan-hex-avatar-hpfill"), hp, dinoMaxHp);
       } else {
         avatarEl.style.display = "none";
       }
@@ -1108,8 +1177,7 @@ function initTitanPage() {
       bar.style.display = isHidden ? "" : "none";
       if (isHidden) {
         const hp = Number(entry.공룡상태[i].남은HP);
-        const fill = bar.querySelector(".titan-hex-hpfill");
-        fill.style.width = `${Math.max(0, (hp / dinoMaxHp) * 100)}%`;
+        setHpFillWidth(bar.querySelector(".titan-hex-hpfill"), hp, dinoMaxHp);
       }
     });
 
@@ -1171,6 +1239,7 @@ function initTitanPage() {
     if (titanReplayIdx >= titanReplayLogs.length) {
       clearInterval(titanReplayTimer);
       titanReplayRunning = false;
+      titanUpdateStartBtnLabel();
       return;
     }
     const entry = titanReplayLogs[titanReplayIdx];
@@ -1178,7 +1247,7 @@ function initTitanPage() {
 
     const titanMaxHp = entry.타이탄최대HP_raw;
     const titanHp = entry.타이탄HP_raw;
-    document.getElementById("titanBossHpFill").style.width = `${Math.max(0, (titanHp / titanMaxHp) * 100)}%`;
+    setHpFillWidth(document.getElementById("titanBossHpFill"), titanHp, titanMaxHp);
     document.getElementById("titanBossHpText").textContent =
       `${Math.max(0, Math.round(titanHp)).toLocaleString()} / ${Math.round(titanMaxHp).toLocaleString()}`;
 
@@ -1239,45 +1308,54 @@ function initTitanPage() {
       void avatar.offsetWidth;
       avatar.classList.add("dummy-shaking");
     });
-    // 대상이 preserve-3d 안에 있어서 fx를 3D 공간 안에 두면 깊이 다툼에 걸림(피격 흔들림
-    // 애니메이션이 filter를 쓰는 순간 CSS 스펙상 강제로 평면화돼서 translateZ가 무시됨 - 다이노
-    // 배틀에서 실측으로 확인된 것과 같은 문제) - 3D를 아예 우회해서 화면 좌표(position:fixed)로
-    // 직접 띄움. 육각형 중심의 세계좌표를 target(무대 전체 크기)의 실제 화면 rect에 곱해서
-    // 실제 픽셀 좌표를 구함(사용자 지적 - 피격 이펙트가 아바타 뒤에 그려지던 버그 수정)
+
+    // Three.js로 바닥을 옮기면서 preserve-3d 자체가 사라져서, 예전에 3D 깊이 다툼(피격 흔들림이
+    // filter를 쓰는 순간 강제 평면화되던 문제)을 피하려고 썼던 position:fixed 우회가 더 이상 필요
+    // 없음 - 일반 인-스테이지 요소로 되돌리고, 히트 이펙트/데미지 팝업 둘 다
+    // hexScene.projectToScreen() 좌표 하나로 통일(예전엔 fx만 getBoundingClientRect() 기반 별도
+    // 계산을 썼음)
     const hexCenter = TITAN_HEX_CENTERS[targetId === "titanMyTarget" ? "mine" : "boss"];
-    const stageRect = target.getBoundingClientRect();
-    const screenX = stageRect.left + stageRect.width * (hexCenter[0] / TITAN_WORLD_W);
-    const screenY = stageRect.top + stageRect.height * (hexCenter[1] / TITAN_WORLD_H);
+    const pct = titanWorldToPercent(hexCenter);
+    const layer = document.getElementById(targetId === "titanMyTarget" ? "titanMyPopupLayer" : "titanBossPopupLayer");
+
     const fx = document.createElement("img");
     fx.src = "./assets/sprites/Hit_Effect.png";
-    fx.className = "dummy-hit-effect dummy-hit-effect-fixed";
+    fx.className = "dummy-hit-effect";
     fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
-    fx.style.left = `${screenX}px`;
-    fx.style.top = `${screenY}px`;
-    fx.style.width = `${stageRect.width * 0.16}px`;
-    document.body.appendChild(fx);
+    fx.style.left = pct.left;
+    fx.style.top = pct.top;
+    layer.appendChild(fx);
     fx.addEventListener("animationend", () => fx.remove());
 
     // popupLayerId가 없으면(예: 표시 중인 3마리 각자에게 이미 개별 팝업을 따로 띄운 경우) 흔들림/
-    // 타격 이펙트만 재생하고 별도의 통합 팝업은 생략함
+    // 타격 이펙트만 재생하고 별도의 통합 데미지 숫자는 생략함
     if (!popupLayerId) return;
-    const layer = document.getElementById(popupLayerId);
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup dummy-dmg-popup";
     popup.innerText = Math.round(dmg).toLocaleString();
-    // .dummy-dmg-popup 기본 CSS(top:-6%)도 이제 무대 전체 기준이라 안 맞고, 음수 top 자체도
-    // preserve-3d 중첩 구조에서 렌더링이 안 되는 문제가 있어서(fx와 같은 이유) 위치를 인라인으로
-    // 직접 심음 - 육각형 중심에서 시작해 기존 battle-dmg-float 애니메이션이 위로 띄워줌(그 keyframe
-    // 자체가 transform을 갖고 있어서 여기서 별도 transform을 얹어도 즉시 덮어써짐 - left/top만 심음)
-    const popupPct = titanWorldToPercent(hexCenter);
-    popup.style.left = popupPct.left;
-    popup.style.top = popupPct.top;
+    popup.style.left = pct.left;
+    popup.style.top = pct.top;
     layer.appendChild(popup);
     popup.addEventListener("animationend", () => popup.remove());
   }
 
   function titanInitLiveControls() {
-    document.getElementById("titanLiveStartBtn").onclick = titanStartLiveSim;
+    // 재생 중이면 일시정지만, 일시정지 상태(로그가 남음)면 그 지점부터 재생 재개만, 그 외(아직
+    // 시작 전이거나 끝까지 다 재생함)엔 새로 계산해서 시작 - 초기화(처음부터 다시)는 옆의
+    // titanLiveRestartBtn(↻) 몫이라 여기선 재계산 없이 이어서 재생하는 것만 처리
+    document.getElementById("titanLiveStartBtn").onclick = () => {
+      if (titanReplayRunning) {
+        clearInterval(titanReplayTimer);
+        titanReplayRunning = false;
+        titanUpdateStartBtnLabel();
+        return;
+      }
+      if (titanReplayIdx < titanReplayLogs.length) {
+        titanReplayStart();
+        return;
+      }
+      titanStartLiveSim();
+    };
     document.getElementById("titanLiveRestartBtn").onclick = () => {
       titanLiveReset();
     };
@@ -1716,4 +1794,10 @@ function initTitanPage() {
   titanLiveReset();
   titanInitOwnedRuneGrid();
   titanResetQuickCalc();
+
+  // 로그인 상태면 "내 공룡" 대신 실제 닉네임을 보여줌(js/ui/dino-display-ui.js, 다이노 배틀 페이지가
+  // 먼저 확정한 방식과 통일 - 사용자 확정 "로그인 하면 닉네임 보이는거... 통일시켜"). 비동기 조회가
+  // 끝나기 전까지는 getMyDisplayNameSync()의 폴백("내 공룡")이 즉시 보이도록 동기 호출도 한 번 먼저 함
+  applyMyDisplayName(".titan-hex-avatar-name");
+  loadMyDisplayName().then(() => applyMyDisplayName(".titan-hex-avatar-name"));
 }

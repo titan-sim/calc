@@ -5,6 +5,7 @@
 .wrangler/
 .claude/
 node_modules/
+dev/
 *.md
 supabase_schema.sql
 supabase_setup_guide.md

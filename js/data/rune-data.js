@@ -729,6 +729,15 @@ const BUILDING_UNSUITABLE_RUNE_LIST = [
 const BUILDING_TYPES = [
   { id: "alarm_tower", label: "알람 타워", img: "AlarmTower.png", hp: 1500000, anchorX: 37.57, anchorY: 78.25 },
   { id: "ammo_distributor", label: "탄 분배기", img: "AmmoDistributor.png", hp: 3000000, anchorX: 45.28, anchorY: 77.02 },
+  // 캐터펄트(사용자 확정 - 체력값 4종). 원본 PNG 4장이 다른 건물 에셋들과 달리 실제 그림 주위에
+  // 여백이 많이 남아있어서(사용자 지적 - "다른 이미지들은... 크게 보이는데 캐터필드는... 작게
+  // 보여") 처음엔 여기서 자동으로 알파 bbox 기준 크롭 + 좌표 재계산을 했었는데, 이후 사용자가
+  // 직접 "최대한 여백 없이" 다시 잘라 에셋 파일 자체를 교체하고 그 새 크롭 기준으로 4장 각각
+  // 실측한 좌표를 줬음 - 그 값을 그대로 반영(자동 계산값 폐기, 4장 전부 서로 다름)
+  { id: "catapult_wood", label: "투석기 Lv.1", img: "Catapult_Wood.png", hp: 1500000, anchorX: 60.66, anchorY: 66.05 },
+  { id: "catapult_stone", label: "투석기 Lv.2", img: "Catapult_Stone.png", hp: 2000000, anchorX: 59.47, anchorY: 67.59 },
+  { id: "catapult_metal", label: "투석기 Lv.3", img: "Catapult_Metal.png", hp: 3000000, anchorX: 60.19, anchorY: 67.45 },
+  { id: "catapult_realmetal", label: "투석기 Lv.4", img: "Catapult_RealMetal.png", hp: 4500000, anchorX: 60.19, anchorY: 67.45 },
   // 공격력/체력 버프 타워 - 적 부족이 이미 세워둔 걸 우리가 부술 수도 있는 상황이라 잠금 해제
   // (사용자 확정 - 체력값도 이미 둘 다 확정해서 줬었음)
   { id: "damage_buff_tower", label: "공격력 버프 타워", img: "DamageBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },

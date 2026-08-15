@@ -3,13 +3,13 @@
    순서)가 원본과 동일하게 유지되도록 주의할 것 ===== */
 
 /* ===== 건물 =====
-   다이노 배틀/타이탄 페이지와 같은 세계좌표+카메라 방식(preserve-3d + rotateX(55deg) 바닥 +
-   billboard 자식). 허수아비와 달리 타일이 4개(공룡 1 + 건물 3)라 "육각형 하나 = grid 전체"였던
-   허수아비 트릭 대신, 다이노 배틀/타이탄처럼 결합 좌표계(0~250, 0~173.2) 위에 각 슬롯을
-   world-coordinate로 배치함 - 진영 구분이 없어서 formation-group은 하나면 충분함.
-   일자 대각선 체인이 아니라, 공룡 육각형 하나를 중심으로 그 앞쪽에 정면·좌측·우측 3개 건물
-   육각형이 꽃잎처럼 붙는 배치(사용자 확정 - js/pages/building-page.js의 BUILDING_HEX_CENTERS/
-   BUILDING_ADJACENCY 참고). */
+   바닥은 Three.js(js/core/hex-scene3d.js)가 그리는 진짜 WebGL 3D - CSS rotateX+perspective
+   가짜 3D를 쓰다가 이번 세션에서 여러 렌더링 버그를 겪은 뒤 사용자 확정으로 전면 교체함. 공룡/건물
+   슬롯은 여전히 평범한 2D DOM - 위치만 hexScene.projectToScreen()으로 계산해서 심음. 타일이
+   4개(공룡 1 + 건물 3)라 결합 좌표계(0~250, 0~173.2) 위에 각 슬롯을 world-coordinate로 배치함 -
+   진영 구분이 없어서 formation-group은 하나면 충분함. 일자 대각선 체인이 아니라, 공룡 육각형
+   하나를 중심으로 그 앞쪽에 정면·좌측·우측 3개 건물 육각형이 꽃잎처럼 붙는 배치(사용자 확정 -
+   js/pages/building-page.js의 BUILDING_HEX_CENTERS/BUILDING_ADJACENCY 참고). */
 .building-field-card {
   container-type: inline-size;
 }
@@ -53,6 +53,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  /* "건물까지의 거리"(라벨+입력칸 2줄, .titan-settings-stack)가 "연속 전투"(라벨+토글 1줄,
+     .titan-settings-row - 자기 높이가 고정이라 grid 기본 stretch가 안 먹힘)보다 키가 커서, 이
+     정렬이 없으면 연속 전투 쪽이 칸 맨 위에 붙어 두 블록의 세로 위치(y좌표)가 어긋나 보였음
+     (사용자 지적 - "연속 전투는 블록과 y좌표를 맞춰야해") - 세로 중앙 정렬로 맞춤 */
+  align-items: center;
 }
 
 /* 전투 설정 탭 안에서 "타일풍" 설정(자연/부족점령/버프타워/캡)과 "전투풍" 설정(공격할 건물/투석기/
@@ -72,10 +77,39 @@
   border-top: 2px solid var(--accent);
 }
 
+/* 적 투석기 공격 레벨 드롭다운 - 어떤 탄종인지 한눈에 보이게 아이콘을 같이 보여줌(사용자 확정 -
+   "해당 투사체 이미지 넣어") - VIP 드롭다운(css/my-dino.css .vip-option-icon 등)과 같은
+   "아이콘 + 텍스트" 구조. .selected-value 기본은 display 지정이 없어서(base.css) 그냥 얹어도
+   충돌 없이 flex로 바뀜 */
+#buildingCatapultLevelSelectedValue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.building-catapult-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.building-catapult-ammo-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .building-field-wrap {
   position: relative;
   display: flex;
-  justify-content: center;
+  /* 대기 공룡 체력바 목록(#buildingDinoReserveHpBars)을 육각형 무대 "아래"에 두려고 세로 방향으로
+     바꿈(사용자 확정 - "대기 공룡도 밑에 체력바로 표시") - row(기본값)였을 때는 justify-content:
+     center가 가로 중앙 정렬이었지만, column에서는 그 역할을 align-items가 대신함(스크린샷으로
+     확인해보니 처음엔 대기 목록이 무대 "옆"에 나란히 붙어 보여서 바로잡음) */
+  flex-direction: column;
+  align-items: center;
   /* 맨 뒤 성벽(육각형 4번째, 화면상 가장 위쪽)일수록 체력바+수치 텍스트가 스택 위로 더 높이
      솟아서 탭 바와 겹치기 쉬움(실측 확인) - 위쪽 여백을 넉넉히 둠 */
   padding: clamp(34px, 11cqw, 56px) 0 clamp(16px, 5cqw, 28px);
@@ -83,68 +117,76 @@
 
 .building-stage {
   position: relative;
-  width: min(420px, 92cqw);
+  /* 카드 폭이 넓은 화면에서도 420px에 막혀 여백만 남고 내용물은 작게 보이던 문제(사용자 지적 -
+     "최대한 크게 볼 수 있어야 해") - 카드 자체 폭(실측 약 670px)에 맞춰 상한을 560px로 올림 */
+  width: min(560px, 94cqw);
   aspect-ratio: 250 / 173.2;
   margin: 0 auto;
-  perspective: 1000px;
 }
 
+/* Three.js가 여기에 canvas를 붙임(js/core/hex-scene3d.js의 mount()) */
 .building-tilt {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(55deg);
-}
-
-.building-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  /* filter는 바닥 svg에만 걸어둠(.building-tilt/.building-formation-group엔 안 걸음) - filter가
-     걸린 요소는 CSS 스펙상 transform-style:preserve-3d가 있어도 강제로 평면화(flatten)돼서,
-     3D 컨텍스트 조상에 걸려있으면 그 밑의 빌보드 자식들이 진짜 3D로 상쇄되지 못하고 찌그러져
-     보이는 버그가 있음(허수아비/타이탄에서 이미 겪고 고친 문제 - 다이노 배틀/타이탄/허수아비와
-     동일하게 여기서만 건다) */
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
 }
 
-/* 육각형 타일(4칸 전부 - 중앙 포함) 클릭으로 건물 선택 모달을 염 */
+/* 육각형 타일(4칸 전부 - 중앙 포함) 클릭으로 건물 선택 모달을 염 - 예전엔 바닥 SVG의 polygon
+   자체가 클릭 대상이었는데, 바닥이 Three.js(캔버스)로 바뀌면서 그 자리를 대신하는 투명 히트박스.
+   실제 육각형(가로 100/세로 86.6, 세계 250x173.2 기준)보다 살짝 넉넉한 사각형으로 클릭 영역을
+   잡음(육각형 모양 그대로 클리핑하지 않음 - 꼭짓점 근처를 못 누르는 것보다 옆 타일과 살짝 겹치는
+   쪽이 사용성에 낫다고 판단) */
+.building-hex-hitbox-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.building-hex-hitbox {
+  position: absolute;
+  width: 38%;
+  height: 48%;
+  transform: translate(-50%, -50%);
+}
+
 .building-hex-tile {
   cursor: pointer;
 }
 
-.building-hex-tile:hover {
-  filter: brightness(1.3);
-}
+/* 호버/선택 시각 효과는 이 사각형 히트박스 자체를 칠하는 대신(사용자 지적 - "갑자기 네모로 표시가
+   되니까 보기 안 좋네", "선택하거나 마우스를 올리는 해당 육각형 타일이 선택 효과를 받는 정도면
+   충분해") js(buildingInitSelectModal)가 hexScene.setTileTint()로 실제 육각형 메시의 테두리
+   색을 바꿈 - 그래야 육각형 모양 그대로 강조됨(예전 SVG :hover{fill:...} 시절과 같은 모양) */
 
 .building-formation-group {
   position: absolute;
   inset: 0;
-  transform-style: preserve-3d;
   /* 이 그룹 안엔 클릭 대상이 없음(공룡 아바타는 장식, 건물 이미지는 pointer-events:none) - 그런데
-     기본값(auto)이면 바닥 SVG 전체를 덮은 채로 위에 얹혀서 그 밑의 .building-hex-tile(성벽 육각형)
-     클릭을 가로채버림(실측 확인 - Playwright 클릭이 이 div에 막혀 타임아웃남). 통째로 투명 처리해서
-     클릭이 그대로 아래 SVG까지 뚫고 지나가게 함 */
+     기본값(auto)이면 전체를 덮은 채로 위에 얹혀서 그 밑의 .building-hex-hitbox(타일 클릭 영역)를
+     가로채버림(실측 확인 - Playwright 클릭이 이 div에 막혀 타임아웃남). 통째로 투명 처리해서
+     클릭이 그대로 아래 히트박스까지 뚫고 지나가게 함 */
   pointer-events: none;
 }
 
-/* 공룡/건물 슬롯 - "세계좌표의 그 지점"을 나타내는 3D 앵커점. 폭·높이를 0으로 둬서 이 요소 자체엔
-   면적이 없고, rotateX(-55deg)가 정확히 이 점(=world-coordinate 지점)을 축으로 돌아 바닥의 기울기를
-   상쇄함(카메라 정면을 보게 세움) - translateZ로 바닥면과 겹쳐 깜빡이는 z-fighting만 피해 살짝
-   띄움. 실제 보이는 이미지(.building-dino-avatar/.building-sprite-frame)는 이 앵커의 자식으로 넣고
-   거기서 순수 2D translate만으로 정확한 지점이 이 점에 오도록 오프셋을 줌(사용자 확정 -
-   "육각형 바닥 위에 올려줘") - 회전이 전혀 없는 자식이라 오프셋이 회전과 뒤섞여 깊이(Z) 방향으로
-   꺾이는 오차가 원천적으로 생길 수 없음(이전엔 회전+오프셋을 한 요소에 같이 줘서 스프라이트가
-   세로로 길수록 바닥 밑으로 파고드는 오차가 있었음 - 두 단계로 분리해서 근본적으로 해결) */
+/* 공룡/건물 슬롯 - "세계좌표의 그 지점"을 나타내는 2D 앵커점(hexScene.projectToScreen()이 계산한
+   화면 좌표를 그대로 받음). 폭·높이를 0으로 둬서 이 요소 자체엔 면적이 없음 - 실제 보이는 이미지
+   (.building-dino-avatar/.building-sprite-frame)는 이 앵커의 자식으로 넣고 거기서 순수 2D
+   translate만으로 정확한 지점이 이 점에 오도록 오프셋을 줌(사용자 확정 - "육각형 바닥 위에
+   올려줘") */
 .building-dino-slot {
   position: absolute;
   width: 0;
   height: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(-55deg) translateZ(24px);
   /* 이동 버튼으로 타겟을 바꾸면 left/top이 바뀌는데, 순간이동보다 걸어가는 느낌이 나도록 부드럽게
      전환(사용자 확정 - 공룡은 반드시 공격할 타일에 직접 가있어야 함) */
   transition: left 0.4s ease, top 0.4s ease;
+  /* 공룡은 무엇보다 우선해서 항상 위에 그려져야 함(사용자 확정 - "공룡은 그 무엇보다 우선되어
+     스프라이트가 위쪽 판정이어야 함"). 건물 슬롯(.building-wall-slot)이 카메라 실제 깊이 기반
+     동적 z-index(js의 buildingPositionSlots, Math.round(10000 - distance) - 대략 9700~9990대)로
+     바뀐 뒤에는 예전 값(10)이 그보다 한참 작아서 건물이 공룡(체력바 포함)을 덮어버리는 회귀가
+     생겼음(사용자 지적 - "중앙 타일에 있는 건물이 공룡의 체력바보다 위에 있는데?") - distance는
+     항상 양수라 wall z-index는 항상 10000 미만이므로, 10000보다 확실히 큰 값이면 어떤 거리에서도
+     건물보다 항상 위에 그려짐 */
+  z-index: 10001;
 }
 
 /* 실제로는 최대 7마리가 동시에 공격하지만(building-page.js의 BUILDING_MAX_DINO_COUNT), 한
@@ -164,32 +206,123 @@
   gap: 4px;
 }
 
-.building-dino-cluster .building-dino-avatar:nth-child(2) {
+/* 가운데(2번째) 슬롯을 튀어나오게 하는 오프셋 - 예전엔 공(.building-dino-avatar) 자신에 직접
+   걸었지만, 이제 그 공을 감싸는 래퍼(.building-dino-avatar-slot)가 클러스터의 직계 자식이 됐으므로
+   같은 효과를 래퍼에 걸어야 함 */
+.building-dino-cluster .building-dino-avatar-slot:nth-child(2) {
   transform: translateY(22%);
+  /* 카메라 쪽으로 더 튀어나온(앞쪽) 공룡이 양옆보다 위에 그려져야 함(사용자 확정 - "공룡끼리도
+     앞쪽에 위치한 공룡이 위쪽에 위치해야 함") */
+  z-index: 1;
+}
+
+/* 공(.building-dino-avatar) 하나만 순수 in-flow 자식으로 두고 체력바/이름은 절대 위치로 그 위/
+   아래에 얹음 - 이렇게 해야 래퍼의 박스 크기가 공 하나와 완전히 같아져서, 기존에 실측으로 맞춰둔
+   클러스터의 align-items:flex-end 접지 계산(공 밑면이 바로 지면)을 전혀 안 건드림(사용자 확정
+   "공룡 밑에 이름도 넣고" 전에 이미 완성된 3D 배치라 이 부분은 절대 흔들면 안 됨) */
+.building-dino-avatar-slot {
+  position: relative;
 }
 
 .building-dino-avatar {
-  width: clamp(24px, 9cqw, 40px);
-  height: clamp(24px, 9cqw, 40px);
+  /* 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js의 projectDiameterPx) -
+     buildingUpdateDinoPosition()이 #buildingDinoSlot에 --avatar-diam-px로 심어줌(자식으로 상속).
+     clamp()는 씬이 아직 마운트되기 전(탭이 열리기 직전) 잠깐 쓰이는 폴백일 뿐 */
+  width: var(--avatar-diam-px, clamp(24px, 9cqw, 40px));
+  height: var(--avatar-diam-px, clamp(24px, 9cqw, 40px));
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent) 70%, white), var(--accent-strong) 75%);
   box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-/* 건물 슬롯 - .building-dino-slot과 같은 3D 앵커점(폭·높이 0).
-   translateZ(24px) - 원래 4px였는데, 바닥 SVG의 육각형 테두리 선(굵은 stroke)이 스프라이트와
-   거의 같은 깊이라 브라우저가 어느 게 앞인지 제대로 못 갈라서 테두리 선이 스프라이트 중간을
-   가로질러 그려지는 버그가 있었음(실측 확인 - 벽 이미지가 타일 경계에서 잘려 보임). 값을 60px
-   까지 올려서 테스트했더니 확실히 고쳐지긴 했지만 perspective(1000px) 특성상 카메라에 가까워질
-   수록 확대되는 효과 때문에 앵커 좌표가 육각형 중심에서 최대 4px 넘게 어긋남(사용자 지적 - 실측
-   확인). 24px에서는 잘림 버그가 똑같이 해결되면서 어긋남은 2px 안팎(4px 기준선 대비 오차
-   범위 내)이라 이 값으로 정함 */
+/* 죽은 공룡(체력 0) - 건물이 파괴됐을 때(.building-destroyed)와 같은 방식으로 흑백 처리 */
+.building-dino-avatar.building-dino-dead {
+  filter: grayscale(1) brightness(0.55);
+  opacity: 0.5;
+}
+
+.building-dino-hpbar {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 3px;
+  width: calc(var(--avatar-diam-px, clamp(24px, 9cqw, 40px)) * 0.9);
+  height: 5px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.building-dino-hpfill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+.building-dino-avatar-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  font-size: 9px;
+  /* "내 공룡" 이름표 색 - 다이노 배틀의 #myFormationGroup .battle-team-slot-name과 통일(사용자
+     지적 - "어느 페이지는 초록색이고 어떤 페이지는 하얀색이고") */
+  color: #4ade80;
+  white-space: nowrap;
+  /* 로그인 닉네임은 길이가 제각각이라(사용자가 직접 정함) 다이노 배틀의 .battle-team-slot-name과
+     같은 방식으로 잘라냄 - 안 그러면 옆 공룡 이름표와 겹침(실측 확인 - 6자짜리 닉네임도 겹쳤음) */
+  max-width: 42px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 화면에 안 보이는 나머지 공룡(최대 7 - 표시 3 = 4마리)의 체력바 - 타이탄의
+   .titan-hex-hpbar-list와 같은 개념, 건물은 세로 사이드바 대신 무대 아래 가로 줄 */
+.building-dino-reserve-hpbar-list {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.building-dino-reserve-hpbar {
+  position: relative;
+  width: 42px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.building-dino-reserve-hpfill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 999px;
+}
+
+/* 건물 슬롯 - .building-dino-slot과 같은 2D 앵커점(폭·높이 0, hexScene.projectToScreen()이 계산한
+   화면 좌표를 그대로 받음). Three.js가 바닥을 진짜 3D로 그리게 되면서, 예전에 CSS 3D 특유의
+   테두리선 파묻힘 버그를 피하려고 실측으로 튜닝했던 translateZ 보정값이 더 이상 필요 없어짐 */
 .building-wall-slot {
   position: absolute;
   width: 0;
   height: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(-55deg) translateZ(24px);
+  /* 공룡(.building-dino-slot, z-index:10)보다는 항상 아래에 있어야 공룡이 건물에 가려지지 않음 -
+     여기 1은 씬이 마운트되기 전(잠깐) 쓰이는 폴백일 뿐, 실제로는 buildingPositionSlots()
+     (js/pages/building-page.js)가 카메라 실제 깊이(projectToScreen의 distance) 기반으로 매번
+     심어줌 - 건물끼리 DOM 순서(중앙→정면→좌→우)대로 나중에 그려진 게 이겨서 더 먼 정면 건물이
+     더 가까운 중앙 건물을 가리던 버그(사용자 지적 - "제일 앞쪽에 있는 건물이 뒤에 있는 건물에
+     가려지는데")를 다이노 배틀과 같은 방식으로 통일해서 고침 */
+  z-index: 1;
 }
 
 /* 스프라이트 프레임 - 이미지 자기 자신 크기로 꽉 차는 래퍼(자식 img 하나뿐이라 자연스럽게
@@ -208,12 +341,13 @@
 
 .building-sprite {
   display: block;
-  width: clamp(48px, 17cqw, 84px);
-  height: auto;
   /* Lv1/Lv2 등 원본 비율이 서로 달라서 허수아비처럼 aspect-ratio를 고정값으로 박아두면 안 됨
      (사용자 지적 - 원본 비율 그대로) - width%+height:auto만 써서 이미지마다 자기 natural size
-     비율을 그대로 따르게 함. scale 배율도 없음(사용자 확정 - "일단은 모든 이미지 파일들 크기는
-     원본으로 해놔봐") */
+     비율을 그대로 따르게 함. 타입별 배율(--size-scale, buildingRenderWalls가 심어줌)을 clamp()
+     전체에 곱함 - 벽은 1(원본 그대로), 투석기는 2, 나머지 건물은 1.5(사용자 확정 - "벽을
+     제외하고 나머지 건물들 크기 0.5배 증가, 투석기는 원본에서 크기 2배로 증가") */
+  width: calc(clamp(48px, 17cqw, 84px) * var(--size-scale, 1));
+  height: auto;
   pointer-events: none;
   user-select: none;
 }
@@ -274,12 +408,14 @@
   animation: building-shake 0.35s ease-in-out;
 }
 
+/* 피격 흔들림 폭을 절반으로(사용자 확정 - "사이트의 모든 피격 시 떨림 정도를 절반으로 줄여") -
+   밝기 플래시(filter)는 흔들림 자체가 아니라서 그대로 둠 */
 @keyframes building-shake {
   0%, 100% { transform: translateX(0); filter: brightness(1); }
-  20% { transform: translateX(-8px); filter: brightness(1.6); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(3px); }
+  20% { transform: translateX(-4px); filter: brightness(1.6); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(1.5px); }
 }
 
 /* 피격 이펙트/대미지 팝업 - 다이노 배틀/타이탄/허수아비와 같은 이유로 3D 컨텍스트를 아예 우회해서
@@ -290,6 +426,35 @@
 .building-dmg-popup-fixed {
   position: fixed;
   z-index: 999;
+}
+
+/* 적 캐터펄트 투사체 - 공격 중인 건물에서 내 공룡 쪽으로 날아오는 애니메이션(사용자 확정 - "상대의
+   투석기 공격 켜져있으면 해당 투사체 날아오는 애니메이션도 해주고"). 피격 이펙트와 같은 이유로
+   position:fixed 화면 좌표를 씀 - --proj-dx/dy(도착지 - 출발지, px)를 JS가 인라인으로 넣어주면
+   transform으로 그 거리만큼 이동하며 날아감(자전하는 회전은 순수 연출용). 크기 2배(사용자 확정 -
+   "투사체 이미지 크기를 2배로") */
+.building-projectile-fixed {
+  position: fixed;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 999;
+  animation: building-projectile-fly 0.45s cubic-bezier(0.3, 0, 0.7, 1) forwards;
+}
+
+/* 위에서 일직선으로 뚝 떨어지는 대신(사용자 확정 - "왼쪽에서 곡선을 그리며 떨어져야 함") 중간
+   지점(50%)에서 직선 보간보다 왼쪽·위로 더 벌어지게 오프셋을 줘서 포물선처럼 휘어지게 함 - 시작점
+   자체도 js(buildingSpawnCatapultProjectile)에서 건물보다 왼쪽/위로 당겨져 있어서, 화면 바깥
+   왼쪽에서 곡선을 그리며 날아드는 느낌이 남. 오프셋 폭은 사용자 피드백으로 좀 더 완만하게 줄임
+   (-60px/-50px → -30px/-25px). opacity는 처음부터 끝까지 안 건드림 - 나타나거나 사라지는 페이드
+   모션 없이 순간 나타났다가(애니메이션 시작) 순간 사라지도록(animationend 시점에 JS가 바로 제거)
+   함(사용자 확정 - "나타나는 모션이나 사라지는 모션이 아예 없어야 해") */
+@keyframes building-projectile-fly {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  50% { transform: translate(calc(-50% + var(--proj-dx) * 0.35 - 30px), calc(-50% + var(--proj-dy) * 0.35 - 25px)) rotate(150deg); }
+  100% { transform: translate(calc(-50% + var(--proj-dx)), calc(-50% + var(--proj-dy))) rotate(360deg); }
 }
 
 /* 건물로 이동 버튼 - 공룡은 타이탄과 달리 인접 칸 공격이 안 되고 반드시 같은 타일에 가있어야

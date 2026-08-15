@@ -64,11 +64,11 @@ const BUILDING_CATAPULT_SPEED_OPTIONS = BUILDING_CATAPULT_SPEED_SECONDS.map((sec
 // 유일하게 말이 되는 배정이라 채택(assets/tribe/ 실제 파일명 참고)
 const BUILDING_CATAPULT_DAMAGE = { 1: 100, 2: 150, 3: 200, 4: 300 };
 const BUILDING_CATAPULT_LEVELS = [
-  { value: null, label: "없음" },
-  { value: 1, label: "1레벨 (100)" },
-  { value: 2, label: "2레벨 (150)" },
-  { value: 3, label: "3레벨 (200)" },
-  { value: 4, label: "4레벨 (300)" }
+  { value: null, label: "없음", img: null },
+  { value: 1, label: "1레벨 (100)", img: "ClawAmmo_Img.png" },
+  { value: 2, label: "2레벨 (150)", img: "StoneAmmo_Img.png" },
+  { value: 3, label: "3레벨 (200)", img: "MetalAmmo_Img.png" },
+  { value: 4, label: "4레벨 (300)", img: "RealMetalAmmo_Img.png" }
 ];
 
 const BUILDING_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
@@ -167,17 +167,16 @@ function saveBuildingSlots(slots) {
 // 정면·좌측·우측 3개 육각형이 꽃잎처럼 붙는 배치(사용자 확정). 4칸 전부 건설 가능한 건물
 // 타일이고(중앙도 예외 아님 - 처음엔 공룡 전용 "대기 자리"로 뒀었는데, 그러면 건물을 못 짓고
 // 거기로 돌아올 수도 없어서 의미가 없다는 사용자 지적으로 나머지 3칸과 동등하게 취급), 공룡은
-// buildingTargetSlot으로 지정된 그 타일 위에 서서 공격함. 육각형 1개는 100x86.6 - 중앙 기준
-// 정면은 (0,-86.6), 좌측은 (-75,-43.3), 우측은 (+75,-43.3) 만큼 떨어진 자리(육각형 6방향 이웃
-// 중 3개)라 정면 육각형은 좌측·우측 육각형과도 서로 변을 맞대고 있고, 중앙 육각형도 정면·좌측·
-// 우측 전부와 변을 맞댐(좌측 vs 우측만 서로 안 붙어있음 - 정면이나 중앙을 거쳐야 인접). 결합
-// viewBox는 0~250 x 0~173.2 =====
-const BUILDING_WORLD_W = 250, BUILDING_WORLD_H = 173.2;
+// buildingTargetSlot으로 지정된 그 타일 위에 서서 공격함. 중앙을 원점(0,0)에 두고 HEX_NEIGHBOR
+// 방향 벡터로 나머지 3칸을 명시적으로 배치(CSS 3D 시절 SVG viewBox 절대좌표 재사용 금지 - 그렇게
+// 했다가 타일 중심과 건물/공룡 좌표가 어긋나는 버그가 났었음). 정면은 위쪽 이웃, 좌/우는 각각
+// 왼쪽위/오른쪽위 이웃이라 정면 육각형은 좌측·우측 육각형과도 서로 변을 맞대고 있고, 중앙 육각형도
+// 정면·좌측·우측 전부와 변을 맞댐(좌측 vs 우측만 서로 안 붙어있음 - 정면이나 중앙을 거쳐야 인접) =====
 const BUILDING_HEX_CENTERS = [
-  [125, 129.9],  // 중앙
-  [125, 43.3],   // 정면
-  [50, 86.6],    // 좌측
-  [200, 86.6]    // 우측
+  [0, 0],                                          // 중앙
+  hexAdd([0, 0], HEX_NEIGHBOR.up),                  // 정면
+  hexAdd([0, 0], HEX_NEIGHBOR.upperLeft),           // 좌측
+  hexAdd([0, 0], HEX_NEIGHBOR.upperRight),          // 우측
 ];
 
 // 지진 룬의 "주변 1칸" 인접 관계 - 위 육각형 배치 그대로: 중앙(0)은 정면·좌측·우측 전부와
@@ -185,8 +184,69 @@ const BUILDING_HEX_CENTERS = [
 // 중앙·정면하고만 인접함
 const BUILDING_ADJACENCY = { 0: [1, 2, 3], 1: [0, 2, 3], 2: [0, 1], 3: [0, 1] };
 
+// Three.js 육각형 바닥(js/core/hex-scene3d.js) - "live" 탭을 처음 열 때 buildingInitScene3d()가
+// 마운트함(buildingInitModeTabs 참고, 그 전엔 카드가 display:none이라 캔버스가 0x0)
+let buildingScene3d = null;
+// theme-changed 리스너 핸들 - 페이지를 여러 번 오가도 리스너가 계속 쌓이지 않도록, 새로 등록하기
+// 전에 이 참조로 이전 방문 몫을 먼저 지움(buildingScene3d와 같은 진짜 모듈 스코프라 다음 방문에서도
+// "그때 그 함수"를 정확히 지목할 수 있음)
+let buildingThemeChangeHandler = null;
+
+// 카메라는 중앙·정면 타일의 중점을 내려다보게 잡음(타일 좌표에서 직접 유도 - SVG 시절 절대좌표
+// 아님). 다이노 배틀/타이탄과 같은 계열의 시점(정면에서 살짝 위, 카메라에 가까운 중앙 타일이 크게
+// 보이도록)
+const BUILDING_CAM_TARGET = [
+  (BUILDING_HEX_CENTERS[0][0] + BUILDING_HEX_CENTERS[1][0]) / 2,
+  (BUILDING_HEX_CENTERS[0][1] + BUILDING_HEX_CENTERS[1][1]) / 2,
+];
+
+function buildingInitScene3d() {
+  const mountEl = document.getElementById("buildingFloorMount");
+  if (!mountEl) return;
+  // "지금 이 mountEl"에 이미 캔버스가 붙어있으면(같은 페이지 세션 안에서 탭만 왔다갔다 한 경우)
+  // 리사이즈만 하고 끝 - buildingScene3d(안 null)만 보고 판단하면 안 됨(실측으로 재현한 버그: 페이지를
+  // 나갔다 재방문하면 mountEl은 라우터가 완전히 새로 만든 엘리먼트인데 buildingScene3d는 예전
+  // 인스턴스를 그대로 들고 있어서 "이미 마운트됨"으로 착각 - resize()는 예전(DOM에서 이미 떨어져
+  // 나간) mountedContainer를 보고 0x0으로 조용히 아무것도 안 해서, 새 mountEl엔 캔버스가 영영
+  // 안 붙어 바닥이 통째로 안 보였음)
+  if (buildingScene3d && mountEl.querySelector("canvas")) { buildingScene3d.resize(); return; }
+  if (typeof createHexFloorScene !== "function") return;
+  buildingScene3d = createHexFloorScene({
+    // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
+    // 맞으면 됨
+    worldW: 5 * HEX_HALF_W,
+    worldH: 4 * HEX_HALF_H,
+    // 건물은 점령된 타일 위에만 세울 수 있고 이 페이지는 "적 건물"을 부수는 컨텐츠라, 4칸 전부
+    // 적이 점령한 타일임(사용자 확정 - 내 타일을 뜻하는 골드는 안 맞음) - 타이탄 보스/다이노 배틀
+    // 상대 타일과 같은 고정 리터럴 레드(테마 무관)
+    hexTiles: BUILDING_HEX_CENTERS.map((center) => ({ center, tintVar: "#e0473f" })),
+    camera: {
+      position: [BUILDING_CAM_TARGET[0], 220, BUILDING_CAM_TARGET[1] + 173.4],
+      lookAt: [BUILDING_CAM_TARGET[0], 0, BUILDING_CAM_TARGET[1]],
+      fov: 45,
+    },
+    // 창 크기가 바뀌면 육각형이 화면에서 차지하는 실제 픽셀 크기도 바뀌므로, 육각형 기준으로
+    // 잡은 공룡 크기(--avatar-diam-px)도 다시 계산해야 함
+    onResize: () => buildingUpdateDinoPosition(),
+  });
+  buildingScene3d.mount(mountEl);
+  document.removeEventListener("theme-changed", buildingThemeChangeHandler);
+  buildingThemeChangeHandler = () => {
+    if (buildingScene3d && mountEl.isConnected) buildingScene3d.rebakeColors();
+  };
+  document.addEventListener("theme-changed", buildingThemeChangeHandler);
+  // "live" 탭이 display:none인 동안(페이지 로드 시점) buildingPositionSlots()/
+  // buildingUpdateDinoPosition()이 이미 한 번 위치를 잡았는데, 그때는 씬이 없어서
+  // buildingWorldToPercent가 폴백(화면 중앙)을 썼음 - 씬이 막 마운트된 지금 실제 projectToScreen
+  // 좌표로 다시 잡아줘야 함(안 그러면 4칸 히트박스/건물/공룡이 전부 화면 중앙에 겹쳐 있는 버그가
+  // 남음 - 실측으로 확인된 버그)
+  buildingPositionSlots();
+  buildingUpdateDinoPosition();
+}
+
 function buildingWorldToPercent([x, y]) {
-  return { left: `${(x / BUILDING_WORLD_W) * 100}%`, top: `${(y / BUILDING_WORLD_H) * 100}%` };
+  if (buildingScene3d) return buildingScene3d.projectToScreen(x, y);
+  return { left: "50%", top: "50%" }; // 씬 마운트 전 폴백(탭이 열리기 전엔 안 보이므로 위치는 무의미)
 }
 
 // ===== 재생 상태 =====
@@ -205,6 +265,17 @@ let buildingHp = [null, null, null, null];
 // (사용자 지적 - 실제로 이동 버튼을 한 번 눌러야만 buildingFrontTargetIndex가 0을 반환했음)
 let buildingTargetSlot = 0;
 const BUILDING_SLOT_LABELS = ["중앙", "정면", "좌측", "우측"];
+
+// ===== 실전 시뮬레이션의 캐터펄트 반격 - 공룡 개별 체력(사용자 확정 - "왜 공룡들 체력이 표시가
+// 안 되어있는지 모르겠지만 공룡 체력 표시하고... 캐터펄트 공격 켜져있으면... 데미지"). 통계
+// 시뮬레이션(runBuildingSimulation)과 같은 규칙(광역, 항상 장전 완료 상태라 도착 즉시 첫 발,
+// 강인함1/2로 감소)이지만 여기는 "한 판"을 실시간으로 보여주는 거라 희생/마지막 선물 같은 확률
+// 트리거는 반영하지 않음(통계 시뮬레이션에서만 정확히 반영됨 - 라이브 뷰까지 반영하면 매 틱 확률
+// 분기가 생겨 재현성/복잡도가 크게 늘어남) =====
+let buildingDinoHp = Array(BUILDING_MAX_DINO_COUNT).fill(0);
+let buildingDinoMaxHp = 0;
+let buildingDinoReviveAt = Array(BUILDING_MAX_DINO_COUNT).fill(null); // null 아니면 그 시각(경과초)에 부활
+let buildingNextCatapultFireSec = 1; // 캐터펄트는 항상 장전 완료 상태라 내 공격 1타와 동시에 첫 발(사용자 확정)
 
 // ===== 관련 수치 카드(타이탄과 같은 패턴, css/titan.css의 .metrics-grid/.metric-tile을 그대로
 // 재사용) - 평타 대미지/지진 대미지/공격력 증폭량/최종 평균 대미지 4개. 클릭하면 세부 내역이
@@ -227,28 +298,12 @@ function renderBuildingPage(container) {
 
     <div id="buildingMyDinoSection"></div>
 
-    <div class="card">
-      <h2>관련 수치</h2>
-      <div class="metrics-grid" id="buildingMetricsGrid">
-        <button type="button" class="metric-tile" data-metric="basicDmg">
-          <div class="metric-label">평타 대미지</div>
-          <div class="metric-value" id="buildingMetricBasicDmg">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="quakeDmg">
-          <div class="metric-label">지진 대미지</div>
-          <div class="metric-value" id="buildingMetricQuakeDmg">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="atkAmp">
-          <div class="metric-label">공격력 증폭량</div>
-          <div class="metric-value" id="buildingMetricAtkAmp">0</div>
-        </button>
-        <button type="button" class="metric-tile" data-metric="finalAvgDmg">
-          <div class="metric-label">최종 평균 대미지</div>
-          <div class="metric-value" id="buildingMetricFinalAvgDmg">0</div>
-        </button>
-      </div>
-      <div class="metric-detail" id="buildingMetricDetail" style="display:none;"></div>
-    </div>
+    ${renderMetricsCard("buildingMetricsGrid", "buildingMetricDetail", [
+      { id: "buildingMetricBasicDmg", key: "basicDmg", label: "평타 대미지" },
+      { id: "buildingMetricQuakeDmg", key: "quakeDmg", label: "지진 대미지" },
+      { id: "buildingMetricAtkAmp", key: "atkAmp", label: "공격력 증폭량" },
+      { id: "buildingMetricFinalAvgDmg", key: "finalAvgDmg", label: "최종 평균 대미지" },
+    ])}
 
     <div class="card battle-main-card building-field-card" id="buildingMainCard">
       <div class="battle-mode-tabs building-mode-tabs-4" id="buildingModeTabs" data-active-idx="0">
@@ -316,7 +371,7 @@ function renderBuildingPage(container) {
             </div>
           </div>
           <div class="building-distance-continuous-row">
-            <div class="titan-settings-row">
+            <div class="titan-settings-stack">
               <label class="setting-label" for="buildingDistanceInput">건물까지의 거리</label>
               <div class="affix-input has-suffix"><input type="tel" inputmode="numeric" id="buildingDistanceInput" value="1"><span class="affix-suffix">타일</span></div>
             </div>
@@ -378,47 +433,35 @@ function renderBuildingPage(container) {
 
       <div class="battle-mode-panel" id="buildingLiveModeCard" style="display:none;">
         <div class="building-field-wrap">
-          <div class="building-stage">
-            <div class="building-tilt">
-              <svg class="building-svg" viewBox="0 0 ${BUILDING_WORLD_W} ${BUILDING_WORLD_H}" preserveAspectRatio="xMidYMid meet">
-                <defs>
-                  <radialGradient id="buildingHexGrad0" gradientUnits="userSpaceOnUse" cx="${c0[0]}" cy="${c0[1]}" r="45">
-                    <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.32"></stop>
-                    <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                  </radialGradient>
-                  <radialGradient id="buildingHexGrad1" gradientUnits="userSpaceOnUse" cx="${c1[0]}" cy="${c1[1]}" r="45">
-                    <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.28"></stop>
-                    <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                  </radialGradient>
-                  <radialGradient id="buildingHexGrad2" gradientUnits="userSpaceOnUse" cx="${c2[0]}" cy="${c2[1]}" r="45">
-                    <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.28"></stop>
-                    <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                  </radialGradient>
-                  <radialGradient id="buildingHexGrad3" gradientUnits="userSpaceOnUse" cx="${c3[0]}" cy="${c3[1]}" r="45">
-                    <stop offset="0%" style="stop-color:var(--accent); stop-opacity:0.28"></stop>
-                    <stop offset="100%" style="stop-color:var(--card-bg); stop-opacity:1"></stop>
-                  </radialGradient>
-                </defs>
-                <polygon class="building-hex-tile" data-slot="0" points="100,86.6 150,86.6 175,129.9 150,173.2 100,173.2 75,129.9" fill="url(#buildingHexGrad0)"></polygon>
-                <polygon class="building-hex-tile" data-slot="1" points="100,0 150,0 175,43.3 150,86.6 100,86.6 75,43.3" fill="url(#buildingHexGrad1)"></polygon>
-                <polygon class="building-hex-tile" data-slot="2" points="25,43.3 75,43.3 100,86.6 75,129.9 25,129.9 0,86.6" fill="url(#buildingHexGrad2)"></polygon>
-                <polygon class="building-hex-tile" data-slot="3" points="175,43.3 225,43.3 250,86.6 225,129.9 175,129.9 150,86.6" fill="url(#buildingHexGrad3)"></polygon>
-                <!-- 대각선 변과 위/아래 수평 변을 따로 그림 - rotateX(55°)가 화면상 세로(Y) 방향만
-                     압축하는 변환이라, 수평 변은 굵기 방향이 통째로 Y축이라 유독 얇아 보이고 대각선
-                     변은 덜 압축됨(다이노 배틀/타이탄/허수아비와 같은 이유) - 수평 변만 stroke-width 보정 -->
-                <path d="M150,86.6 L175,129.9 L150,173.2 M100,86.6 L75,129.9 L100,173.2 M150,0 L175,43.3 L150,86.6 M100,0 L75,43.3 L100,86.6 M75,43.3 L100,86.6 L75,129.9 M25,43.3 L0,86.6 L25,129.9 M225,43.3 L250,86.6 L225,129.9 M175,43.3 L150,86.6 L175,129.9" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-                <path d="M100,86.6 L150,86.6 M100,173.2 L150,173.2 M100,0 L150,0 M25,43.3 L75,43.3 M25,129.9 L75,129.9 M175,43.3 L225,43.3 M175,129.9 L225,129.9" fill="none" stroke="var(--accent)" stroke-width="3.6" vector-effect="non-scaling-stroke"></path>
-              </svg>
+          <div class="building-stage" id="buildingStage">
+            <div class="building-tilt" id="buildingFloorMount"></div>
+
+              <!-- 육각형 타일(4칸) 클릭 -> 건설 모달 열기. 예전엔 바닥 SVG의 polygon 자체가 클릭
+                   대상이었는데, 바닥이 Three.js(캔버스)로 바뀌면서 그 자리를 대신하는 투명 히트박스 -
+                   buildingPositionSlots()가 hexScene.projectToScreen()으로 위치를 심음 -->
+              <div class="building-hex-hitbox-layer" id="buildingHexHitboxLayer">
+                ${[0, 1, 2, 3].map((i) => `<div class="building-hex-tile building-hex-hitbox" data-slot="${i}" id="buildingHexHitbox${i}"></div>`).join("")}
+              </div>
 
               <div class="building-formation-group" id="buildingFormationGroup">
                 <div class="building-dino-slot" id="buildingDinoSlot">
                   <!-- 실제로는 최대 7마리가 동시에 공격하지만(BUILDING_MAX_DINO_COUNT), 한 타일에
                        7마리를 다 그리면 너무 빽빽해서 3마리만 보여주고 나머지는 숨김(사용자 확정 -
-                       숨겨진 나머지도 대미지 계산엔 그대로 포함됨, computeBuildingCombatValues 참고) -->
+                       숨겨진 나머지도 대미지 계산엔 그대로 포함됨, computeBuildingCombatValues 참고).
+                       각 공룡 체력바/이름은 다이노 배틀(.battle-hp-bar-mini/.battle-team-slot-name)과
+                       같은 구성(사용자 확정 - "공룡 밑에 이름도 넣고... 다른 곳이랑 똑같이") -
+                       .building-dino-avatar-slot 자체는 공(.building-dino-avatar) 하나만 in-flow로
+                       갖고 체력바/이름은 절대 위치 오버레이라서, 기존에 실측으로 맞춰둔 3D 접지
+                       계산(클러스터의 align-items:flex-end + translate(-50%,-100%))을 전혀 건드리지
+                       않음 -->
                   <div class="building-dino-cluster">
-                    <div class="building-dino-avatar"></div>
-                    <div class="building-dino-avatar"></div>
-                    <div class="building-dino-avatar"></div>
+                    ${[0, 1, 2].map((i) => `
+                      <div class="building-dino-avatar-slot">
+                        <div class="building-dino-hpbar"><div class="building-dino-hpfill" id="buildingDinoHpFill${i}"></div></div>
+                        <div class="building-dino-avatar" id="buildingDinoAvatar${i}"></div>
+                        <div class="building-dino-avatar-name">내 공룡</div>
+                      </div>
+                    `).join("")}
                   </div>
                 </div>
                 ${[0, 1, 2, 3].map((i) => `
@@ -435,8 +478,11 @@ function renderBuildingPage(container) {
               </div>
             </div>
           </div>
-        </div>
-
+          <!-- 화면에 안 보이는 나머지 공룡들(최대 7마리 중 3마리만 타일 위에 표시)의 체력바 -
+               타이탄의 #titanMyHpBars(대기 공룡 사이드 목록)와 같은 개념(사용자 확정 - "대기
+               공룡도 밑에 체력바로 표시") - 타이탄은 옆에 세로로 두지만 건물은 모바일 우선 좁은
+               카드 폭이라 육각형 무대 아래 가로 줄로 배치 -->
+          <div class="building-dino-reserve-hpbar-list" id="buildingDinoReserveHpBars"></div>
         <!-- 공룡은 타이탄과 달리 인접 칸에서 공격할 수 없고 반드시 같은 타일에 가있어야 공격할 수
              있어서(사용자 확정), 육각형을 직접 누르는 게 아니라 이 버튼으로 명시적으로 이동함(육각형
              클릭은 그 자리에 뭘 지을지 고르는 용도로 이미 쓰고 있어서 겹치지 않게 분리) -->
@@ -498,10 +544,15 @@ function renderBuildingPage(container) {
   buildingInitMoveControls();
   buildingPositionSlots();
   buildingRenderWalls();
+  buildingBuildDinoReserveBars();
+  buildingResetDinoState();
   buildingUpdateDinoPosition();
   buildingUpdateMoveControls();
   buildingUpdateStartButtonState();
   buildingUpdateStatsDisplay();
+  // 로그인 상태면 "내 공룡" 대신 실제 닉네임을 보여줌(js/ui/dino-display-ui.js, 다이노 배틀
+  // 페이지가 먼저 확정한 방식과 통일 - 사용자 확정 "로그인 하면 닉네임 보이는거... 통일시켜")
+  loadMyDisplayName().then(() => applyMyDisplayName(".building-dino-avatar-name"));
 }
 
 // 건물 슬롯 위치는 고정이라(대형이 바뀌는 다이노 배틀과 달리) 한 번만 계산해서 심으면 됨. 공룡
@@ -512,6 +563,15 @@ function buildingPositionSlots() {
     const slot = document.getElementById(`buildingWallSlot${i}`);
     slot.style.left = pct.left;
     slot.style.top = pct.top;
+    // 건물 4개끼리 깊이정렬 - 타일 위치가 고정이라 매 프레임 다시 잴 필요는 없지만, 정적으로
+    // 손으로 미리 계산해두면(예전 방식) 배치가 바뀔 때 사람이 값을 다시 맞춰야 하는 유지보수
+    // 리스크가 있어서 다이노 배틀과 같은 방식(카메라 실제 깊이 기반)으로 통일함 - 카메라에 가까운
+    // 타일일수록 큰 값(위에 그려짐). 공룡(.building-dino-slot)은 항상 이 범위보다 높은
+    // z-index:10을 쓰므로 건물이 공룡을 가리는 일은 없음
+    if (pct.visible) slot.style.zIndex = Math.round(10000 - pct.distance);
+    const hitbox = document.getElementById(`buildingHexHitbox${i}`);
+    hitbox.style.left = pct.left;
+    hitbox.style.top = pct.top;
   });
 }
 
@@ -534,6 +594,13 @@ function buildingUpdateDinoPosition() {
   const dinoSlot = document.getElementById("buildingDinoSlot");
   dinoSlot.style.left = pct.left;
   dinoSlot.style.top = pct.top;
+  // 육각형 크기 기준 통일 크기(js/core/hex-scene3d.js) - 매머드의 힘/압축된 힘 룬 배율까지 반영
+  const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
+  const sizeScale = hexSceneDinoRuneSizeScale(buildingDinoInputs(profile).selectedRunes);
+  const diamPx = buildingScene3d
+    ? buildingScene3d.projectDiameterPx(center[0], center[1], DINO_AVATAR_DIAMETER_WORLD * sizeScale)
+    : 0;
+  if (diamPx > 0) dinoSlot.style.setProperty("--avatar-diam-px", `${diamPx}px`);
 }
 
 function buildingInitMoveControls() {
@@ -587,16 +654,10 @@ function buildingInitMetricsCard() {
   });
 }
 
-// 값이 바뀌면 오도미터 롤링 애니메이션(js/ui/stat-roll-ui.js, "내 공룡" 요약바와 같은 연출)으로
-// 갱신 - 값이 그대로면 애니메이션 없이 조용히 넘어감(animateStatValue 자체가 그렇게 동작함)
-// value가 NaN/undefined/null이면(예: 프리셋 전환 중 스탯이 잠깐 비정상 조합이 되는 경우 등)
-// 화면에 "NaN"/"null" 같은 글자가 그대로 뜨는 대신 0으로 표시함(사용자 확정 - "null이 아니라
-// 0으로 표시하든지 어떻게 해봐")
-function buildingSetMetricTile(id, value) {
-  const el = document.getElementById(id);
-  const safeValue = Number.isFinite(value) ? value : 0;
-  animateStatValue(el, Math.round(safeValue).toLocaleString());
-}
+// 값이 바뀌면 오도미터 롤링 애니메이션으로 갱신 - 타이탄과 공용(js/ui/stat-roll-ui.js의
+// setMetricTileValue, "내 공룡" 요약바와 같은 연출). NaN/undefined/null이면(예: 프리셋 전환 중
+// 스탯이 잠깐 비정상 조합이 되는 경우 등) 화면에 "NaN"/"null" 글자가 뜨는 대신 0으로 표시하는 것도
+// 공용 함수 쪽에서 처리함(사용자 확정 - "null이 아니라 0으로 표시하든지 어떻게 해봐")
 
 // NaN/undefined/null을 항상 0으로 - 표시용 숫자를 다루는 곳이라면 어디서든 이 함수를 거쳐서
 // "NaN"/"null" 글자가 화면에 그대로 노출되는 일이 없게 함
@@ -619,10 +680,10 @@ function buildingRefreshMetricsCard() {
   }
   const m = buildingLastMetrics;
   const finalAvgDmg = m ? m.avgHitDamage + m.avgEarthquakeDamage : 0;
-  buildingSetMetricTile("buildingMetricBasicDmg", m ? m.avgHitDamage : 0);
-  buildingSetMetricTile("buildingMetricQuakeDmg", m ? m.avgEarthquakeDamage : 0);
-  buildingSetMetricTile("buildingMetricAtkAmp", m ? m.atkAmpGain : 0);
-  buildingSetMetricTile("buildingMetricFinalAvgDmg", finalAvgDmg);
+  setMetricTileValue("buildingMetricBasicDmg", m ? m.avgHitDamage : 0);
+  setMetricTileValue("buildingMetricQuakeDmg", m ? m.avgEarthquakeDamage : 0);
+  setMetricTileValue("buildingMetricAtkAmp", m ? m.atkAmpGain : 0);
+  setMetricTileValue("buildingMetricFinalAvgDmg", finalAvgDmg);
   buildingRenderMetricDetail();
 }
 
@@ -815,14 +876,22 @@ function buildingInitCombatConfig() {
 
   const catapultList = document.getElementById("buildingCatapultLevelList");
   const catapultSelectedValue = document.getElementById("buildingCatapultLevelSelectedValue");
-  const catapultLabelFor = (v) => BUILDING_CATAPULT_LEVELS.find((o) => o.value === v).label;
-  catapultSelectedValue.textContent = catapultLabelFor(config.catapultLevel);
+  const catapultOptFor = (v) => BUILDING_CATAPULT_LEVELS.find((o) => o.value === v);
+  // 탄종 이미지가 어떤 대미지 레벨인지 한눈에 보이게 선택값/목록 둘 다에 아이콘을 넣음(사용자 확정
+  // - "적 투석기 공격 레벨 설정하는거에 해당 투사체 이미지 넣어") - VIP 드롭다운(my-dino-page.js)과
+  // 같은 "아이콘 + 텍스트" 커스텀 드롭다운 패턴
+  const catapultOptionHtml = (opt) => `
+    ${opt.img ? `<img class="building-catapult-ammo-icon" src="./assets/tribe/${opt.img}" alt="">` : ""}
+    <span>${opt.label}</span>
+  `;
+  catapultSelectedValue.innerHTML = catapultOptionHtml(catapultOptFor(config.catapultLevel));
   BUILDING_CATAPULT_LEVELS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.className = "building-catapult-option";
+    li.innerHTML = catapultOptionHtml(opt);
     li.onclick = () => {
       config.catapultLevel = opt.value;
-      catapultSelectedValue.textContent = opt.label;
+      catapultSelectedValue.innerHTML = catapultOptionHtml(opt);
       catapultList.style.display = "none";
       saveBuildingCombatConfig(config);
       buildingRenderOptimizeSummary();
@@ -910,6 +979,12 @@ function buildingRenderOptimizeSummary() {
 function buildingInitSelectModal() {
   document.querySelectorAll(".building-hex-tile").forEach((tile) => {
     tile.addEventListener("click", () => buildingOpenSelectModal(Number(tile.dataset.slot)));
+    // 호버 시 실제 육각형 테두리를 강조색으로 - 사각형 히트박스를 칠하던 예전 방식을 대체함(사용자
+    // 지적, css/building.css의 .building-hex-hitbox 주석 참고). buildingScene3d는 "시뮬레이션"
+    // 탭을 한 번도 안 열었으면 아직 null일 수 있어 방어
+    const slot = Number(tile.dataset.slot);
+    tile.addEventListener("mouseenter", () => buildingScene3d && buildingScene3d.setTileTint(slot, "#e0473f", "--accent"));
+    tile.addEventListener("mouseleave", () => buildingScene3d && buildingScene3d.setTileTint(slot, "#e0473f", "#e0473f"));
   });
   document.getElementById("buildingSelectClose").onclick = () => {
     document.getElementById("buildingSelectOverlay").style.display = "none";
@@ -971,6 +1046,14 @@ function buildingOpenSelectModal(slotIdx) {
   }, "없음(비우기)");
 }
 
+// 건물 타입별 크기 배율(사용자 확정 - 원본 이미지 크기 기준 1.3배가 기본값, 투석기(catapult_*)는
+// 1.5배로 더 크게, 벽(lv1~4)과 부족 게시판(notice_board)은 원본 크기 그대로)
+function buildingSizeScaleFor(id) {
+  if (id === "notice_board" || ["lv1", "lv2", "lv3", "lv4"].includes(id)) return 1;
+  if (id.startsWith("catapult_")) return 1.5;
+  return 1.3;
+}
+
 // 저장된 buildingSlots에 맞춰 이미지/체력바를 다시 그림(체력은 항상 만피로) - 건물 선택 직후,
 // 그리고 buildingResetDisplay(다시 시작/설정 변경)에서도 호출됨
 function buildingRenderWalls() {
@@ -998,12 +1081,13 @@ function buildingRenderWalls() {
     // 발밑 정렬 기준으로 알파채널 여백/그림자/원근감을 어림짐작으로 보정했는데 이제 그럴 필요 없음
     frame.style.setProperty("--anchor-x", `${def.anchorX}%`);
     frame.style.setProperty("--anchor-y", `${def.anchorY}%`);
+    sprite.style.setProperty("--size-scale", String(buildingSizeScaleFor(def.id)));
     sprite.classList.remove("building-destroyed", "building-shaking");
     hpBarEl.style.display = "";
     hpTextEl.style.display = "";
     buildingMaxHp[i] = def.hp;
     buildingHp[i] = def.hp;
-    document.getElementById(`buildingHpFill${i}`).style.width = "100%";
+    setHpFillWidth(document.getElementById(`buildingHpFill${i}`), buildingHp[i], buildingMaxHp[i]);
     hpTextEl.textContent = `${def.hp.toLocaleString()} / ${def.hp.toLocaleString()}`;
   });
 }
@@ -1040,6 +1124,10 @@ function buildingInitModeTabs() {
       // 자동으로 멈춤
       if (m.mode !== "live" && buildingRunning) buildingResetDisplay();
       if (m.mode === "optimize") buildingRenderOptimizeSummary();
+      // "live" 탭은 기본 display:none으로 시작해서(기본 활성 탭은 "설정") 페이지 로드 시점엔
+      // 캔버스가 0x0임(타이탄과 같은 이유, 실측 확인) - 이 탭을 처음 열 때 Three.js 씬을
+      // 마운트/리사이즈함
+      if (m.mode === "live") buildingInitScene3d();
     };
   });
 
@@ -1402,13 +1490,107 @@ function buildingResetDisplay() {
   buildingAttackCount = 0;
   document.getElementById("buildingStartBtn").textContent = "공격 시작";
   document.getElementById("buildingRestartBtn").disabled = true;
-  document.querySelectorAll(".building-hit-effect-fixed, .building-dmg-popup-fixed").forEach((el) => el.remove());
+  document.querySelectorAll(".building-hit-effect-fixed, .building-dmg-popup-fixed, .building-projectile-fixed").forEach((el) => el.remove());
   document.querySelectorAll(".building-sprite").forEach((el) => el.classList.remove("building-shaking"));
+  buildingResetDinoState();
   buildingRenderWalls();
   buildingUpdateDinoPosition();
   buildingUpdateMoveControls();
   buildingUpdateStartButtonState();
   buildingUpdateStatsDisplay();
+}
+
+// 공룡 개별 체력 초기화 - 리셋/다시 시작 때마다 전원 만피로. 최대 체력은 항상 7마리 풀 스쿼드
+// 기준으로 계산해서 고정으로 씀(통계 시뮬레이션의 seedMaxHp와 같은 단순화 - 전투 중 실시간으로
+// 몇 마리가 죽었는지에 따라 협동 공격 등 인원수 조건부 룬 보너스가 오르내리는 것까지 라이브
+// 화면에서 매 틱 재계산하면 복잡도가 크게 늘어나서 통계 시뮬레이션에만 그 정밀도를 남겨둠)
+function buildingResetDinoState() {
+  const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
+  const inputs = buildingDinoInputs(profile);
+  const tileCfg = loadBuildingTileSettings();
+  buildingDinoMaxHp = computeBuildingDinoMaxHp({ ...inputs, count: BUILDING_MAX_DINO_COUNT }, tileCfg);
+  buildingDinoHp = Array(BUILDING_MAX_DINO_COUNT).fill(buildingDinoMaxHp);
+  buildingDinoReviveAt = Array(BUILDING_MAX_DINO_COUNT).fill(null);
+  buildingNextCatapultFireSec = 1;
+  document.querySelectorAll(".building-dino-avatar").forEach((el) => el.classList.remove("building-dino-dead"));
+  buildingRenderDinoHpBars();
+}
+
+// 표시 중인 3마리(0~2) + 대기 중인 나머지(3~6) 체력바를 전부 지금 buildingDinoHp 기준으로 갱신
+function buildingRenderDinoHpBars() {
+  // 체력 퍼센트 계산/적용은 js/ui/dino-display-ui.js의 setHpFillWidth로 통일(사용자 확정 -
+  // "체력바 로직이랑... 전부 통일시켜... 하나 함수로 만들든가")
+  [0, 1, 2].forEach((i) => {
+    setHpFillWidth(document.getElementById(`buildingDinoHpFill${i}`), buildingDinoHp[i], buildingDinoMaxHp);
+    const avatar = document.getElementById(`buildingDinoAvatar${i}`);
+    if (avatar) avatar.classList.toggle("building-dino-dead", buildingDinoHp[i] <= 0);
+  });
+  document.querySelectorAll("#buildingDinoReserveHpBars .building-dino-reserve-hpbar").forEach((bar) => {
+    const i = Number(bar.dataset.dinoIdx);
+    setHpFillWidth(bar.querySelector(".building-dino-reserve-hpfill"), buildingDinoHp[i], buildingDinoMaxHp);
+  });
+}
+
+// 대기 공룡 체력바 DOM은 한 번만 만들어두고 매 틱 폭만 갱신함(타이탄의 titanBuildHpBars와 같은
+// 이유 - 매 틱 innerHTML을 통째로 다시 그리면 나중에 그 위에 얹을 피격 이펙트가 애니메이션 끝나기
+// 전에 지워짐)
+function buildingBuildDinoReserveBars() {
+  const wrap = document.getElementById("buildingDinoReserveHpBars");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  for (let i = 3; i < BUILDING_MAX_DINO_COUNT; i++) {
+    const bar = document.createElement("div");
+    bar.className = "building-dino-reserve-hpbar";
+    bar.dataset.dinoIdx = String(i);
+    bar.innerHTML = `<div class="building-dino-reserve-hpfill"></div>`;
+    wrap.appendChild(bar);
+  }
+}
+
+// 부활 대기시간(getRespawnDelaySec, 타이탄과 같은 공식)이 지난 공룡을 만피로 되돌림 - 매 틱 시작
+// 시점에 판정(이번 틱에서 새로 죽는 공룡의 부활 타이머는 이번 틱 끝에 걸리므로 여기서 같이 안 깨어남)
+function buildingApplyDinoRevives() {
+  for (let i = 0; i < BUILDING_MAX_DINO_COUNT; i++) {
+    if (buildingDinoReviveAt[i] !== null && buildingElapsedSec >= buildingDinoReviveAt[i]) {
+      buildingDinoHp[i] = buildingDinoMaxHp;
+      buildingDinoReviveAt[i] = null;
+    }
+  }
+}
+
+// 적 캐터펄트 반격 - 통계 시뮬레이션(runBuildingSimulation)과 같은 규칙: 살아있는 공룡 전원
+// 동시에 광역 피해(사용자 확정), 강인함1/2로 감소(퍼센트 먼저, 그다음 정수), 연속 전투면 부활
+// 타이머를 검(getRespawnDelaySec)
+function buildingApplyCatapultTick(combatConfig, inputs) {
+  if (combatConfig.catapultLevel === null) return;
+  if (buildingElapsedSec < buildingNextCatapultFireSec) return;
+  const periodSec = BUILDING_CATAPULT_SPEED_SECONDS[combatConfig.catapultSpeedLevel];
+  buildingNextCatapultFireSec += periodSec;
+
+  buildingSpawnCatapultProjectile(combatConfig.catapultLevel);
+
+  const reduction = computeBuildingIncomingReduction(inputs.selectedRunes);
+  const rawDmg = BUILDING_CATAPULT_DAMAGE[combatConfig.catapultLevel];
+  const perShotDmg = Math.max(1, rawDmg * (1 - reduction.percent / 100) - reduction.flat);
+
+  for (let i = 0; i < BUILDING_MAX_DINO_COUNT; i++) {
+    if (buildingDinoHp[i] <= 0) continue;
+    buildingDinoHp[i] = Math.max(0, buildingDinoHp[i] - perShotDmg);
+    // 화면엔 최대 3마리(buildingDinoAvatar0~2)만 아바타로 보임(나머지는 체력바로만 표시) - 대미지
+    // 팝업도 실제로 보이는 자리에만(사용자 지적 - "공룡이 적 투석기 공격에 피격당할 때 공룡 위로
+    // 피격 대미지 표시를 해줘야 함", 다른 공격 경로(buildingRunAttackTick)와 같은 공용 함수 사용 -
+    // buildingSpawnDamagePopupOn 참고). 발톱 모양(Hit_Effect.png) 피격 이펙트는 안 씀 - 투사체
+    // (투석기)에 맞은 건데 발톱 이펙트가 뜨면 부자연스러움(사용자 지적) - 투사체 자체가 날아와서
+    // 맞는 연출(buildingSpawnCatapultProjectile)이 이미 있으므로 별도 이펙트 없이 대미지 숫자만 표시
+    if (i < 3) {
+      buildingSpawnDinoDamagePopup(i, perShotDmg);
+    }
+    if (buildingDinoHp[i] === 0 && combatConfig.continuousBattle) {
+      const respawnDelaySec = getRespawnDelaySec(inputs.moveSpeed, combatConfig.distanceTiles);
+      buildingDinoReviveAt[i] = buildingElapsedSec + respawnDelaySec;
+    }
+  }
+  buildingRenderDinoHpBars();
 }
 
 // 지금 공룡이 이동해서 서 있는 타일(buildingTargetSlot)만 공격 대상이 됨 - 예전엔 "가장 앞쪽
@@ -1428,40 +1610,66 @@ function buildingRunAttackTick() {
     buildingUpdateStartButtonState();
     return;
   }
-  buildingElapsedSec++;
-  buildingAttackCount++;
 
+  const combatConfig = loadBuildingCombatConfig();
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
   const inputs = buildingDinoInputs(profile);
-  const tileCfg = loadBuildingTileSettings();
-  const values = computeBuildingCombatValues(inputs, tileCfg);
-  const { dmg, isCrit } = rollBuildingAttack(values);
 
-  buildingTotalDmg += dmg;
-  buildingApplyDamage(targetIdx, dmg);
-  buildingShake(targetIdx);
-  buildingSpawnHitEffect(targetIdx);
-  buildingSpawnDamagePopup(targetIdx, dmg, isCrit, false);
-
-  // 지진: 공격 횟수가 룬 레벨의 주기(4타 또는 3타)에 도달하면, 지금 공격 중인 건물 자신 + 그
-  // 건물과 실제로 육각형 변을 맞대고 있는 "주변 1칸" 건물들까지 전부 추가 피해(사용자 확정 -
-  // "내가 공격하는 건물 및 그 주위 1칸씩 건물에 대미지"). 타겟 자신은 이미 위에서 평타를 맞았고,
-  // 이건 그 위에 별도로 얹히는 지진 전용 추가 타격 - BUILDING_ADJACENCY 참고(정면은 좌/우 둘 다와
-  // 인접이라 셋 다 맞고, 좌/우는 정면하고만 인접이라 자신+정면만 맞음). 각 타격은 방금 들어간
-  // 주공격의 최종 피해량 기준 %
-  if (values.earthquake && buildingAttackCount % values.earthquake.count === 0) {
-    const quakeTargets = [targetIdx, ...(BUILDING_ADJACENCY[targetIdx] || [])];
-    quakeTargets.forEach((idx) => {
-      if (buildingHp[idx] !== null && buildingHp[idx] > 0) {
-        const splashDmg = computeEarthquakeSplashDamage(dmg, values.earthquake);
-        buildingTotalDmg += splashDmg;
-        buildingApplyDamage(idx, splashDmg);
-        buildingShake(idx);
-        buildingSpawnHitEffect(idx);
-        buildingSpawnDamagePopup(idx, splashDmg, isCrit, true);
-      }
-    });
+  buildingApplyDinoRevives();
+  const aliveDinoCount = buildingDinoHp.filter((hp) => hp > 0).length;
+  const hasPendingRevive = buildingDinoReviveAt.some((t) => t !== null);
+  // 연속 전투가 꺼져있고 공룡이 전멸했으면(빠른 계산과 같은 종료 조건) 여기서 멈춤 - 대기 부활이
+  // 있으면(연속 전투 켜짐) 시간만 계속 흘려보내며 기다림
+  if (aliveDinoCount === 0 && !hasPendingRevive) {
+    buildingPauseAttack();
+    buildingRenderDinoHpBars();
+    buildingUpdateMoveControls();
+    buildingUpdateStartButtonState();
+    return;
   }
+
+  buildingElapsedSec++;
+
+  const tileCfg = loadBuildingTileSettings();
+
+  // 살아있는 공룡이 하나도 없으면(연속 전투로 부활을 기다리는 중) 이번 틱은 공격 없이 시간만
+  // 흘려보냄 - 공격력도 지금 실제로 살아있는 마릿수만큼만 반영(통계 시뮬레이션과 같은 방식으로
+  // count를 매번 다시 계산 - 예전엔 항상 고정 7마리로 계산해서 죽어도 대미지가 안 줄었음)
+  if (aliveDinoCount > 0) {
+    buildingAttackCount++;
+    const values = computeBuildingCombatValues({ ...inputs, count: aliveDinoCount }, tileCfg);
+    const { dmg, isCrit } = rollBuildingAttack(values);
+
+    buildingTotalDmg += dmg;
+    buildingApplyDamage(targetIdx, dmg);
+    buildingShake(targetIdx);
+    buildingSpawnHitEffect(targetIdx);
+    buildingSpawnDamagePopup(targetIdx, dmg, isCrit, false);
+
+    // 지진: 공격 횟수가 룬 레벨의 주기(4타 또는 3타)에 도달하면, 지금 공격 중인 건물 자신 + 그
+    // 건물과 실제로 육각형 변을 맞대고 있는 "주변 1칸" 건물들까지 전부 추가 피해(사용자 확정 -
+    // "내가 공격하는 건물 및 그 주위 1칸씩 건물에 대미지"). 타겟 자신은 이미 위에서 평타를 맞았고,
+    // 이건 그 위에 별도로 얹히는 지진 전용 추가 타격 - BUILDING_ADJACENCY 참고(정면은 좌/우 둘 다와
+    // 인접이라 셋 다 맞고, 좌/우는 정면하고만 인접이라 자신+정면만 맞음). 지진은 낙뢰/메테오 같은
+    // 스킬형 룬이라 주공격의 크리 여부를 물려받지 않고 맞는 건물마다 각각 독립적으로 크리를 새로
+    // 판정함(사용자 확정 - "지진도 결국에는 스킬이잖아. 크리티컬 독립시행이지... 한번 크리 터졌다고
+    // 모든 건물에 동시 크리티컬 적용되는 게 아니거든")
+    if (values.earthquake && buildingAttackCount % values.earthquake.count === 0) {
+      const quakeTargets = [targetIdx, ...(BUILDING_ADJACENCY[targetIdx] || [])];
+      quakeTargets.forEach((idx) => {
+        if (buildingHp[idx] !== null && buildingHp[idx] > 0) {
+          const { dmg: splashDmg, isCrit: splashIsCrit } = rollEarthquakeHit(values);
+          buildingTotalDmg += splashDmg;
+          buildingApplyDamage(idx, splashDmg);
+          buildingShake(idx);
+          buildingSpawnHitEffect(idx);
+          buildingSpawnDamagePopup(idx, splashDmg, splashIsCrit, true);
+        }
+      });
+    }
+  }
+
+  buildingApplyCatapultTick(combatConfig, inputs);
 
   buildingUpdateStatsDisplay();
   buildingUpdateMoveControls();
@@ -1469,8 +1677,7 @@ function buildingRunAttackTick() {
 
 function buildingApplyDamage(idx, dmg) {
   buildingHp[idx] = Math.max(0, buildingHp[idx] - dmg);
-  const pct = buildingMaxHp[idx] > 0 ? (buildingHp[idx] / buildingMaxHp[idx]) * 100 : 0;
-  document.getElementById(`buildingHpFill${idx}`).style.width = `${pct}%`;
+  setHpFillWidth(document.getElementById(`buildingHpFill${idx}`), buildingHp[idx], buildingMaxHp[idx]);
   document.getElementById(`buildingHpText${idx}`).textContent =
     `${Math.round(buildingHp[idx]).toLocaleString()} / ${buildingMaxHp[idx].toLocaleString()}`;
   if (buildingHp[idx] <= 0) {
@@ -1488,34 +1695,92 @@ function buildingShake(idx) {
   sprite.classList.add("building-shaking");
 }
 
-// 대상이 preserve-3d 안에 있어서 fx를 3D 공간 안에 두면 깊이 다툼에 걸림(다이노 배틀/타이탄/
-// 허수아비와 같은 문제) - 3D를 아예 우회해서 화면 좌표(position:fixed)로 직접 띄움
-function buildingSpawnHitEffect(idx) {
-  const sprite = document.getElementById(`buildingSprite${idx}`);
-  if (!sprite) return;
-  const rect = sprite.getBoundingClientRect();
+// 대상 스프라이트의 실제 화면 좌표(getBoundingClientRect)를 그대로 읽어서 화면 좌표(position:fixed)
+// 로 띄움 - 바닥이 Three.js로 바뀐 뒤에도 이 방식 자체는 그대로 유효함(대상이 어떤 방식으로
+// 배치됐든 실제 렌더링된 위치를 그대로 읽는 방식이라 무관)
+// 피격 이펙트 - 내 공룡의 평타가 건물에 맞았을 때만 씀(투사체(캐터펄트)에 맞은 공룡 쪽엔 안 씀 -
+// 발톱 모양(Hit_Effect.png) 이펙트가 투사체 피격과는 안 어울려서 제외함, 사용자 지적). widthRatio/
+// topRatio는 향후 다른 대상에도 재사용할 수 있도록 남겨둔 매개변수
+function buildingSpawnHitEffectOn(targetEl, { topRatio = 0.4, widthRatio = 0.55 } = {}) {
+  if (!targetEl) return;
+  const rect = targetEl.getBoundingClientRect();
+  if (rect.width === 0) return;
   const fx = document.createElement("img");
   fx.src = "./assets/sprites/Hit_Effect.png";
   fx.className = "dummy-hit-effect building-hit-effect-fixed";
   fx.style.setProperty("--hit-angle", `${Math.floor(Math.random() * 360)}deg`);
   fx.style.left = `${rect.left + rect.width / 2}px`;
-  fx.style.top = `${rect.top + rect.height * 0.4}px`;
-  fx.style.width = `${rect.width * 0.55}px`;
+  fx.style.top = `${rect.top + rect.height * topRatio}px`;
+  fx.style.width = `${rect.width * widthRatio}px`;
   document.body.appendChild(fx);
   fx.addEventListener("animationend", () => fx.remove());
 }
 
-function buildingSpawnDamagePopup(idx, dmg, isCrit, isSplash) {
-  const sprite = document.getElementById(`buildingSprite${idx}`);
-  if (!sprite) return;
-  const rect = sprite.getBoundingClientRect();
+function buildingSpawnHitEffect(idx) {
+  buildingSpawnHitEffectOn(document.getElementById(`buildingSprite${idx}`), { topRatio: 0.4, widthRatio: 0.55 });
+}
+
+// 적 캐터펄트 투사체 애니메이션 - 지금 공격 중인 건물(발사 지점으로 취급)에서 내 공룡 클러스터
+// 쪽으로 날아옴(사용자 확정 - "해당 투사체 날아오는 애니메이션도 해주고"). 탄종 이미지는 투석기
+// 공격 레벨 드롭다운과 같은 매핑(BUILDING_CATAPULT_LEVELS) 재사용
+function buildingSpawnCatapultProjectile(catapultLevel) {
+  const ammoOpt = BUILDING_CATAPULT_LEVELS.find((o) => o.value === catapultLevel);
+  if (!ammoOpt || !ammoOpt.img) return;
+  const fromEl = document.getElementById(`buildingSprite${buildingTargetSlot}`);
+  const toEl = document.getElementById("buildingDinoAvatar1");
+  if (!fromEl || !toEl) return;
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect = toEl.getBoundingClientRect();
+  if (fromRect.width === 0 || toRect.width === 0) return; // 화면에 안 보이는 상태(display:none 등)면 스킵
+  // 위에서 일직선으로 뚝 떨어지지 않고 화면 왼쪽 바깥쪽에서 날아드는 느낌을 주기 위해 시작점을
+  // 건물 위치보다 왼쪽/위로 당김(사용자 확정 - "왼쪽에서 곡선을 그리며 떨어져야 함") - 실제 곡선
+  // 자체는 css/building.css의 building-projectile-fly 키프레임 50% 지점에서 만듦
+  const fromX = fromRect.left + fromRect.width / 2 - 130;
+  const fromY = fromRect.top + fromRect.height * 0.3 - 40;
+  const toX = toRect.left + toRect.width / 2;
+  const toY = toRect.top + toRect.height / 2;
+
+  const proj = document.createElement("img");
+  proj.src = `./assets/tribe/${ammoOpt.img}`;
+  proj.className = "building-projectile-fixed";
+  proj.style.left = `${fromX}px`;
+  proj.style.top = `${fromY}px`;
+  proj.style.setProperty("--proj-dx", `${toX - fromX}px`);
+  proj.style.setProperty("--proj-dy", `${toY - fromY}px`);
+  document.body.appendChild(proj);
+  proj.addEventListener("animationend", () => proj.remove());
+}
+
+// 대미지 팝업 - 건물이든 공룡이든 "이 엘리먼트가 이 대미지를 입었다"는 공용 로직(hit effect와 같은
+// 이유로 공용화). buildingSpawnDamagePopup(건물)/buildingSpawnDinoDamagePopup(공룡) 둘 다 이걸 씀
+function buildingSpawnDamagePopupOn(targetEl, text, { isCrit = false, isSplash = false } = {}) {
+  if (!targetEl) return;
+  const rect = targetEl.getBoundingClientRect();
+  if (rect.width === 0) return;
   const popup = document.createElement("div");
   popup.className = "battle-dmg-popup building-dmg-popup-fixed" + (isCrit ? " crit" : "") + (isSplash ? " skill" : "");
-  popup.innerText = (isSplash ? "지진 " : "") + Math.round(dmg).toLocaleString();
+  popup.innerText = text;
   popup.style.left = `${rect.left + rect.width / 2}px`;
   popup.style.top = `${rect.top}px`;
   document.body.appendChild(popup);
   popup.addEventListener("animationend", () => popup.remove());
+}
+
+function buildingSpawnDamagePopup(idx, dmg, isCrit, isSplash) {
+  buildingSpawnDamagePopupOn(
+    document.getElementById(`buildingSprite${idx}`),
+    (isSplash ? "지진 " : "") + Math.round(dmg).toLocaleString(),
+    { isCrit, isSplash }
+  );
+}
+
+// 캐터펄트에 맞은 공룡용
+function buildingSpawnDinoDamagePopup(dinoIdx, dmg, isCrit) {
+  buildingSpawnDamagePopupOn(
+    document.getElementById(`buildingDinoAvatar${dinoIdx}`),
+    Math.round(dmg).toLocaleString(),
+    { isCrit }
+  );
 }
 
 function buildingUpdateStatsDisplay() {

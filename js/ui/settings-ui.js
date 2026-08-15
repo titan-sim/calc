@@ -15,6 +15,10 @@ function applyThemeState(isLight) {
   const slider = document.getElementById("themeSlider");
   if (slider) slider.classList.toggle("is-light", isLight);
   localStorage.setItem("dino_theme", isLight ? "light" : "dark");
+  // Three.js 육각형 바닥(js/core/hex-scene3d.js)은 --accent/--card-bg 같은 테마색을 캔버스
+  // 텍스처로 한 번 구워두는 방식이라, 새로고침 없이 즉시 바뀌는 이 테마 토글에 맞춰 다시 구워야
+  // 색이 안 밀림(실측 확인) - 페이지별 씬이 각자 이 이벤트를 듣고 자기가 마운트돼 있을 때만 재굽기
+  document.dispatchEvent(new CustomEvent("theme-changed"));
 }
 
 function toggleTheme() {
