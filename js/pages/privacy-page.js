@@ -2,7 +2,7 @@
 // 서비스 상황(연락처, 보관 정책 등)에 맞춰 내용을 검토/수정해서 쓰는 걸 전제로 함.
 const PRIVACY_EFFECTIVE_DATE = "2026-07-17";
 const PRIVACY_LAST_UPDATED = "2026-07-18";
-const PRIVACY_CONTACT_EMAIL = "iwgaoy@gmail.com";
+const PRIVACY_CONTACT_EMAIL = "or13n74l@gmail.com";
 
 function renderPrivacyPage(container) {
   container.innerHTML = `
