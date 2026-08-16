@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://dinomutant-sim.com/sitemap.xml

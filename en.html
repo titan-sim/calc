@@ -6,6 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dino Mutant Simulator</title>
   <meta name="description" content="Predict Dino Mutant's Titan, Dino Battle, and Arena results in advance.">
+  <meta name="google-site-verification" content="L98MFUbflpT6ium7ciRsL5ztwsoQ40egIudAwjXgR7c" />
+  <meta name="naver-site-verification" content="b2ec2a63ccaf10094af28e7c90b0e1df6aa39e43" />
+
+  <!-- 이 페이지와 index.html(한국어)이 같은 콘텐츠의 다른 언어 버전이라고 구글에 알려주는 태그.
+       각자 자기 자신을 canonical로 가리킴(서로를 가리키면 구글이 이 페이지를 통째로 무시하고
+       index.html로만 합쳐버림) - js/core/i18n.js의 applyStaticI18n()은 이 태그들을 안 건드리므로
+       런타임에 사용자가 언어를 바꿔도(예: 이 페이지에서 한국어로 전환) 이 URL 자체의 언어 관계
+       선언은 그대로 유지됨(의도한 동작) -->
+  <link rel="canonical" href="https://dinomutant-sim.com/en">
+  <link rel="alternate" hreflang="ko" href="https://dinomutant-sim.com/">
+  <link rel="alternate" hreflang="en" href="https://dinomutant-sim.com/en">
+  <link rel="alternate" hreflang="x-default" href="https://dinomutant-sim.com/">
 
   <link rel="icon" type="image/png" href="assets/sprites/Constellation_Icon.png">
   <link rel="apple-touch-icon" href="assets/sprites/Constellation_Icon.png">
@@ -23,23 +35,156 @@
   <meta name="twitter:description" content="Predict Dino Mutant's Titan, Dino Battle, and Arena results in advance.">
   <meta name="twitter:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
 
-  <!-- 링크 미리보기(디스코드/트위터 등)용 정적 스텁 페이지 - 크롤러들은 JS를 실행하지 않아서
-       js/core/i18n.js가 런타임에 바꿔주는 위 meta 태그들을 못 읽고 index.html에 박힌 한국어
-       원문만 보게 됨(사용자 지적 - "디코로 공유했더니 한국어 제목/설명이 나옴"). 실제 사람이
-       이 링크를 열면 아래에서 바로 사이트 홈으로 보내고, 링크만 긁어가는 크롤러는 여기 있는
-       영어 meta만 읽고 감(사이트 자체는 그대로 하나 - 방문 후엔 평소처럼 언어 자동감지/수동전환이 됨).
-       다른 언어가 더 필요해지면 이 파일을 그 언어 meta로만 바꿔서 ja.html/vi.html/zh.html 등으로
-       똑같이 만들면 됨(index.html 본문 스크립트 목록과는 무관해서 유지보수 부담이 적음) -->
-  <meta http-equiv="refresh" content="0; url=/">
-  <style>
-    body { background: #0b1120; color: #eef1f6; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    a { color: #d1a44f; }
-  </style>
+  <!-- css/style.css(단일 4600여 줄 파일)를 여러 파일로 분리함 - 순서가 원본 cascade 순서와
+       같아야 하므로(뒤에 오는 파일이 앞의 것을 덮어쓸 수 있음) 이 순서를 함부로 바꾸지 말 것.
+       index.html과 완전히 동일한 목록 - index.html의 <head> 스타일시트 목록이 바뀌면 여기도
+       똑같이 맞춰야 함(빌드 스텝이 없어서 수동 동기화) -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/rune-picker.css">
+  <link rel="stylesheet" href="css/nav.css">
+  <link rel="stylesheet" href="css/auth-friends.css">
+  <link rel="stylesheet" href="css/privacy.css">
+  <link rel="stylesheet" href="css/profile.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/my-dino.css">
+  <link rel="stylesheet" href="css/combat-shared.css">
+  <link rel="stylesheet" href="css/dino-battle.css">
+  <link rel="stylesheet" href="css/arena.css">
+  <link rel="stylesheet" href="css/dummy.css">
+  <link rel="stylesheet" href="css/building.css">
+  <link rel="stylesheet" href="css/titan.css">
 </head>
 
 <body>
-  <p>Redirecting to <a href="/">Dino Mutant Simulator</a>&hellip;</p>
-  <script>location.replace("/");</script>
+
+  <div id="sideMenu" class="side-menu">
+    <div class="side-header">
+      <span style="font-weight: bold;" data-i18n-key="index_html.menuLabel">메뉴</span>
+      <button class="close-btn" id="closeMenuBtn">✕</button>
+    </div>
+    <div class="menu-content">
+      <div class="auth-row" id="authRow"></div>
+
+      <div class="menu-divider"></div>
+
+      <nav class="nav-list">
+        <a class="nav-link" href="#home" data-i18n-key="index_html.navHome">홈</a>
+        <a class="nav-link" href="#my-dino" data-i18n-key="index_html.navMyDino">내 공룡</a>
+        <a class="nav-link" href="#titan" data-i18n-key="index_html.navTitan">타이탄</a>
+        <a class="nav-link" href="#dino-battle" data-i18n-key="index_html.navDinoBattle">공룡 대전</a>
+        <a class="nav-link" href="#arena" data-i18n-key="index_html.navArena">아레나</a>
+        <a class="nav-link" href="#dummy" data-i18n-key="index_html.navDummy">허수아비</a>
+        <a class="nav-link" href="#building" data-i18n-key="index_html.navBuilding">건물</a>
+        <div class="menu-divider"></div>
+        <div class="nav-section-label" data-i18n-key="index_html.navExternalSiteLabel">외부 사이트</div>
+        <a class="nav-link nav-link-external" href="https://3n74l.github.io/Dino_Run/" target="_blank" rel="noopener noreferrer"><span data-i18n-key="index_html.navExternalGameLink">Dino Run (팬메이드 게임)</span><svg class="external-link-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z"/></svg></a>
+      </nav>
+
+      <div class="menu-bottom">
+        <div class="menu-divider"></div>
+        <div class="menu-setting-row">
+          <button type="button" class="theme-slider" id="themeSlider">
+            <span class="theme-slider-glow"></span>
+            <span class="theme-slider-label theme-slider-label-dark" data-i18n-key="index_html.themeDark">다크모드</span>
+            <span class="theme-slider-label theme-slider-label-light" data-i18n-key="index_html.themeLight">라이트모드</span>
+          </button>
+        </div>
+        <div class="menu-setting-row">
+          <span style="font-size: 14px;" data-i18n-key="common.languageLabel">언어</span>
+          <div class="custom-dropdown menu-lang-dropdown" id="langDropdown">
+            <div class="selected-value" id="langSelectedValue">한국어</div>
+            <ul class="dropdown-list" id="langList"></ul>
+          </div>
+        </div>
+        <div class="menu-setting-row">
+          <span style="font-size: 14px;" data-i18n-key="index_html.logToggleLabel">상세 로그 수집</span>
+          <label class="switch">
+            <input type="checkbox" id="logToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <a class="menu-footer-link" href="#privacy" data-i18n-key="index_html.privacyFooterLink">개인정보처리방침</a>
+      </div>
+    </div>
+  </div>
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <div id="authModalRoot"></div>
+
+  <div id="friendInviteBanner" class="friend-invite-banner" style="display:none;"></div>
+  <div id="friendToast" class="friend-toast" style="display:none;"></div>
+
+  <header class="app-bar">
+    <div class="header-left">
+      <button class="menu-btn" id="menuBtn">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
+        </svg>
+      </button>
+      <div class="app-title">
+        <span class="brand">DINO MUTANT</span>
+        <span class="sub" data-i18n-key="index_html.headerSubtitle">시뮬레이터</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container" style="margin-top: 50px;">
+    <div id="app"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/core/supabase-config.js"></script>
+  <script src="js/core/data-sync.js"></script>
+  <script src="js/core/friend-session.js"></script>
+  <script src="js/core/update-check.js"></script>
+  <!-- 이 진입점(/en)으로 처음 들어온 방문자(dino_lang이 아직 저장 안 돼있음)만 영어로 시작하게
+       강제함 - 이미 언어를 골라본 적 있는 재방문자는 그 선택을 그대로 존중함(아무것도 안 건드림).
+       js/core/i18n.js의 initI18n()이 이 값을 읽기 전(DOMContentLoaded)에만 실행되면 되므로
+       스크립트 어디에 둬도 되지만, i18n.js 바로 위에 둬서 관련성을 명확히 함. i18n.js 자체는
+       전혀 안 건드림 - I18N_LANG_KEY("dino_lang")와 이름이 우연히 같아야 동작하는 유일한 결합점 -->
+  <script>
+    if (!localStorage.getItem("dino_lang")) localStorage.setItem("dino_lang", "en");
+  </script>
+  <script src="js/core/i18n.js"></script>
+  <script src="js/data/rune-data.js"></script>
+  <script src="js/data/titan-data.js"></script>
+  <script src="js/data/constellation-data.js"></script>
+  <!-- Three.js(WebGL) - 다이노 배틀/타이탄/허수아비/건물 페이지의 육각형 바닥을 진짜 3D로 렌더링
+       (js/core/hex-scene3d.js가 이걸 씀). CSS rotateX+perspective 가짜 3D의 렌더링 버그를 겪은
+       뒤 사용자 확정으로 전면 교체 - hex-scene3d.js보다 반드시 먼저 로드돼야 함 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/core/hex-scene3d.js"></script>
+  <script src="js/core/stat-calc.js"></script>
+  <script src="js/core/simulation-titan.js"></script>
+  <script src="js/core/simulation-dino-battle.js"></script>
+  <script src="js/core/simulation-arena.js"></script>
+  <script src="js/core/simulation-dummy.js"></script>
+  <script src="js/core/simulation-building.js"></script>
+  <script src="js/ui/chart-ui.js"></script>
+  <script src="js/ui/stat-roll-ui.js"></script>
+  <script src="js/ui/dropdown-ui.js"></script>
+  <script src="js/ui/rune-ui.js"></script>
+  <script src="js/ui/auth-modal.js"></script>
+  <script src="js/ui/auth-ui.js"></script>
+  <script src="js/ui/dino-display-ui.js"></script>
+  <script src="js/ui/settings-ui.js"></script>
+  <script src="js/pages/home.js"></script>
+  <script src="js/pages/my-dino-page.js"></script>
+  <script src="js/pages/friends-page.js"></script>
+  <script src="js/pages/profile-page.js"></script>
+  <script src="js/pages/privacy-page.js"></script>
+  <script src="js/pages/titan-page.js"></script>
+  <script src="js/pages/dino-battle-page.js"></script>
+  <script src="js/pages/arena-page.js"></script>
+  <script src="js/pages/dummy-page.js"></script>
+  <script src="js/pages/building-page.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    document.getElementById("menuBtn").onclick = toggleMenu;
+    document.getElementById("closeMenuBtn").onclick = toggleMenu;
+    document.getElementById("menuOverlay").onclick = toggleMenu;
+  </script>
 </body>
 
 </html>

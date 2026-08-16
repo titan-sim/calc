@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://dinomutant-sim.com/</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://dinomutant-sim.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://dinomutant-sim.com/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://dinomutant-sim.com/" />
+  </url>
+  <url>
+    <loc>https://dinomutant-sim.com/en</loc>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://dinomutant-sim.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://dinomutant-sim.com/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://dinomutant-sim.com/" />
+  </url>
+</urlset>
