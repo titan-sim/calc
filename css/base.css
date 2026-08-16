@@ -645,6 +645,12 @@ input:focus, select:focus {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  /* overflow-y만 auto로 두면 CSS 스펙상 overflow-x도 자동으로 auto가 됨(한쪽 축이 visible이 아니면
+     반대 축도 visible일 수 없음) - 언어 드롭다운을 열었을 때 몇 px 정도의 미세한 가로 오버플로우
+     (서브픽셀 반올림 등)만 생겨도 이 메뉴 안에 원치 않는 가로 스크롤바가 나타났음(사용자 지적) -
+     세로 스크롤만 필요하므로 가로는 명시적으로 막음
+  */
+  overflow-x: hidden;
   padding-top: 10px;
 }
 
