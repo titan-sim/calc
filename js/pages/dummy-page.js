@@ -61,7 +61,7 @@ function defaultDummyTileSettings() {
   return { natureAdjacent: false, tribeControl: true, atkTowerLevel: null };
 }
 
-// 허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있는 게 인게임 규칙이라, 부족 점령
+// 허수아비는 부족이 점령한 타일에만 설치할 수 있는 게 인게임 규칙이라, 부족 점령
 // 상태는 선택지가 아니라 항상 켜져 있어야 함(사용자 확정) - 예전에 저장된 tribeControl:false
 // 값이 남아있어도 여기서 강제로 true로 덮어써서, 껐다 켠 적 없는 사용자도 항상 정상 값을 씀
 function loadDummyTileSettings() {
@@ -114,8 +114,8 @@ function renderDummyPage(container) {
           <label class="switch"><input type="checkbox" id="dummyNatureToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-row">
-          <div class="setting-label" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다">부족 점령 상태 (부족의 축복)</div>
-          <label class="switch" title="허수아비(훈련 인형)는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
+          <div class="setting-label" title="허수아비는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다">부족 점령 상태 (부족의 축복)</div>
+          <label class="switch" title="허수아비는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-stack">
           <label class="setting-label">공격력 버프 타워</label>
