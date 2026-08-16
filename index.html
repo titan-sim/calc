@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>다이노 뮤턴트 시뮬레이터</title>
+  <title>다이노 뮤턴트 시뮬레이터 - 스탯 계산기</title>
   <meta name="description" content="다이노 뮤턴트의 타이탄/공룡 대전/아레나 결과를 미리 예측할 수 있습니다.">
   <meta name="google-site-verification" content="L98MFUbflpT6ium7ciRsL5ztwsoQ40egIudAwjXgR7c" />
   <meta name="naver-site-verification" content="b2ec2a63ccaf10094af28e7c90b0e1df6aa39e43" />
@@ -20,7 +20,7 @@
   <link rel="apple-touch-icon" href="assets/sprites/Constellation_Icon.png">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="다이노 뮤턴트 시뮬레이터">
+  <meta property="og:title" content="다이노 뮤턴트 시뮬레이터 - 스탯 계산기">
   <meta property="og:description" content="다이노 뮤턴트의 타이탄/공룡 대전/아레나 결과를 미리 예측할 수 있습니다.">
   <meta property="og:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
   <meta property="og:image:width" content="1200">
@@ -28,7 +28,7 @@
   <meta property="og:url" content="https://dinomutant-sim.com/">
 
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="다이노 뮤턴트 시뮬레이터">
+  <meta name="twitter:title" content="다이노 뮤턴트 시뮬레이터 - 스탯 계산기">
   <meta name="twitter:description" content="다이노 뮤턴트의 타이탄/공룡 대전/아레나 결과를 미리 예측할 수 있습니다.">
   <meta name="twitter:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
 
@@ -124,7 +124,20 @@
   </header>
 
   <div class="container" style="margin-top: 50px;">
-    <div id="app"></div>
+    <!-- JS 로딩 전(또는 JS를 실행 안 하는 크롤러)이 봤을 때도 h1/콘텐츠가 비어있지 않도록 하는
+         정적 폴백 - home.js의 renderHome()이 그리는 히어로 블록과 완전히 동일한 마크업/문구임.
+         JS가 로드되면 router.js의 renderRoute()가 이 안을 통째로 innerHTML로 덮어써서 즉시
+         (거의 같은 프레임에) 대체되므로 실사용자에게는 시각적 차이가 없음 - 다만 페이지가
+         #titan처럼 홈이 아닌 해시로 곧장 열린 경우엔 아주 짧게 이 홈 히어로가 보였다가 해당
+         페이지로 바뀔 수 있음(체감하기 어려운 수준). 이 블록이 home.js의 마크업과 어긋나지
+         않도록 renderHome()을 고칠 때 이쪽도 같이 맞출 것 -->
+    <div id="app">
+      <button type="button" class="home-hero" id="homeHeroBtn">
+        <div class="home-hero-glow"></div>
+        <h1 class="home-hero-title">DINO MUTANT<span>시뮬레이터</span></h1>
+        <p class="home-hero-sub">룬 조합부터 전투 결과까지, 미리 계산하고 전략을 세워보세요.</p>
+      </button>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
