@@ -7,92 +7,78 @@ const PRIVACY_CONTACT_EMAIL = "iwgaoy@gmail.com";
 function renderPrivacyPage(container) {
   container.innerHTML = `
     <div class="card">
-      <h2>개인정보처리방침</h2>
-      <p class="privacy-updated">시행일자: ${PRIVACY_EFFECTIVE_DATE} · 최종 수정일: ${PRIVACY_LAST_UPDATED}</p>
+      <h2>${t("privacy.title")}</h2>
+      <p class="privacy-updated">${t("privacy.updatedLine", { effectiveDate: PRIVACY_EFFECTIVE_DATE, lastUpdated: PRIVACY_LAST_UPDATED })}</p>
       <p class="privacy-lead">
-        다이노 뮤턴트 시뮬레이터(이하 "본 사이트")는 이용자의 개인정보를 소중히 다루며,
-        아래와 같은 기준으로 개인정보를 수집·이용·보관합니다.
+        ${t("privacy.lead")}
       </p>
     </div>
 
     <div class="card">
-      <h2>1. 수집하는 개인정보 항목</h2>
+      <h2>${t("privacy.section1.title")}</h2>
       <ul class="privacy-list">
-        <li><b>회원가입 시</b>: 닉네임, 이메일, 비밀번호(암호화되어 저장되며 운영자도 열람할 수 없습니다)</li>
-        <li><b>로그인 이용 중</b>: "내 공룡" 탭에서 설정한 룬 조합·별자리·기본 스탯 등 시뮬레이터 프로필 데이터
-          (다른 시뮬레이터의 설정은 서버에 저장되지 않고 이용 중인 기기의 브라우저에만 남습니다)</li>
+        <li>${t("privacy.section1.item1")}</li>
+        <li>${t("privacy.section1.item2")}</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>2. 수집 목적</h2>
+      <h2>${t("privacy.section2.title")}</h2>
       <ul class="privacy-list">
-        <li>닉네임·비밀번호: 로그인 인증</li>
-        <li>이메일: 비밀번호 재설정 링크 발송 용도로만 사용하며, 그 외 목적(광고성 메일 발송 등)으로 쓰지 않습니다</li>
-        <li>시뮬레이터 프로필 데이터: 여러 기기에서 같은 설정을 이어서 볼 수 있도록 동기화</li>
+        <li>${t("privacy.section2.item1")}</li>
+        <li>${t("privacy.section2.item2")}</li>
+        <li>${t("privacy.section2.item3")}</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>3. 보관 기간 및 삭제</h2>
+      <h2>${t("privacy.section3.title")}</h2>
       <p>
-        수집한 개인정보는 회원 탈퇴 또는 삭제 요청 시 지체 없이 파기합니다.
+        ${t("privacy.section3.body")}
       </p>
       <p class="privacy-note">
-        로그인 후 사이드 메뉴의 닉네임을 눌러 프로필로 이동하시면, 회원 탈퇴 버튼이 있습니다.
-        <a href="#profile">여기</a>를 눌러 바로 이동할 수도 있습니다. 확인 절차를 거쳐 계정과 저장된
-        데이터가 즉시 삭제됩니다. 로그인이 어려운 경우 아래 문의처로 가입하신 이메일과 닉네임을
-        알려주시면 대신 처리해드립니다.
+        ${t("privacy.section3.note")}
       </p>
     </div>
 
     <div class="card">
-      <h2>4. 개인정보 처리 위탁</h2>
+      <h2>${t("privacy.section4.title")}</h2>
       <p>
-        본 사이트는 원활한 서비스 제공(인증 및 데이터 저장)을 위해 외부 서비스인 <b>Supabase</b>(해외
-        서비스)를 이용하고 있으며, 이에 따라 개인정보 처리 업무를 위탁하고 있습니다. 이용자가 입력한
-        정보는 Supabase의 서버에 저장되며, Supabase 자체의 개인정보처리방침이 함께 적용됩니다. 그 외의
-        목적으로 제3자에게 개인정보를 제공하지 않습니다.
+        ${t("privacy.section4.body")}
       </p>
     </div>
 
     <div class="card">
-      <h2>5. 안전성 확보 조치</h2>
+      <h2>${t("privacy.section5.title")}</h2>
       <p>
-        본 사이트는 이용자의 개인정보를 보호하기 위해 기술적·관리적 보호 조치를 취하고 있습니다.
-        비밀번호는 암호화되어 저장되어 운영자를 포함한 누구도 원문을 확인할 수 없으며, 데이터베이스
-        접근은 인증된 본인만 가능하도록 제한되어 있습니다.
+        ${t("privacy.section5.body")}
       </p>
     </div>
 
     <div class="card">
-      <h2>6. 브라우저에 저장되는 데이터</h2>
+      <h2>${t("privacy.section6.title")}</h2>
       <p>
-        로그인 여부와 무관하게, 입력한 스탯·룬 조합 등 시뮬레이터 설정은 편의를 위해 이용 중인 기기의
-        브라우저(localStorage)에도 저장됩니다. 이 데이터는 서버로 전송되지 않으며(로그인한 "내 공룡" 탭
-        제외), 브라우저 저장공간을 지우면 함께 삭제됩니다.
+        ${t("privacy.section6.body")}
       </p>
     </div>
 
     <div class="card">
-      <h2>7. 이용자의 권리</h2>
+      <h2>${t("privacy.section7.title")}</h2>
       <p>
-        이용자는 언제든 자신의 개인정보 열람·정정·삭제를 요청할 수 있습니다. 아래 문의처로 연락해주시면
-        확인 후 조치해드립니다.
+        ${t("privacy.section7.body")}
       </p>
     </div>
 
     <div class="card">
-      <h2>8. 비공식 팬메이드 안내</h2>
+      <h2>${t("privacy.section8.title")}</h2>
       <p>
-        본 사이트는 게임 "다이노 뮤턴트"의 공식 사이트가 아니며, 게임 개발사·배급사와 아무런 관련이
-        없는 개인이 만든 비공식 팬메이드 시뮬레이터입니다.
+        ${t("privacy.section8.body")}
       </p>
     </div>
 
     <div class="card">
-      <h2>9. 개인정보보호 책임자 및 문의처</h2>
-      <p>본 사이트의 개인정보보호 책임자는 운영자 본인이며, 개인정보 관련 문의는 아래 이메일로 연락해주세요.</p>
+      <h2>${t("privacy.section9.title")}</h2>
+      <p>${t("privacy.section9.body")}</p>
       <p class="privacy-contact">${PRIVACY_CONTACT_EMAIL}</p>
     </div>
   `;

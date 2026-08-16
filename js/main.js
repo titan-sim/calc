@@ -1,4 +1,5 @@
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
+  await initI18n();
   initSettingsDrawer();
   initRouter();
   initOverlayOutsideClickClose();

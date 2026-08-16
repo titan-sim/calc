@@ -24,9 +24,9 @@ function showUpdateBanner() {
   banner.id = "updateBanner";
   banner.className = "update-banner";
   banner.innerHTML = `
-    <span class="update-banner-text">새 버전이 있습니다</span>
-    <button type="button" class="update-banner-refresh" id="updateBannerRefresh">새로고침</button>
-    <button type="button" class="update-banner-dismiss" id="updateBannerDismiss" aria-label="닫기">✕</button>
+    <span class="update-banner-text">${t("common.updateBanner.text")}</span>
+    <button type="button" class="update-banner-refresh" id="updateBannerRefresh">${t("common.updateBanner.refreshBtn")}</button>
+    <button type="button" class="update-banner-dismiss" id="updateBannerDismiss" aria-label="${t("common.updateBanner.dismissAriaLabel")}">✕</button>
   `;
   document.body.appendChild(banner);
   document.getElementById("updateBannerRefresh").onclick = () => location.reload();

@@ -168,37 +168,37 @@ function titanCombinations(arr, k) {
 
 function renderTitanPage(container) {
   container.innerHTML = `
-    <h2 class="sr-only">타이탄</h2>
-    <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
+    <h2 class="sr-only">${t("titan.heading")}</h2>
+    <div class="warning">${t("titan.warning")}</div>
 
     <div id="myDinoSection"></div>
 
     ${renderMetricsCard("metricsGrid", "metricDetail", [
-      { id: "metricBasicDmg", key: "basicDmg", label: "평타 대미지" },
-      { id: "metricSkillDmg", key: "skillDmg", label: "스킬 대미지" },
-      { id: "metricAtkAmp", key: "atkAmp", label: "공격력 증폭량" },
-      { id: "metricFinalAvgDmg", key: "finalAvgDmg", label: "최종 평균 대미지" },
-      { id: "metricReduction", key: "reduction", label: "대미지 감소량" },
-      { id: "metricRecovery", key: "recovery", label: "회복량" },
+      { id: "metricBasicDmg", key: "basicDmg", label: t("titan.metrics.basicDmg") },
+      { id: "metricSkillDmg", key: "skillDmg", label: t("titan.metrics.skillDmg") },
+      { id: "metricAtkAmp", key: "atkAmp", label: t("titan.metrics.atkAmp") },
+      { id: "metricFinalAvgDmg", key: "finalAvgDmg", label: t("titan.metrics.finalAvgDmg") },
+      { id: "metricReduction", key: "reduction", label: t("titan.metrics.reduction") },
+      { id: "metricRecovery", key: "recovery", label: t("titan.metrics.recovery") },
     ])}
 
     <div class="card battle-main-card" id="titanMainCard">
       <div class="battle-mode-tabs titan-mode-tabs-4" id="titanModeTabs" data-active-idx="0">
         <span class="battle-mode-indicator" id="titanModeIndicator"></span>
-        <button class="battle-mode-tab active" data-mode="settings" id="titanModeTabSettings"><span>전투 설정</span></button>
-        <button class="battle-mode-tab" data-mode="quick" id="titanModeTabQuick"><span>빠른 계산</span></button>
-        <button class="battle-mode-tab" data-mode="live" id="titanModeTabLive"><span>시뮬레이션</span></button>
-        <button class="battle-mode-tab" data-mode="optimize" id="titanModeTabOptimize"><span>조합 찾기</span></button>
+        <button class="battle-mode-tab active" data-mode="settings" id="titanModeTabSettings"><span>${t("titan.tab.settings")}</span></button>
+        <button class="battle-mode-tab" data-mode="quick" id="titanModeTabQuick"><span>${t("titan.tab.quick")}</span></button>
+        <button class="battle-mode-tab" data-mode="live" id="titanModeTabLive"><span>${t("titan.tab.live")}</span></button>
+        <button class="battle-mode-tab" data-mode="optimize" id="titanModeTabOptimize"><span>${t("titan.tab.optimize")}</span></button>
       </div>
 
       <div class="battle-mode-panel" id="titanSettingsModeCard">
         <div class="titan-settings-grid">
           <div class="titan-settings-row">
-            <div class="setting-label">자연 구조물과 인접</div>
+            <div class="setting-label">${t("titan.settings.natureLabel")}</div>
             <label class="switch"><input type="checkbox" id="titanNatureToggle"><span class="slider round"></span></label>
           </div>
           <div class="titan-settings-row">
-            <div class="setting-label">부족 점령 상태</div>
+            <div class="setting-label">${t("titan.settings.tribeLabel")}</div>
             <label class="switch"><input type="checkbox" id="titanTribeToggle"><span class="slider round"></span></label>
           </div>
           <!-- 모바일에서는 라벨 옆에 드롭다운/입력칸을 붙이면 폭이 부족해 화살표·단위 텍스트가
@@ -206,38 +206,38 @@ function renderTitanPage(container) {
                (공격력·체력 버프 타워) / (타이탄 레벨 단독) / (전투 제한시간·타이탄 거리) -->
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">공격력 버프 타워</label>
+              <label class="setting-label">${t("titan.settings.atkTowerLabel")}</label>
               <div class="custom-dropdown" id="titanAtkTowerDropdown">
-                <div class="selected-value" id="titanAtkTowerSelectedValue">없음</div>
+                <div class="selected-value" id="titanAtkTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="titanAtkTowerList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">체력 버프 타워</label>
+              <label class="setting-label">${t("titan.settings.hpTowerLabel")}</label>
               <div class="custom-dropdown" id="titanHpTowerDropdown">
-                <div class="selected-value" id="titanHpTowerSelectedValue">없음</div>
+                <div class="selected-value" id="titanHpTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="titanHpTowerList"></ul>
               </div>
             </div>
           </div>
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">서버 레벨캡</label>
+              <label class="setting-label">${t("titan.settings.serverLevelCapLabel")}</label>
               <div class="custom-dropdown" id="titanServerLevelCapDropdown">
-                <div class="selected-value" id="titanServerLevelCapSelectedValue">없음</div>
+                <div class="selected-value" id="titanServerLevelCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="titanServerLevelCapList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">서버 별자리캡</label>
+              <label class="setting-label">${t("titan.settings.constellationCapLabel")}</label>
               <div class="custom-dropdown" id="titanConstellationCapDropdown">
-                <div class="selected-value" id="titanConstellationCapSelectedValue">없음</div>
+                <div class="selected-value" id="titanConstellationCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="titanConstellationCapList"></ul>
               </div>
             </div>
           </div>
           <div class="titan-settings-stack titan-settings-fullstack">
-            <label class="setting-label">타이탄 레벨</label>
+            <label class="setting-label">${t("titan.settings.titanLevelLabel")}</label>
             <div class="custom-dropdown" id="titanDropdown">
               <div class="selected-value" id="titanSelectedValue">Lv.1</div>
               <ul class="dropdown-list" id="titanList"></ul>
@@ -245,21 +245,21 @@ function renderTitanPage(container) {
           </div>
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">전투 제한시간</label>
+              <label class="setting-label">${t("titan.settings.timeLimitLabel")}</label>
               <div class="custom-dropdown" id="timeDropdown">
-                <div class="selected-value" id="timeSelectedValue">90분</div>
+                <div class="selected-value" id="timeSelectedValue">${t("titan.settings.defaultTimeLimit")}</div>
                 <ul class="dropdown-list" id="timeList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">타이탄 거리</label>
-              <div class="affix-input has-suffix"><input type="tel" id="fDistance" value="1"><span class="affix-suffix">타일</span></div>
+              <label class="setting-label">${t("titan.settings.distanceLabel")}</label>
+              <div class="affix-input has-suffix"><input type="tel" id="fDistance" value="1"><span class="affix-suffix">${t("titan.settings.distanceUnit")}</span></div>
             </div>
           </div>
           <!-- 연속 전투는 짝이 없어져서 혼자 전체 폭을 차지하되, 토글이라 왼쪽이 허전해 보이지
                않도록 라벨+버튼 전체를 오른쪽으로 붙임 -->
           <div class="titan-settings-row titan-settings-row-full titan-settings-row-end">
-            <div class="setting-label">연속 전투</div>
+            <div class="setting-label">${t("titan.settings.continuousBattleLabel")}</div>
             <label class="switch"><input type="checkbox" id="continuousToggle"><span class="slider round"></span></label>
           </div>
         </div>
@@ -267,37 +267,37 @@ function renderTitanPage(container) {
 
       <div class="battle-mode-panel" id="titanQuickModeCard" style="display:none;">
         <div class="titan-quick-summary" id="titanQuickSummary"></div>
-        <button class="btn-simulate" id="titanQcBtn">빠른 계산하기</button>
+        <button class="btn-simulate" id="titanQcBtn">${t("titan.quick.calcBtn")}</button>
         <div id="battleReport" class="report-box" style="display:none;">
           <div class="report-grid">
-            <div class="report-tile"><div class="metric-label">총 입힌 피해량</div><div class="metric-value accent" id="repTotalDmg">0</div></div>
-            <div class="report-tile"><div class="metric-label">남은 타이탄 체력</div><div class="metric-value accent" id="repTitanHp">0</div></div>
-            <div class="report-tile"><div class="metric-label">평균 생존 시간</div><div class="metric-value" id="repTime">0</div></div>
-            <div class="report-tile"><div class="metric-label">평균 공룡 사망 수</div><div class="metric-value" id="repDead">0</div></div>
+            <div class="report-tile"><div class="metric-label">${t("titan.quick.report.totalDmg")}</div><div class="metric-value accent" id="repTotalDmg">0</div></div>
+            <div class="report-tile"><div class="metric-label">${t("titan.quick.report.remainingTitanHp")}</div><div class="metric-value accent" id="repTitanHp">0</div></div>
+            <div class="report-tile"><div class="metric-label">${t("titan.quick.report.avgSurvivalTime")}</div><div class="metric-value" id="repTime">0</div></div>
+            <div class="report-tile"><div class="metric-label">${t("titan.quick.report.avgDeadCount")}</div><div class="metric-value" id="repDead">0</div></div>
           </div>
           <div class="report-chart-section">
-            <div class="report-chart-label">시간대별 공룡 체력 변화 추이</div>
+            <div class="report-chart-label">${t("titan.quick.report.chartLabel")}</div>
             <div class="report-chart-box">
               <canvas id="hpChart"></canvas>
             </div>
-            <div id="avgMinHpPer" class="report-survival">평균 생존 체력: 0%</div>
+            <div id="avgMinHpPer" class="report-survival">${t("titan.quick.report.avgSurvivalHpLabel", { percent: 0 })}</div>
           </div>
         </div>
       </div>
 
       <div class="battle-mode-panel" id="titanOptimizeModeCard" style="display:none;">
         <div class="dummy-optimizer">
-          <h3 class="dummy-optimizer-title">내 룬 레벨로 최적 조합 찾기</h3>
-          <p class="quickcalc-desc">적합 룬 중 보유한 룬의 레벨을 입력하세요(0 = 미보유). 지금 전투 설정 기준으로(연속 전투는 항상 켠 상태로 계산) "가장 안 죽는 조합", "시간당 대미지가 가장 높은 조합", "둘의 균형이 가장 좋은 조합"을 찾아줍니다. 조합 수가 많으면 시간이 걸릴 수 있습니다.</p>
+          <h3 class="dummy-optimizer-title">${t("titan.optimize.title")}</h3>
+          <p class="quickcalc-desc">${t("titan.optimize.desc")}</p>
           <div class="titan-quick-summary" id="titanOptimizeQuickSummary"></div>
           <div class="titan-owned-rune-header">
-            <span class="titan-owned-rune-header-label">보유 룬 레벨 입력</span>
-            <button type="button" class="titan-owned-rune-collapse-btn" id="titanOwnedRuneCollapseBtn" aria-expanded="true" title="목록 접기/펼치기">
+            <span class="titan-owned-rune-header-label">${t("titan.optimize.ownedRuneHeaderLabel")}</span>
+            <button type="button" class="titan-owned-rune-collapse-btn" id="titanOwnedRuneCollapseBtn" aria-expanded="true" title="${t("titan.optimize.collapseTooltip")}">
               <span class="titan-owned-rune-collapse-icon">▲</span>
             </button>
           </div>
           <div class="dummy-owned-rune-grid" id="titanOwnedRuneGrid"></div>
-          <button class="btn-simulate" id="titanOptimizeBtn">조합 찾기 시작</button>
+          <button class="btn-simulate" id="titanOptimizeBtn">${t("titan.optimize.startBtn")}</button>
           <div id="titanOptimizeResult"></div>
         </div>
       </div>
@@ -343,18 +343,18 @@ function renderTitanPage(container) {
 
         <div class="battle-controls">
           <div class="custom-dropdown battle-speed-dropdown" id="titanSpeedDropdown">
-            <div class="selected-value" id="titanSpeedSelectedValue">보통</div>
+            <div class="selected-value" id="titanSpeedSelectedValue">${t("titan.live.speedNormal")}</div>
             <ul class="dropdown-list" id="titanSpeedList"></ul>
           </div>
-          <button class="btn-simulate" id="titanLiveStartBtn">시뮬레이션 시작</button>
-          <button class="battle-restart-btn" id="titanLiveRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+          <button class="btn-simulate" id="titanLiveStartBtn">${t("titan.live.startBtnIdle")}</button>
+          <button class="battle-restart-btn" id="titanLiveRestartBtn" disabled title="${t("titan.live.restartTooltip")}">↻</button>
         </div>
 
         <div class="report-grid titan-live-stats" id="titanLiveStats" style="display:none;">
-          <div class="report-tile"><div class="metric-label">누적 대미지</div><div class="metric-value accent" id="titanLiveDmg">0</div></div>
-          <div class="report-tile"><div class="metric-label">현재 초당 대미지</div><div class="metric-value" id="titanLiveDps">0</div></div>
-          <div class="report-tile"><div class="metric-label">사망한 공룡 수</div><div class="metric-value" id="titanLiveDead">0마리</div></div>
-          <div class="report-tile"><div class="metric-label">경과(생존) 시간</div><div class="metric-value" id="titanLiveSurvival">0초</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.live.stats.cumulativeDmg")}</div><div class="metric-value accent" id="titanLiveDmg">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.live.stats.currentDps")}</div><div class="metric-value" id="titanLiveDps">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.live.stats.deadDinoCount")}</div><div class="metric-value" id="titanLiveDead">${t("titan.live.deadCountValue", { count: 0 })}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.live.stats.elapsedSurvivalTime")}</div><div class="metric-value" id="titanLiveSurvival">${t("titan.live.elapsedSecValue", { sec: 0 })}</div></div>
         </div>
       </div>
     </div>
@@ -362,11 +362,11 @@ function renderTitanPage(container) {
     <div class="friend-picker-overlay" id="titanApplyPresetOverlay" style="display:none;">
       <div class="friend-picker-modal">
         <div class="friend-picker-header">
-          <span>어느 프리셋에 장착할까요?</span>
+          <span>${t("titan.applyPreset.modalTitle")}</span>
           <button class="close-btn" id="titanApplyPresetClose">✕</button>
         </div>
         <div class="arena-preset-row" id="titanApplyPresetList"></div>
-        <button class="btn-apply" id="titanApplyPresetConfirmBtn" disabled>확인</button>
+        <button class="btn-apply" id="titanApplyPresetConfirmBtn" disabled>${t("titan.applyPreset.confirmBtn")}</button>
       </div>
     </div>
   `;
@@ -439,13 +439,13 @@ function initTitanPage() {
     titanRenderMyDinoSection();
     refreshMetricsCard();
     titanResetAllCalc();
-    showToast(`"${presetName}"에 조합을 장착했습니다`);
+    showToast(t("titan.applyPreset.toastAppliedTo", { presetName }));
   }
 
   function titanRenderMyDinoSection() {
     renderMyDinoPage(document.getElementById("myDinoSection"), {
       unsuitableList: UNSUITABLE_RUNE_LIST,
-      unsuitableLabel: "타이탄에 적합하지 않은 룬입니다",
+      unsuitableLabel: t("titan.unsuitableRuneLabel"),
       onChange: () => { refreshMetricsCard(); titanResetAllCalc(); }
     });
   }
@@ -456,7 +456,7 @@ function initTitanPage() {
       tile.onclick = () => {
         const key = tile.dataset.metric;
         activeMetricKey = activeMetricKey === key ? null : key;
-        document.querySelectorAll(".metric-tile").forEach((t) => t.classList.toggle("active", t.dataset.metric === activeMetricKey));
+        document.querySelectorAll(".metric-tile").forEach((tileEl) => tileEl.classList.toggle("active", tileEl.dataset.metric === activeMetricKey));
         renderMetricDetail();
       };
     });
@@ -501,67 +501,67 @@ function initTitanPage() {
     const critDmgOf = (baseAmount) => baseAmount * (m.cDmg / 100);
 
     if (activeMetricKey === "basicDmg") {
-      title = "평타 대미지 계산 내역";
+      title = t("titan.detail.basicDmgTitle");
       // 치명타 확률/피해 수치는 빼고, 증폭 후 공격력에 실제 크리티컬이 떴을 때의 대미지를 보여줌
       // (사용자 확정 - "치명타 확률, 피해 수치를 빼고 증폭 후 크리티컬 대미지 추가하기")
       rows = [
-        { label: "증폭 전 공격력", value: Math.round(m.finalAtk).toLocaleString() },
-        { label: "증폭 후 공격력", value: Math.round(m.ampFinalAtk).toLocaleString() },
-        { label: "증폭 후 크리티컬 대미지", value: Math.round(critDmgOf(m.ampFinalAtk)).toLocaleString() }
+        { label: t("titan.detail.originalAtkLabel"), value: Math.round(m.finalAtk).toLocaleString() },
+        { label: t("titan.detail.ampAtkLabel"), value: Math.round(m.ampFinalAtk).toLocaleString() },
+        { label: t("titan.detail.ampCritDmgLabel"), value: Math.round(critDmgOf(m.ampFinalAtk)).toLocaleString() }
       ];
     } else if (activeMetricKey === "atkAmp") {
-      title = "공격력 증폭 내역";
+      title = t("titan.detail.atkAmpTitle");
       if (m.bossSlayerPercent > 0) {
-        rows = [{ label: `보스 슬레이어 (증폭 +${m.bossSlayerPercent.toFixed(2)}%)`, value: `+${Math.round(m.atkAmpGain).toLocaleString()}` }];
+        rows = [{ label: t("titan.detail.bossSlayerLabel", { percent: m.bossSlayerPercent.toFixed(2) }), value: `+${Math.round(m.atkAmpGain).toLocaleString()}` }];
       }
     } else if (activeMetricKey === "skillDmg") {
-      title = "스킬 대미지 내역";
+      title = t("titan.detail.skillDmgTitle");
       // 사용자 확정 - "원래 대미지 적고... 평균 대미지로 변경(즉 서로 위치 교환) 그리고 그 밑에
       // 크리티컬 대미지 추가" - 메인 값은 원래 대미지(발동 확률은 안 곱했지만 치확/치피 평균은
       // 반영된 값), 그 아래 평균 대미지(발동 확률까지 반영)와 크리티컬 대미지(치확/치피 평균 대신
       // 크리티컬 확정으로 가정한 값) 두 줄
       rows = m.skillDetails.map((d) => ({
-        label: d.prob !== undefined ? `${d.name} (${d.prob}% 확률)` : `${d.name} (3타마다 확정 발동)`,
+        label: d.prob !== undefined ? t("titan.detail.skillProbLabel", { name: ruleDisplayName(d.name), prob: d.prob }) : t("titan.detail.skillFixedLabel", { name: ruleDisplayName(d.name) }),
         value: Math.round(d.rawDmg).toLocaleString(),
         subs: [
-          `평균 대미지 ${Math.round(d.avgDmg).toLocaleString()}`,
-          `크리티컬 대미지 ${Math.round(d.critDmg).toLocaleString()}`
+          t("titan.detail.avgDmgSub", { value: Math.round(d.avgDmg).toLocaleString() }),
+          t("titan.detail.critDmgSub", { value: Math.round(d.critDmg).toLocaleString() })
         ]
       }));
     } else if (activeMetricKey === "finalAvgDmg") {
-      title = "최종 평균 대미지 계산 내역";
+      title = t("titan.detail.finalAvgDmgTitle");
       rows = [
-        { label: "평타 대미지", value: Math.round(m.avgHitDamage).toLocaleString() },
-        { label: "스킬 대미지 합계", value: Math.round(m.skillDmgTotal).toLocaleString() }
+        { label: t("titan.detail.basicDmgLabel"), value: Math.round(m.avgHitDamage).toLocaleString() },
+        { label: t("titan.detail.skillDmgTotalLabel"), value: Math.round(m.skillDmgTotal).toLocaleString() }
       ];
     } else if (activeMetricKey === "reduction") {
-      title = "대미지 감소 내역";
+      title = t("titan.detail.reductionTitle");
       // 사용자 확정 - "원래 감소량을 적고 그 밑에... 평균 감소량"(메인/서브 위치 교환)
       rows = m.reductions.map((r) => {
         if (r.type === "shield") {
-          return { label: `${r.name} (${r.turn}회 ${r.red_p}% 감소)`, value: "-" };
+          return { label: t("titan.detail.shieldReductionLabel", { name: ruleDisplayName(r.name), turn: r.turn, percent: r.red_p }), value: "-" };
         }
         if (r.type === "prob") {
           return {
-            label: `${r.name} (${r.prob}% 확률)`,
+            label: t("titan.detail.probReductionLabel", { name: ruleDisplayName(r.name), prob: r.prob }),
             value: Math.round(r.value).toLocaleString(),
-            subs: [`평균 감소량 ${Math.round(r.avg).toLocaleString()}`]
+            subs: [t("titan.detail.avgReductionSub", { value: Math.round(r.avg).toLocaleString() })]
           };
         }
-        return { label: r.name, value: Math.round(r.avg).toLocaleString() };
+        return { label: ruleDisplayName(r.name), value: Math.round(r.avg).toLocaleString() };
       });
     } else if (activeMetricKey === "recovery") {
-      title = "회복량 내역";
+      title = t("titan.detail.recoveryTitle");
       // 사용자 확정 - "원래 회복량을 적고 그 밑에... 평균 회복량"(메인/서브 위치 교환)
       rows = m.recoveries.map((r) => ({
-        label: `${r.name} (${r.prob}% 확률)`,
+        label: t("titan.detail.recoveryProbLabel", { name: ruleDisplayName(r.name), prob: r.prob }),
         value: Math.round(r.rawAmount).toLocaleString(),
-        subs: [`평균 회복량 ${Math.round(r.avg).toLocaleString()}`]
+        subs: [t("titan.detail.avgRecoverySub", { value: Math.round(r.avg).toLocaleString() })]
       }));
     }
 
     if (rows.length === 0) {
-      box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">장착된 관련 룬이 없습니다</div>`;
+      box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">${t("titan.detail.emptyMsg")}</div>`;
     } else {
       box.innerHTML = `<div class="metric-detail-title">${title}</div>${rows
         .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${(r.subs || []).map((s) => `<div class="metric-detail-row-sub">${s}</div>`).join("")}</div>`)
@@ -597,14 +597,14 @@ function initTitanPage() {
     const initTowerDropdown = (listId, valueId, key) => {
       const list = document.getElementById(listId);
       const selectedValue = document.getElementById(valueId);
-      const labelFor = (v) => BUFF_TOWER_OPTIONS.find((o) => o.value === v).label;
+      const labelFor = (v) => sharedOptionLabel(BUFF_TOWER_OPTIONS.find((o) => o.value === v).label);
       selectedValue.textContent = labelFor(settings[key]);
       BUFF_TOWER_OPTIONS.forEach((opt) => {
         const li = document.createElement("li");
-        li.textContent = opt.label;
+        li.textContent = sharedOptionLabel(opt.label);
         li.onclick = () => {
           settings[key] = opt.value;
-          selectedValue.textContent = opt.label;
+          selectedValue.textContent = sharedOptionLabel(opt.label);
           list.style.display = "none";
           saveTitanTileSettings(settings);
           onTileChange();
@@ -618,16 +618,16 @@ function initTitanPage() {
 
     // 서버 레벨캡 - 4개 페이지가 공유하는 전역 설정이라 titanTileSettings가 아니라 별도
     // localStorage 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀
-    const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+    const capLabelFor = (v) => sharedOptionLabel(SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
     const capList = document.getElementById("titanServerLevelCapList");
     const capSelectedValue = document.getElementById("titanServerLevelCapSelectedValue");
     capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
     SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
       const li = document.createElement("li");
-      li.textContent = opt.label;
+      li.textContent = sharedOptionLabel(opt.label);
       li.onclick = () => {
         saveServerLevelCap(opt.value);
-        capSelectedValue.textContent = opt.label;
+        capSelectedValue.textContent = sharedOptionLabel(opt.label);
         capList.style.display = "none";
         onTileChange();
       };
@@ -636,16 +636,16 @@ function initTitanPage() {
     capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
 
     // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정
-    const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+    const constLabelFor = (v) => sharedOptionLabel(CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
     const constList = document.getElementById("titanConstellationCapList");
     const constSelectedValue = document.getElementById("titanConstellationCapSelectedValue");
     constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
     CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
       const li = document.createElement("li");
-      li.textContent = opt.label;
+      li.textContent = sharedOptionLabel(opt.label);
       li.onclick = () => {
         saveConstellationLevelCap(opt.value);
-        constSelectedValue.textContent = opt.label;
+        constSelectedValue.textContent = sharedOptionLabel(opt.label);
         constList.style.display = "none";
         onTileChange();
       };
@@ -662,7 +662,7 @@ function initTitanPage() {
   for (let lv = 1; lv <= 150; lv++) {
     const { atk, hp } = TITAN_STATS[lv];
     const li = document.createElement("li");
-    const label = `Lv. ${lv} (ATK ${atk} / HP ${hp.toLocaleString()})`;
+    const label = t("titan.levelOptionLabel", { level: lv, atk, hp: hp.toLocaleString() });
     li.textContent = label;
     li.onclick = () => {
       titanSelectedValue.textContent = label;
@@ -681,9 +681,9 @@ function initTitanPage() {
   let timeLimitMinutes = 90;
   for (let m = 10; m <= 120; m += 10) {
     const li = document.createElement("li");
-    li.textContent = `${m}분`;
+    li.textContent = t("titan.timeOptionLabel", { minutes: m });
     li.onclick = () => {
-      timeSelectedValue.textContent = `${m}분`;
+      timeSelectedValue.textContent = t("titan.timeOptionLabel", { minutes: m });
       timeLimitMinutes = m;
       timeList.style.display = "none";
       saveConfig();
@@ -732,10 +732,10 @@ function initTitanPage() {
     if (!saved) return;
     const cfg = JSON.parse(saved);
     titanLevel = cfg.titanLevel || 1;
-    const t = TITAN_STATS[titanLevel];
-    titanSelectedValue.textContent = `Lv. ${titanLevel} (ATK ${t.atk} / HP ${t.hp.toLocaleString()})`;
+    const stats = TITAN_STATS[titanLevel];
+    titanSelectedValue.textContent = t("titan.levelOptionLabel", { level: titanLevel, atk: stats.atk, hp: stats.hp.toLocaleString() });
     timeLimitMinutes = cfg.timeLimitMinutes || 90;
-    timeSelectedValue.textContent = `${timeLimitMinutes}분`;
+    timeSelectedValue.textContent = t("titan.timeOptionLabel", { minutes: timeLimitMinutes });
     distanceTiles = Math.max(1, cfg.distanceTiles || 1);
     fDistance.value = distanceTiles;
     continuousBattle = cfg.continuousBattle || false;
@@ -812,22 +812,22 @@ function initTitanPage() {
   // ===== 빠른 계산 =====
   function titanRenderQuickSummary() {
     const tileCfg = loadTitanTileSettings();
-    const atkLabel = tileCfg.atkTowerLevel !== null ? `+${BUFF_TOWER_PERCENTS[tileCfg.atkTowerLevel]}%` : "없음";
-    const hpLabel = tileCfg.hpTowerLevel !== null ? `+${BUFF_TOWER_PERCENTS[tileCfg.hpTowerLevel]}%` : "없음";
-    const t = TITAN_STATS[titanLevel];
+    const atkLabel = tileCfg.atkTowerLevel !== null ? `+${BUFF_TOWER_PERCENTS[tileCfg.atkTowerLevel]}%` : t("common.optionNone");
+    const hpLabel = tileCfg.hpTowerLevel !== null ? `+${BUFF_TOWER_PERCENTS[tileCfg.hpTowerLevel]}%` : t("common.optionNone");
+    const stats = TITAN_STATS[titanLevel];
     // 진짜 2열 grid + 실선 구분(칸마다 border) - 가짜 중앙선(::before)은 4열 grid의 실제 폭이
     // 항상 정확히 반반은 아니라서 어긋나 보일 수 있어 대신 이 방식으로 확실하게 좌우를 나눔
     const buildHtml = (continuousLabel) => `
       <div class="titan-quick-summary-grid">
         <div class="titan-quick-summary-col">
-          <div class="titan-quick-summary-item"><span>공격력 버프타워</span><b>${atkLabel}</b></div>
-          <div class="titan-quick-summary-item"><span>타이탄</span><b>Lv.${titanLevel} (HP ${t.hp.toLocaleString()})</b></div>
-          <div class="titan-quick-summary-item"><span>타이탄과의 거리</span><b>${distanceTiles}타일</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.settings.atkTowerLabel")}</span><b>${atkLabel}</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.heading")}</span><b>Lv.${titanLevel} (HP ${stats.hp.toLocaleString()})</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.settings.distanceLabel")}</span><b>${t("titan.settings.distanceValue", { count: distanceTiles })}</b></div>
         </div>
         <div class="titan-quick-summary-col">
-          <div class="titan-quick-summary-item"><span>체력 버프타워</span><b>${hpLabel}</b></div>
-          <div class="titan-quick-summary-item"><span>전투 제한시간</span><b>${timeLimitMinutes}분</b></div>
-          <div class="titan-quick-summary-item"><span>연속 전투</span><b>${continuousLabel}</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.settings.hpTowerLabel")}</span><b>${hpLabel}</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.settings.timeLimitLabel")}</span><b>${t("titan.timeOptionLabel", { minutes: timeLimitMinutes })}</b></div>
+          <div class="titan-quick-summary-item"><span>${t("titan.settings.continuousBattleLabel")}</span><b>${continuousLabel}</b></div>
         </div>
       </div>
     `;
@@ -837,7 +837,7 @@ function initTitanPage() {
     // titanRunOptimizer 참고), 여기 요약표는 실제 토글 값 대신 그 사실을 그대로 보여줌 -
     // 안 그러면 토글이 꺼져 있을 때 "OFF"라고 표시되면서 실제 계산 기준과 달라 보임
     const optimizeEl = document.getElementById("titanOptimizeQuickSummary");
-    if (optimizeEl) optimizeEl.innerHTML = buildHtml("ON (조합 찾기 전용 고정)");
+    if (optimizeEl) optimizeEl.innerHTML = buildHtml(`ON (${t("titan.optimize.fixedContinuousNote")})`);
   }
 
   // 빠른 계산 = 원래 이 페이지에 있던 통계 시뮬레이션(500회 평균 + 체력 추이 그래프 + 로그 다운로드)
@@ -849,12 +849,12 @@ function initTitanPage() {
     btn.style.setProperty("--progress", "0");
     const cfg = {
       ...buildSimBaseCfg(), iterations: 500, collectLog: AppSettings.isLogEnabled,
-      onProgress: (c, total) => { btn.textContent = `계산 중 (${c}/${total})...`; btn.style.setProperty("--progress", String((c / total) * 100)); }
+      onProgress: (c, total) => { btn.textContent = t("titan.quick.calcBtnBusy", { current: c, total }); btn.style.setProperty("--progress", String((c / total) * 100)); }
     };
     const result = await runTitanSimulation(cfg);
     renderReport(result);
     btn.disabled = false;
-    btn.textContent = "빠른 계산하기";
+    btn.textContent = t("titan.quick.calcBtn");
     btn.classList.remove("btn-progress");
     btn.style.removeProperty("--progress");
   }
@@ -905,13 +905,13 @@ function initTitanPage() {
     const currentMs = titanGetSpeedMs();
     const list = document.getElementById("titanSpeedList");
     const selectedValue = document.getElementById("titanSpeedSelectedValue");
-    selectedValue.textContent = BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label;
+    selectedValue.textContent = sharedOptionLabel(BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label);
     BATTLE_SPEED_OPTIONS.forEach((opt) => {
       const li = document.createElement("li");
-      li.textContent = opt.label;
+      li.textContent = sharedOptionLabel(opt.label);
       li.onclick = () => {
         localStorage.setItem(TITAN_SPEED_KEY, String(opt.ms));
-        selectedValue.textContent = opt.label;
+        selectedValue.textContent = sharedOptionLabel(opt.label);
         list.style.display = "none";
         if (titanReplayRunning) {
           clearInterval(titanReplayTimer);
@@ -1090,8 +1090,8 @@ function initTitanPage() {
     document.getElementById("titanLiveStats").style.display = "none";
     document.getElementById("titanLiveDmg").innerText = "0";
     document.getElementById("titanLiveDps").innerText = "0";
-    document.getElementById("titanLiveDead").innerText = "0마리";
-    document.getElementById("titanLiveSurvival").innerText = "0초";
+    document.getElementById("titanLiveDead").innerText = t("titan.live.deadCountValue", { count: 0 });
+    document.getElementById("titanLiveSurvival").innerText = t("titan.live.elapsedSecValue", { sec: 0 });
   }
 
   function titanLiveReset() {
@@ -1101,14 +1101,16 @@ function initTitanPage() {
     titanReplayIdx = 0;
     titanFirstDeathTick = null;
     document.getElementById("titanLiveStartBtn").disabled = false;
-    document.getElementById("titanLiveStartBtn").textContent = "시뮬레이션 시작";
+    document.getElementById("titanLiveStartBtn").textContent = t("titan.live.startBtnIdle");
     document.getElementById("titanLiveStartBtn").classList.remove("btn-progress");
     document.getElementById("titanLiveStartBtn").style.removeProperty("--progress");
     document.getElementById("titanLiveRestartBtn").disabled = true;
     titanResetLiveStats();
     setHpFillWidth(document.getElementById("titanBossHpFill"), 1, 1);
-    document.getElementById("titanBossHpText").textContent =
-      `${TITAN_STATS[titanLevel].hp.toLocaleString()} / ${TITAN_STATS[titanLevel].hp.toLocaleString()}`;
+    document.getElementById("titanBossHpText").textContent = t("titan.live.hpValueFormat", {
+      current: TITAN_STATS[titanLevel].hp.toLocaleString(),
+      max: TITAN_STATS[titanLevel].hp.toLocaleString()
+    });
     const dino = titanDinoInputs();
     const myCount = dino.count || 1;
     titanCachedSizeScale = hexSceneDinoRuneSizeScale(dino.selectedRunes);
@@ -1143,7 +1145,7 @@ function initTitanPage() {
     const btn = document.getElementById("titanLiveStartBtn");
     titanLiveReset();
     btn.disabled = true;
-    btn.textContent = "계산 중...";
+    btn.textContent = t("titan.live.startBtnCalculating");
     // 실전 시뮬레이션은 통계용 평균이 아니라 "한 판"을 그대로 보여주는 거라 1회차만 돌리면 됨
     // (빠른 계산 쪽의 500회 평균과는 목적 자체가 다름 - 여긴 결과 리포트가 없고 과정만 실시간으로 쌓임)
     const cfg = { ...buildSimBaseCfg(), iterations: 1, collectLog: true };
@@ -1165,9 +1167,9 @@ function initTitanPage() {
   // ("시뮬레이션 시작")는 titanLiveReset()이 직접 심어주므로 여기서 안 건드림
   function titanUpdateStartBtnLabel() {
     const btn = document.getElementById("titanLiveStartBtn");
-    if (titanReplayRunning) btn.textContent = "일시정지";
-    else if (titanReplayIdx < titanReplayLogs.length) btn.textContent = "재생";
-    else if (titanReplayLogs.length > 0) btn.textContent = "다시 시뮬레이션";
+    if (titanReplayRunning) btn.textContent = t("titan.live.startBtnPause");
+    else if (titanReplayIdx < titanReplayLogs.length) btn.textContent = t("titan.live.startBtnResume");
+    else if (titanReplayLogs.length > 0) btn.textContent = t("titan.live.startBtnRestartSim");
   }
 
   function titanReplayStart() {
@@ -1280,8 +1282,10 @@ function initTitanPage() {
     const titanMaxHp = entry.타이탄최대HP_raw;
     const titanHp = entry.타이탄HP_raw;
     setHpFillWidth(document.getElementById("titanBossHpFill"), titanHp, titanMaxHp);
-    document.getElementById("titanBossHpText").textContent =
-      `${Math.max(0, Math.round(titanHp)).toLocaleString()} / ${Math.round(titanMaxHp).toLocaleString()}`;
+    document.getElementById("titanBossHpText").textContent = t("titan.live.hpValueFormat", {
+      current: Math.max(0, Math.round(titanHp)).toLocaleString(),
+      max: Math.round(titanMaxHp).toLocaleString()
+    });
 
     const frontIdx = titanUpdateMyDisplay(entry);
     const avatarEls = document.querySelectorAll("#titanMyTarget .titan-hex-avatar");
@@ -1325,9 +1329,9 @@ function initTitanPage() {
     const totalDmg = Math.max(0, titanMaxHp - titanHp);
     document.getElementById("titanLiveDmg").innerText = Math.round(totalDmg).toLocaleString();
     document.getElementById("titanLiveDps").innerText = Math.round(totalDmg / elapsedSec).toLocaleString();
-    document.getElementById("titanLiveDead").innerText = `${deadCount}마리`;
+    document.getElementById("titanLiveDead").innerText = t("titan.live.deadCountValue", { count: deadCount });
     if (deadCount > 0 && titanFirstDeathTick === null) titanFirstDeathTick = elapsedSec;
-    document.getElementById("titanLiveSurvival").innerText = `${titanFirstDeathTick !== null ? titanFirstDeathTick : elapsedSec}초`;
+    document.getElementById("titanLiveSurvival").innerText = t("titan.live.elapsedSecValue", { sec: titanFirstDeathTick !== null ? titanFirstDeathTick : elapsedSec });
 
     titanReplayIdx++;
   }
@@ -1398,9 +1402,9 @@ function initTitanPage() {
     rep.style.display = "block";
     document.getElementById("repTotalDmg").innerText = Math.floor(result.avgTotalDmg).toLocaleString();
     document.getElementById("repTitanHp").innerText = Math.floor(result.avgRemainingTitanHp).toLocaleString();
-    document.getElementById("repTime").innerText = `${Math.floor(result.avgTimeSec / 60)}분 ${Math.floor(result.avgTimeSec % 60)}초`;
-    document.getElementById("repDead").innerText = `${result.avgDeadCount.toFixed(1)}마리`;
-    document.getElementById("avgMinHpPer").innerText = "평균 생존 체력: " + result.avgSurvivalPercent.toFixed(1) + "%";
+    document.getElementById("repTime").innerText = t("titan.optimize.timeFormat", { m: Math.floor(result.avgTimeSec / 60), s: Math.floor(result.avgTimeSec % 60) });
+    document.getElementById("repDead").innerText = t("titan.live.deadCountValue", { count: result.avgDeadCount.toFixed(1) });
+    document.getElementById("avgMinHpPer").innerText = t("titan.quick.report.avgSurvivalHpLabel", { percent: result.avgSurvivalPercent.toFixed(1) });
     if (result.chartData.length > 0) {
       drawHpChart(document.getElementById("hpChart"), result.chartData, result.limitSec);
     }
@@ -1410,7 +1414,7 @@ function initTitanPage() {
     if (AppSettings.isLogEnabled && result.logs.length > 0) {
       const logBtn = document.createElement("button");
       logBtn.id = "logDownloadBtn";
-      logBtn.innerHTML = "상세 로그(.txt) 다운로드";
+      logBtn.innerHTML = t("titan.quick.report.logDownloadBtn");
       logBtn.className = "btn-simulate";
       logBtn.style.cssText = "margin-top:15px; background:#455a64; font-size:14px;";
       logBtn.onclick = () => {
@@ -1444,7 +1448,7 @@ function initTitanPage() {
     const grid = document.getElementById("titanOwnedRuneGrid");
     grid.innerHTML = titanSuitableRuneNames().map((name) => `
       <div class="dummy-owned-rune-row">
-        <span class="dummy-owned-rune-name">${name}</span>
+        <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
         <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
       </div>
     `).join("");
@@ -1473,7 +1477,7 @@ function initTitanPage() {
     const btn = document.getElementById("titanOptimizeBtn");
 
     if (owned.length === 0) {
-      resultEl.innerHTML = `<p class="quickcalc-desc">보유한 룬 레벨을 먼저 입력해주세요.</p>`;
+      resultEl.innerHTML = `<p class="quickcalc-desc">${t("titan.optimize.needLevelsMsg")}</p>`;
       return;
     }
 
@@ -1527,7 +1531,7 @@ function initTitanPage() {
         screened.push({ names, dps, expectedDeathCount, deterministicExpectedDeathCount });
       }
       if (end < combos.length) {
-        btn.textContent = `1단계 계산 중 (${end.toLocaleString()}/${combos.length.toLocaleString()})...`;
+        btn.textContent = t("titan.optimize.stage1Progress", { current: end.toLocaleString(), total: combos.length.toLocaleString() });
         btn.style.setProperty("--progress", String((end / combos.length) * 9));
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
@@ -1544,7 +1548,7 @@ function initTitanPage() {
       s.balanceScore = titanBalanceScore(s.dps / maxDpsAll, 1 / (1 + s.expectedDeathCount));
     });
 
-    btn.textContent = "1단계 계산 완료, 2단계 정밀 계산 시작...";
+    btn.textContent = t("titan.optimize.stage1Done");
     btn.style.setProperty("--progress", "10");
 
     // 2단계: DPS 상위 + 해석적 기대 사망 최저 + 해석적 균형 점수 상위 + 확정형 안전망 최저(4갈래,
@@ -1573,7 +1577,7 @@ function initTitanPage() {
       const effectiveHorizonSec = c.dps > 0 ? Math.min(timeLimitSec, targetTitan.hp / c.dps) : timeLimitSec;
       c.expectedDeathCount = estimateTitanExpectedDeaths(metrics, targetTitan, effectiveHorizonSec, respawnDelaySec, TITAN_SURVIVAL_REFINE_BUCKETS) * dino.count;
       if (i % 10 === 9) {
-        btn.textContent = `후보 정밀 재계산 중 (${i + 1}/${candidates.length})...`;
+        btn.textContent = t("titan.optimize.refineProgress", { current: i + 1, total: candidates.length });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
@@ -1601,7 +1605,7 @@ function initTitanPage() {
         // 나온" 조합을 구분하기 위해 필요
         analyticBalanceScore: c.balanceScore
       });
-      btn.textContent = `2단계 정밀 계산 중 (${i + 1}/${candidates.length})...`;
+      btn.textContent = t("titan.optimize.stage2Progress", { current: i + 1, total: candidates.length });
       btn.style.setProperty("--progress", String(10 + ((i + 1) / candidates.length) * 60));
     }
 
@@ -1652,7 +1656,7 @@ function initTitanPage() {
       // 대신, 훨씬 저렴한 회차로 한 번 더 확인해봄(위 상수 선언부 주석 참고 - 15회 전부 무사망만
       // 으로는 신뢰도가 부족할 수 있어서 완전히 생략하지는 않음)
       if (f.avgDeadCount === 0) {
-        btn.textContent = `3단계 예비 검증 중 (${i + 1}/${finalists.length}, 무사망 재확인 중)...`;
+        btn.textContent = t("titan.optimize.stage3PrescanRecheckProgress", { current: i + 1, total: finalists.length });
         const capCheckResult = await runTitanSimulation({
           ...buildSimBaseCfg(selectedRunes),
           continuousBattle: true, // 조합 찾기는 항상 연속 전투 기준 - 위 2단계 주석 참고
@@ -1677,7 +1681,7 @@ function initTitanPage() {
         // 확인 중 죽는 시행이 나왔음 - "가끔 죽는 조합"으로 판명됐으니 아래 예비 검증으로 넘어감
       }
 
-      btn.textContent = `3단계 예비 검증 중 (${i + 1}/${finalists.length})...`;
+      btn.textContent = t("titan.optimize.stage3PrescanProgress", { current: i + 1, total: finalists.length });
       const prescanResult = await runTitanSimulation({
         ...buildSimBaseCfg(selectedRunes),
         continuousBattle: true, // 조합 찾기는 항상 연속 전투 기준 - 위 2단계 주석 참고
@@ -1702,7 +1706,7 @@ function initTitanPage() {
     const verified = [];
     for (let i = 0; i < preResolved.length; i++) {
       const r = preResolved[i];
-      btn.textContent = `3단계 최종 검증 중 (${i + 1}/${preResolved.length})...`;
+      btn.textContent = t("titan.optimize.stage3FinalProgress", { current: i + 1, total: preResolved.length });
       btn.style.setProperty("--progress", String(85 + (i / preResolved.length) * 15));
 
       if (r.capConfirmed) { verified.push(r); continue; }
@@ -1771,13 +1775,13 @@ function initTitanPage() {
     const bestDpsEntry = verified.find((r) => r.names.join("|") === bestDpsAll.names.join("|"));
 
     btn.disabled = false;
-    btn.textContent = "조합 찾기 시작";
+    btn.textContent = t("titan.optimize.startBtn");
     btn.classList.remove("btn-progress");
     btn.style.removeProperty("--progress");
 
-    const fmtDeaths = (n) => `평균 ${n.toFixed(2)}회`;
-    const fmtTime = (sec) => `${Math.floor(sec / 60)}분 ${Math.floor(sec % 60)}초`;
-    const comboLine = (names) => names.map((n) => `${n} Lv.${levels[n]}`).join(" · ");
+    const fmtDeaths = (n) => t("titan.optimize.avgDeathCountValue", { count: n.toFixed(2) });
+    const fmtTime = (sec) => t("titan.optimize.timeFormat", { m: Math.floor(sec / 60), s: Math.floor(sec % 60) });
+    const comboLine = (names) => names.map((n) => `${ruleDisplayName(n)} Lv.${levels[n]}`).join(" · ");
     // "예상 초당 대미지"는 1단계 이론값이 아니라 이 조합을 실제로 검증한 시뮬레이션 결과(평균
     // 대미지 합계 ÷ 평균 사망 시간)에서 그대로 유도함 - 화면에 같이 뜨는 "평균 대미지 합계"와
     // 항상 같은 시뮬레이션에서 나온 값이라 서로 앞뒤가 안 맞을 일이 없음(예전엔 1단계 해석값을
@@ -1788,21 +1792,21 @@ function initTitanPage() {
         <div class="report-grid">
           <div class="report-tile dummy-optimize-best-tile">
             <div class="metric-label">${title}</div>
-            <div class="dummy-optimize-best-combo" title="클릭하면 프리셋에 장착할 수 있어요">${comboLine(r.names)}</div>
+            <div class="dummy-optimize-best-combo" title="${t("titan.optimize.comboClickTooltip")}">${comboLine(r.names)}</div>
           </div>
-          <div class="report-tile"><div class="metric-label">평균 사망 시간</div><div class="metric-value">${fmtTime(r.avgTimeSec)}</div></div>
-          <div class="report-tile"><div class="metric-label">평균 사망 수</div><div class="metric-value">${fmtDeaths(r.avgDeadCount)}</div></div>
-          <div class="report-tile"><div class="metric-label">예상 초당 대미지</div><div class="metric-value accent">${Math.round(dpsOf(r)).toLocaleString()}</div></div>
-          <div class="report-tile"><div class="metric-label">평균 대미지 합계</div><div class="metric-value accent">${Math.round(r.avgTotalDmg).toLocaleString()}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.optimize.avgDeathTimeLabel")}</div><div class="metric-value">${fmtTime(r.avgTimeSec)}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.optimize.avgDeathCountLabel")}</div><div class="metric-value">${fmtDeaths(r.avgDeadCount)}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.optimize.estimatedDpsLabel")}</div><div class="metric-value accent">${Math.round(dpsOf(r)).toLocaleString()}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("titan.optimize.totalDmgLabel")}</div><div class="metric-value accent">${Math.round(r.avgTotalDmg).toLocaleString()}</div></div>
         </div>
       </div>
     `;
 
     resultEl.innerHTML = `
-      ${slotCount < 5 ? `<p class="quickcalc-desc">보유한 적합 룬이 ${owned.length}개뿐이라 ${slotCount}개짜리 조합까지만 계산했습니다.</p>` : ""}
-      ${comboBoxHtml("최대 생존 조합", bestSurvival)}
-      ${comboBoxHtml("최대 대미지 조합", bestDpsEntry)}
-      ${comboBoxHtml("추천 조합", bestBalance)}
+      ${slotCount < 5 ? `<p class="quickcalc-desc">${t("titan.optimize.limitedSlotMsg", { count: owned.length, slotCount })}</p>` : ""}
+      ${comboBoxHtml(t("titan.optimize.bestSurvivalTitle"), bestSurvival)}
+      ${comboBoxHtml(t("titan.optimize.bestDpsTitle"), bestDpsEntry)}
+      ${comboBoxHtml(t("titan.optimize.bestBalanceTitle"), bestBalance)}
     `;
 
     const comboEntries = [bestSurvival, bestDpsEntry, bestBalance];

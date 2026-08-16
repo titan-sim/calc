@@ -230,7 +230,17 @@
     "common.updateBanner.text": "A new version is available",
     "common.updateBanner.refreshBtn": "Refresh",
     "common.updateBanner.dismissAriaLabel": "Close",
-    "common.friendRequestToast": "{nickname} sent you a friend request"
+    "common.friendRequestToast": "{nickname} sent you a friend request",
+    "common.languageLabel": "Language",
+    "common.optionNone": "None",
+    "common.speed.slow": "Slow",
+    "common.speed.normal": "Normal",
+    "common.speed.fast": "Fast",
+    "common.authRow.profileTooltip": "Go to profile",
+    "common.time.minutesOnly": "{m}m",
+    "common.time.secondsOnly": "{s}s",
+    "common.time.minutesSeconds": "{m}m {s}s",
+    "common.inviteBanner.text": "<b>{nickname}</b> invited you to research together"
   },
   "my_dino": {
     "my_dino.presetDefaultName": "Preset {index}",
@@ -390,7 +400,9 @@
     "titan.log.lastGiftProc": "Dino #{index} died -> triggered Last Gift, Dino #{targetIndex} Attack +{amount} (lasts {turns} turns)",
     "titan.log.fileLine1": "[{time}] Titan HP: {titanHp} | Alive: {aliveCount}",
     "titan.log.fileLine2": "  - Dino #{index} HP: {hp}",
-    "titan.log.fileLine3": "  * {event}"
+    "titan.log.fileLine3": "  * {event}",
+    "titan.optimize.fixedContinuousNote": "fixed for combo finder",
+    "titan.settings.distanceValue": "{count} tiles"
   },
   "dino_battle": {
     "dino_battle.heading": "Dino Battle",
@@ -619,7 +631,29 @@
     "building.summary.catapultLevelLabel": "Enemy Catapult Attack Level",
     "building.summary.catapultSpeedLabel": "Enemy Catapult Firing Speed Level",
     "building.dinoAvatarNameFallback": "My Dino",
-    "building.quakeDamagePopupPrefix": "Earthquake "
+    "building.quakeDamagePopupPrefix": "Earthquake ",
+    "building.type.alarmTower": "Alarm Tower",
+    "building.type.ammoDistributor": "Ammo Distributor",
+    "building.type.catapultLv1": "Catapult Lv.1",
+    "building.type.catapultLv2": "Catapult Lv.2",
+    "building.type.catapultLv3": "Catapult Lv.3",
+    "building.type.catapultLv4": "Catapult Lv.4",
+    "building.type.damageBuffTower": "Attack Buff Tower",
+    "building.type.hpBuffTower": "HP Buff Tower",
+    "building.type.base": "Nest",
+    "building.type.noticeBoard": "Tribe Notice Board",
+    "building.type.portalBlue": "War Portal",
+    "building.type.portalGreen": "Tribe Portal",
+    "building.type.wallLv1": "Wall Lv.1",
+    "building.type.wallLv2": "Wall Lv.2",
+    "building.type.wallLv3": "Wall Lv.3",
+    "building.type.wallLv4": "Wall Lv.4",
+    "building.type.warehouse": "Tribe Headquarters",
+    "building.type.strawWall": "Straw Pile",
+    "building.summary.distanceValue": "{count} tiles",
+    "building.time.minutesOnly": "{m}m",
+    "building.time.secondsOnly": "{s}s",
+    "building.time.minutesSeconds": "{m}m {s}s"
   },
   "rune_data": {
     "rune_data.grade.normal": "Common",

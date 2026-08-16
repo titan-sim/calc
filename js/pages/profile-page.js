@@ -4,8 +4,8 @@ async function renderProfilePage(container) {
   if (!session) {
     container.innerHTML = `
       <div class="card">
-        <h2>프로필</h2>
-        <p style="color:var(--text-sub); font-size:14px;">로그인 후 이용할 수 있습니다.</p>
+        <h2>${t("profile.title")}</h2>
+        <p style="color:var(--text-sub); font-size:14px;">${t("profile.loginRequired")}</p>
       </div>
     `;
     return;
@@ -23,9 +23,12 @@ async function renderProfilePage(container) {
     .eq("user_id", session.user.id)
     .maybeSingle();
 
-  const nickname = profile ? profile.nickname : "(알 수 없음)";
+  const nickname = profile ? profile.nickname : t("profile.unknownNickname");
+  // toLocaleDateString의 locale 인자도 지금 언어에 맞춰줌 - "가입일: {date}" 자체는 번역해도 그
+  // 안의 날짜 형식이 계속 한국식(2026. 1. 1.)으로 고정돼 있으면 어색함
+  const DATE_LOCALE_MAP = { ko: "ko-KR", en: "en-US", ja: "ja-JP", vi: "vi-VN", "zh-CN": "zh-CN" };
   const joinedAt = profile && profile.created_at
-    ? new Date(profile.created_at).toLocaleDateString("ko-KR")
+    ? new Date(profile.created_at).toLocaleDateString(DATE_LOCALE_MAP[getCurrentLang()] || "ko-KR")
     : "-";
 
   container.innerHTML = `
@@ -37,7 +40,7 @@ async function renderProfilePage(container) {
           <div class="profile-email">${session.user.email || ""}</div>
         </div>
       </div>
-      <div class="profile-meta">가입일: ${joinedAt}</div>
+      <div class="profile-meta">${t("profile.joinedAtLabel", { date: joinedAt })}</div>
     </div>
 
     <div class="card" id="friendListCard"></div>
@@ -45,11 +48,11 @@ async function renderProfilePage(container) {
     <div class="card" id="statVisibilityCard"></div>
 
     <div class="card profile-danger-zone">
-      <h2>회원 탈퇴</h2>
+      <h2>${t("profile.dangerZone.title")}</h2>
       <p style="color:var(--text-sub); font-size:13px; line-height:1.6;">
-        탈퇴하면 닉네임, 저장된 룬 조합 등 계정 데이터가 모두 삭제되며 되돌릴 수 없습니다.
+        ${t("profile.dangerZone.desc")}
       </p>
-      <button id="deleteAccountBtn" class="profile-delete-btn">회원 탈퇴</button>
+      <button id="deleteAccountBtn" class="profile-delete-btn">${t("profile.dangerZone.btn")}</button>
     </div>
   `;
 
@@ -65,15 +68,15 @@ const PROFILE_FRIENDS_PER_PAGE = 5;
 async function renderProfileFriendListCard(myId) {
   const card = document.getElementById("friendListCard");
   if (!card) return;
-  card.innerHTML = `<h2>친구 목록</h2><p style="color:var(--text-sub); font-size:13px;">불러오는 중...</p>`;
+  card.innerHTML = `<h2>${t("profile.friendList.title")}</h2><p style="color:var(--text-sub); font-size:13px;">${t("profile.friendList.loading")}</p>`;
 
   const friends = await getAcceptedFriends(myId);
   if (!document.getElementById("friendListCard")) return; // 그새 다른 페이지로 이동했으면 중단
 
   if (friends.length === 0) {
     card.innerHTML = `
-      <h2>친구 목록</h2>
-      <p style="color:var(--text-sub); font-size:13px;">아직 친구가 없습니다. "친구" 메뉴에서 친구를 추가해보세요.</p>
+      <h2>${t("profile.friendList.title")}</h2>
+      <p style="color:var(--text-sub); font-size:13px;">${t("profile.friendList.empty")}</p>
     `;
     return;
   }
@@ -95,14 +98,14 @@ async function renderProfileFriendListCard(myId) {
   `).join("");
 
   card.innerHTML = `
-    <h2>친구 목록</h2>
+    <h2>${t("profile.friendList.title")}</h2>
     <div class="profile-friend-viewport">
       <div class="profile-friend-track" id="profileFriendTrack">${pagesHtml}</div>
     </div>
     ${pages.length > 1 ? `
       <div class="profile-friend-nav">
         <button type="button" class="profile-friend-nav-btn" id="profileFriendPrev" disabled>‹</button>
-        <span class="profile-friend-page-indicator" id="profileFriendPageIndicator">1 / ${pages.length}</span>
+        <span class="profile-friend-page-indicator" id="profileFriendPageIndicator">${t("profile.friendList.pageIndicator", { page: 1, total: pages.length })}</span>
         <button type="button" class="profile-friend-nav-btn" id="profileFriendNext">›</button>
       </div>
     ` : ""}
@@ -117,7 +120,7 @@ async function renderProfileFriendListCard(myId) {
 
     function renderPageState() {
       track.style.transform = `translateX(-${pageIndex * 100}%)`;
-      indicator.textContent = `${pageIndex + 1} / ${pages.length}`;
+      indicator.textContent = t("profile.friendList.pageIndicator", { page: pageIndex + 1, total: pages.length });
       prevBtn.disabled = pageIndex === 0;
       nextBtn.disabled = pageIndex === pages.length - 1;
     }
@@ -127,11 +130,12 @@ async function renderProfileFriendListCard(myId) {
   }
 }
 
+// label은 모듈 로드 시점(i18n 준비 전)에 평가되면 안 되므로 번역 키만 들고, 표시할 때 t()로 변환
 const STAT_VISIBILITY_CATEGORIES = [
-  { key: "showBase", label: "기본 스탯" },
-  { key: "showConstellation", label: "별자리" },
-  { key: "showRunes", label: "룬" },
-  { key: "showPresets", label: "프리셋" }
+  { key: "showBase", labelKey: "profile.statVisibility.category.showBase" },
+  { key: "showConstellation", labelKey: "profile.statVisibility.category.showConstellation" },
+  { key: "showRunes", labelKey: "profile.statVisibility.category.showRunes" },
+  { key: "showPresets", labelKey: "profile.statVisibility.category.showPresets" }
 ];
 
 function defaultStatVisibility() {
@@ -143,13 +147,12 @@ function renderStatVisibilitySection(myId, saved) {
   const card = document.getElementById("statVisibilityCard");
 
   card.innerHTML = `
-    <h2>공룡 스탯 공개 설정</h2>
+    <h2>${t("profile.statVisibility.title")}</h2>
     <p style="color:var(--text-sub); font-size:13px; line-height:1.6; margin-bottom:14px;">
-      친구가 내 공룡 스탯을 확인할 수 있는지, 어디까지 볼 수 있는지 정합니다. 친구 요청은 서로 수락해야
-      맺어지는 관계라 기본값은 공개입니다.
+      ${t("profile.statVisibility.desc")}
     </p>
     <div class="setting-row" style="border-top:none; padding-top:0;">
-      <div class="setting-label">친구에게 내 공룡 스탯 공개</div>
+      <div class="setting-label">${t("profile.statVisibility.enabledLabel")}</div>
       <label class="switch"><input type="checkbox" id="statVisEnabled"><span class="slider round"></span></label>
     </div>
     <div id="statVisCategories" class="stat-visibility-categories"></div>
@@ -167,7 +170,7 @@ function renderStatVisibilitySection(myId, saved) {
     wrap.innerHTML = STAT_VISIBILITY_CATEGORIES.map((c) => `
       <label class="stat-visibility-item">
         <input type="checkbox" data-key="${c.key}" ${vis[c.key] ? "checked" : ""}>
-        <span>${c.label}</span>
+        <span>${t(c.labelKey)}</span>
       </label>
     `).join("");
     wrap.querySelectorAll("input[data-key]").forEach((input) => {

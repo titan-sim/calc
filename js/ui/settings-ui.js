@@ -30,9 +30,37 @@ function applyStoredTheme() {
   applyThemeState(localStorage.getItem("dino_theme") === "light");
 }
 
+const LANG_OPTIONS = [
+  { value: "ko", label: "한국어" },
+  { value: "en", label: "English" },
+  { value: "ja", label: "日本語" },
+  { value: "vi", label: "Tiếng Việt" },
+  { value: "zh-CN", label: "中文(简体)" }
+];
+
+function initLangDropdown() {
+  const list = document.getElementById("langList");
+  const selectedValue = document.getElementById("langSelectedValue");
+  const labelFor = (v) => (LANG_OPTIONS.find((o) => o.value === v) || LANG_OPTIONS[0]).label;
+  selectedValue.textContent = labelFor(getCurrentLang());
+
+  LANG_OPTIONS.forEach((opt) => {
+    const li = document.createElement("li");
+    li.textContent = opt.label;
+    li.onclick = async () => {
+      selectedValue.textContent = opt.label;
+      list.style.display = "none";
+      await setLang(opt.value);
+    };
+    list.appendChild(li);
+  });
+  selectedValue.onclick = () => toggleDropdownList(selectedValue, list);
+}
+
 function initSettingsDrawer() {
   applyStoredTheme();
   renderAuthRow();
+  initLangDropdown();
   document.getElementById("themeSlider").onclick = toggleTheme;
   document.getElementById("logToggle").addEventListener("change", (e) => {
     AppSettings.isLogEnabled = e.target.checked;

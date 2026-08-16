@@ -36,7 +36,7 @@ function setMyDisplayNameCache(name) {
 
 // 로그인 상태면 닉네임, 아니면(또는 아직 loadMyDisplayName이 안 끝났으면) "내 공룡"
 function getMyDisplayNameSync() {
-  return myDisplayNameCache || "내 공룡";
+  return myDisplayNameCache || t("common.myDinoFallbackName");
 }
 
 // selector에 걸리는 모든 요소(보통 여러 마리 분 이름표)의 텍스트를 지금 캐시된 내 닉네임으로 갱신

@@ -78,6 +78,32 @@
   opacity: 1;
 }
 
+/* 언어 선택 드롭다운 - 기본 .selected-value(css/base.css)는 cqw 기반 clamp라 설정 카드처럼 넓은
+   컨테이너를 기준으로 잡혀있어서, 폭 280px인 사이드 메뉴 안에 놓으면 옆의 다크모드 슬라이드(32px)/
+   로그 수집 스위치(22px)보다 눈에 띄게 두꺼워 보였음(사용자 지적) - 메뉴 안에서만 그 둘과 비슷한
+   높이로 눌러줌 */
+.menu-lang-dropdown {
+  width: 130px;
+}
+
+.menu-lang-dropdown .selected-value {
+  height: 28px;
+  padding: 0 26px 0 10px;
+  line-height: 26px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.menu-lang-dropdown .selected-value::after {
+  right: 10px;
+  font-size: 8px;
+}
+
+.menu-lang-dropdown .dropdown-list li {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
 .menu-overlay {
   position: fixed;
   top: 0;

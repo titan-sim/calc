@@ -230,7 +230,17 @@
     "common.updateBanner.text": "새 버전이 있습니다",
     "common.updateBanner.refreshBtn": "새로고침",
     "common.updateBanner.dismissAriaLabel": "닫기",
-    "common.friendRequestToast": "{nickname}님이 친구 요청을 보냈습니다"
+    "common.friendRequestToast": "{nickname}님이 친구 요청을 보냈습니다",
+    "common.languageLabel": "언어",
+    "common.optionNone": "없음",
+    "common.speed.slow": "느림",
+    "common.speed.normal": "보통",
+    "common.speed.fast": "빠름",
+    "common.authRow.profileTooltip": "프로필로 이동",
+    "common.time.minutesOnly": "{m}분",
+    "common.time.secondsOnly": "{s}초",
+    "common.time.minutesSeconds": "{m}분 {s}초",
+    "common.inviteBanner.text": "<b>{nickname}</b>님이 같이 연구하자고 요청했습니다"
   },
   "my_dino": {
     "my_dino.presetDefaultName": "프리셋 {index}",
@@ -390,7 +400,9 @@
     "titan.log.lastGiftProc": "{index}번 공룡 사망 -> 마지막 선물 발동, {targetIndex}번 공룡 공격력 +{amount} ({turns}회 지속)",
     "titan.log.fileLine1": "[{time}] 타이탄HP: {titanHp} | 생존: {aliveCount}",
     "titan.log.fileLine2": "  - {index}번 공룡 HP: {hp}",
-    "titan.log.fileLine3": "  * {event}"
+    "titan.log.fileLine3": "  * {event}",
+    "titan.optimize.fixedContinuousNote": "조합 찾기 전용 고정",
+    "titan.settings.distanceValue": "{count}타일"
   },
   "dino_battle": {
     "dino_battle.heading": "공룡 대전",
@@ -619,7 +631,29 @@
     "building.summary.catapultLevelLabel": "적 투석기 공격 레벨",
     "building.summary.catapultSpeedLabel": "적 투석기 발사속도 레벨",
     "building.dinoAvatarNameFallback": "내 공룡",
-    "building.quakeDamagePopupPrefix": "지진 "
+    "building.quakeDamagePopupPrefix": "지진 ",
+    "building.type.alarmTower": "알람 타워",
+    "building.type.ammoDistributor": "탄 분배기",
+    "building.type.catapultLv1": "투석기 Lv.1",
+    "building.type.catapultLv2": "투석기 Lv.2",
+    "building.type.catapultLv3": "투석기 Lv.3",
+    "building.type.catapultLv4": "투석기 Lv.4",
+    "building.type.damageBuffTower": "공격력 버프 타워",
+    "building.type.hpBuffTower": "체력 버프 타워",
+    "building.type.base": "둥지",
+    "building.type.noticeBoard": "부족 게시판",
+    "building.type.portalBlue": "전쟁 포탈",
+    "building.type.portalGreen": "부족 포탈",
+    "building.type.wallLv1": "벽 Lv.1",
+    "building.type.wallLv2": "벽 Lv.2",
+    "building.type.wallLv3": "벽 Lv.3",
+    "building.type.wallLv4": "벽 Lv.4",
+    "building.type.warehouse": "부족 본부",
+    "building.type.strawWall": "짚더미",
+    "building.summary.distanceValue": "{count}타일",
+    "building.time.minutesOnly": "{m}분",
+    "building.time.secondsOnly": "{s}초",
+    "building.time.minutesSeconds": "{m}분 {s}초"
   },
   "rune_data": {
     "rune_data.grade.normal": "일반",

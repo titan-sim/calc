@@ -230,7 +230,17 @@
     "common.updateBanner.text": "Có phiên bản mới",
     "common.updateBanner.refreshBtn": "Làm Mới",
     "common.updateBanner.dismissAriaLabel": "Đóng",
-    "common.friendRequestToast": "{nickname} đã gửi yêu cầu kết bạn"
+    "common.friendRequestToast": "{nickname} đã gửi yêu cầu kết bạn",
+    "common.languageLabel": "Ngôn ngữ",
+    "common.optionNone": "Không có",
+    "common.speed.slow": "Chậm",
+    "common.speed.normal": "Bình thường",
+    "common.speed.fast": "Nhanh",
+    "common.authRow.profileTooltip": "Đi đến hồ sơ",
+    "common.time.minutesOnly": "{m} phút",
+    "common.time.secondsOnly": "{s} giây",
+    "common.time.minutesSeconds": "{m} phút {s} giây",
+    "common.inviteBanner.text": "<b>{nickname}</b> đã mời bạn cùng nghiên cứu"
   },
   "my_dino": {
     "my_dino.presetDefaultName": "Preset {index}",
@@ -390,7 +400,9 @@
     "titan.log.lastGiftProc": "Khủng long #{index} chết -> kích hoạt Món Quà Cuối Cùng, Khủng long #{targetIndex} ATK +{amount} (kéo dài {turns} lượt)",
     "titan.log.fileLine1": "[{time}] Máu Titan: {titanHp} | Còn sống: {aliveCount}",
     "titan.log.fileLine2": "  - Khủng long #{index} HP: {hp}",
-    "titan.log.fileLine3": "  * {event}"
+    "titan.log.fileLine3": "  * {event}",
+    "titan.optimize.fixedContinuousNote": "cố định riêng cho tìm tổ hợp",
+    "titan.settings.distanceValue": "{count} ô"
   },
   "dino_battle": {
     "dino_battle.heading": "Đại Chiến Khủng Long",
@@ -619,7 +631,29 @@
     "building.summary.catapultLevelLabel": "Cấp Độ Tấn Công Máy Bắn Đá Địch",
     "building.summary.catapultSpeedLabel": "Cấp Độ Tốc Độ Bắn Máy Bắn Đá Địch",
     "building.dinoAvatarNameFallback": "Khủng Long Của Tôi",
-    "building.quakeDamagePopupPrefix": "Động Đất "
+    "building.quakeDamagePopupPrefix": "Động Đất ",
+    "building.type.alarmTower": "Tháp báo động",
+    "building.type.ammoDistributor": "Máy phân phối đạn",
+    "building.type.catapultLv1": "Máy bắn đá Lv.1",
+    "building.type.catapultLv2": "Máy bắn đá Lv.2",
+    "building.type.catapultLv3": "Máy bắn đá Lv.3",
+    "building.type.catapultLv4": "Máy bắn đá Lv.4",
+    "building.type.damageBuffTower": "Tháp buff công",
+    "building.type.hpBuffTower": "Tháp buff máu",
+    "building.type.base": "Tổ",
+    "building.type.noticeBoard": "Bảng thông báo bộ lạc",
+    "building.type.portalBlue": "Cổng chiến tranh",
+    "building.type.portalGreen": "Cổng bộ lạc",
+    "building.type.wallLv1": "Tường Lv.1",
+    "building.type.wallLv2": "Tường Lv.2",
+    "building.type.wallLv3": "Tường Lv.3",
+    "building.type.wallLv4": "Tường Lv.4",
+    "building.type.warehouse": "Trụ sở bộ lạc",
+    "building.type.strawWall": "Đống rơm",
+    "building.summary.distanceValue": "{count} ô",
+    "building.time.minutesOnly": "{m} phút",
+    "building.time.secondsOnly": "{s} giây",
+    "building.time.minutesSeconds": "{m} phút {s} giây"
   },
   "rune_data": {
     "rune_data.grade.normal": "Thường",

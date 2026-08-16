@@ -54,10 +54,16 @@ function saveBuildingCombatConfig(config) {
 // 적 투석기 발사속도 레벨별 재장전 시간(초) - 레벨 0(기본)=6.0초, 레벨마다 0.3초씩 빨라져서
 // 10레벨=3.0초(사용자 확정: "0레벨(기본)이 6s... 10레벨 3s")
 const BUILDING_CATAPULT_SPEED_SECONDS = [6.0, 5.7, 5.4, 5.1, 4.8, 4.5, 4.2, 3.9, 3.6, 3.3, 3.0];
+// label은 항상 한국어 원문 그대로 두고(공유 옵션 배열들과 같은 이유 - 모듈 로드 시점엔 i18n이 아직
+// 준비 안 됨), 화면에 보여줄 때만 buildingCatapultSpeedLabel()이 building.settings.catapultSpeedOption
+// 템플릿으로 다시 조립함
 const BUILDING_CATAPULT_SPEED_OPTIONS = BUILDING_CATAPULT_SPEED_SECONDS.map((sec, lv) => ({
   value: lv,
   label: `Lv.${lv} (${sec.toFixed(1)}초)`
 }));
+function buildingCatapultSpeedLabel(lv) {
+  return t("building.settings.catapultSpeedOption", { level: lv, sec: BUILDING_CATAPULT_SPEED_SECONDS[lv].toFixed(1) });
+}
 
 // 투석기 공격 레벨별 탄종/대미지(사용자 확정 - "100 150 200 300 대미지의 각 탄"). 레벨이 높을수록
 // 더 센 탄을 쓴다는 것만 확정됐고 탄 이름(claw/stone/metal/realmetal)과의 매핑은 그 순서가
@@ -70,6 +76,19 @@ const BUILDING_CATAPULT_LEVELS = [
   { value: 3, label: "3레벨 (200)", img: "MetalAmmo_Img.png" },
   { value: 4, label: "4레벨 (300)", img: "RealMetalAmmo_Img.png" }
 ];
+// catapultOptFor(v)로 찾은 원본 옵션의 label(한국어 고정)은 안 쓰고, 화면 표시는 항상 이 함수로
+function buildingCatapultLevelLabel(value) {
+  if (value === null) return t("common.optionNone");
+  return t("building.settings.catapultLevelOption", { level: value, dmg: BUILDING_CATAPULT_DAMAGE[value] });
+}
+
+// BUILDING_TYPES의 label(한국어 고정)은 저장/비교에 안 쓰이지만(id가 그 역할을 함) 다른 공유
+// 옵션 배열들과 같은 원칙으로 그대로 두고, 표시할 때만 이 함수로 labelKey를 번역함
+function buildingTypeDisplayLabel(id) {
+  if (id === null || id === undefined) return t("common.optionNone");
+  const def = BUILDING_TYPES.find((b) => b.id === id);
+  return def ? t(def.labelKey) : t("common.optionNone");
+}
 
 const BUILDING_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
 
@@ -269,7 +288,7 @@ let buildingHp = [null, null, null, null];
 // 여기 기본값이 null이면 "화면엔 이미 중앙에 서 있는데 공격 시작이 안 눌린다"는 버그가 있었음
 // (사용자 지적 - 실제로 이동 버튼을 한 번 눌러야만 buildingFrontTargetIndex가 0을 반환했음)
 let buildingTargetSlot = 0;
-const BUILDING_SLOT_LABELS = ["중앙", "정면", "좌측", "우측"];
+const BUILDING_SLOT_LABEL_KEYS = ["building.slotLabels.center", "building.slotLabels.front", "building.slotLabels.left", "building.slotLabels.right"];
 
 // ===== 실전 시뮬레이션의 캐터펄트 반격 - 공룡 개별 체력(사용자 확정 - "왜 공룡들 체력이 표시가
 // 안 되어있는지 모르겠지만 공룡 체력 표시하고... 캐터펄트 공격 켜져있으면... 데미지"). 통계
@@ -312,87 +331,87 @@ window.addEventListener("hashchange", () => {
 function renderBuildingPage(container) {
   const [c0, c1, c2, c3] = BUILDING_HEX_CENTERS;
   container.innerHTML = `
-    <h2 class="sr-only">건물</h2>
-    <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
+    <h2 class="sr-only">${t("building.heading")}</h2>
+    <div class="warning">${t("building.warning")}</div>
 
     <div id="buildingMyDinoSection"></div>
 
     ${renderMetricsCard("buildingMetricsGrid", "buildingMetricDetail", [
-      { id: "buildingMetricBasicDmg", key: "basicDmg", label: "평타 대미지" },
-      { id: "buildingMetricQuakeDmg", key: "quakeDmg", label: "지진 대미지" },
-      { id: "buildingMetricAtkAmp", key: "atkAmp", label: "공격력 증폭량" },
-      { id: "buildingMetricFinalAvgDmg", key: "finalAvgDmg", label: "최종 평균 대미지" },
+      { id: "buildingMetricBasicDmg", key: "basicDmg", label: t("building.metrics.basicDmg") },
+      { id: "buildingMetricQuakeDmg", key: "quakeDmg", label: t("building.metrics.quakeDmg") },
+      { id: "buildingMetricAtkAmp", key: "atkAmp", label: t("building.metrics.atkAmp") },
+      { id: "buildingMetricFinalAvgDmg", key: "finalAvgDmg", label: t("building.metrics.finalAvgDmg") },
     ])}
 
     <div class="card battle-main-card building-field-card" id="buildingMainCard">
       <div class="battle-mode-tabs building-mode-tabs-4" id="buildingModeTabs" data-active-idx="0">
         <span class="battle-mode-indicator"></span>
-        <button class="battle-mode-tab active" data-mode="settings" id="buildingModeTabSettings"><span>전투 설정</span></button>
-        <button class="battle-mode-tab" data-mode="quick" id="buildingModeTabQuick"><span>빠른 계산</span></button>
-        <button class="battle-mode-tab" data-mode="live" id="buildingModeTabLive"><span>시뮬레이션</span></button>
-        <button class="battle-mode-tab" data-mode="optimize" id="buildingModeTabOptimize"><span>조합 찾기</span></button>
+        <button class="battle-mode-tab active" data-mode="settings" id="buildingModeTabSettings"><span>${t("building.tab.settings")}</span></button>
+        <button class="battle-mode-tab" data-mode="quick" id="buildingModeTabQuick"><span>${t("building.tab.quick")}</span></button>
+        <button class="battle-mode-tab" data-mode="live" id="buildingModeTabLive"><span>${t("building.tab.live")}</span></button>
+        <button class="battle-mode-tab" data-mode="optimize" id="buildingModeTabOptimize"><span>${t("building.tab.optimize")}</span></button>
       </div>
 
       <div class="battle-mode-panel" id="buildingSettingsModeCard">
         <div class="titan-settings-grid">
           <div class="titan-settings-row">
-            <div class="setting-label">자연 구조물과 인접</div>
+            <div class="setting-label">${t("building.settings.natureLabel")}</div>
             <label class="switch"><input type="checkbox" id="buildingNatureToggle"><span class="slider round"></span></label>
           </div>
           <div class="titan-settings-row">
-            <div class="setting-label">부족 점령 상태</div>
-            <label class="switch" title="건물 공략에서는 의미가 없어 항상 꺼져 있습니다"><input type="checkbox" id="buildingTribeToggle" disabled><span class="slider round"></span></label>
+            <div class="setting-label">${t("building.settings.tribeLabel")}</div>
+            <label class="switch" title="${t("building.settings.tribeTooltip")}"><input type="checkbox" id="buildingTribeToggle" disabled><span class="slider round"></span></label>
           </div>
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">공격력 버프 타워</label>
+              <label class="setting-label">${t("building.settings.atkTowerLabel")}</label>
               <div class="custom-dropdown" id="buildingAtkTowerDropdown">
-                <div class="selected-value" id="buildingAtkTowerSelectedValue">없음</div>
+                <div class="selected-value" id="buildingAtkTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="buildingAtkTowerList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">체력 버프 타워</label>
+              <label class="setting-label">${t("building.settings.hpTowerLabel")}</label>
               <div class="custom-dropdown" id="buildingHpTowerDropdown">
-                <div class="selected-value" id="buildingHpTowerSelectedValue">없음</div>
+                <div class="selected-value" id="buildingHpTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="buildingHpTowerList"></ul>
               </div>
             </div>
           </div>
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">서버 레벨캡</label>
+              <label class="setting-label">${t("building.settings.serverLevelCapLabel")}</label>
               <div class="custom-dropdown" id="buildingServerLevelCapDropdown">
-                <div class="selected-value" id="buildingServerLevelCapSelectedValue">없음</div>
+                <div class="selected-value" id="buildingServerLevelCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="buildingServerLevelCapList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">서버 별자리캡</label>
+              <label class="setting-label">${t("building.settings.constellationCapLabel")}</label>
               <div class="custom-dropdown" id="buildingConstellationCapDropdown">
-                <div class="selected-value" id="buildingConstellationCapSelectedValue">없음</div>
+                <div class="selected-value" id="buildingConstellationCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="buildingConstellationCapList"></ul>
               </div>
             </div>
           </div>
           <div class="titan-settings-levelblock building-settings-divider-before">
             <div class="titan-settings-stack">
-              <label class="setting-label">직접 공격할 건물</label>
+              <label class="setting-label">${t("building.settings.targetBuildingLabel")}</label>
               <div class="custom-dropdown" id="buildingCombatTargetDropdown">
-                <div class="selected-value" id="buildingCombatTargetSelectedValue">없음</div>
+                <div class="selected-value" id="buildingCombatTargetSelectedValue">${t("common.optionNone")}</div>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">뒤에 있는 건물</label>
+              <label class="setting-label">${t("building.settings.behindBuildingLabel")}</label>
               <div class="custom-dropdown" id="buildingCombatBehindDropdown">
-                <div class="selected-value" id="buildingCombatBehindSelectedValue">없음</div>
+                <div class="selected-value" id="buildingCombatBehindSelectedValue">${t("common.optionNone")}</div>
               </div>
             </div>
           </div>
           <div class="building-distance-continuous-row">
             <div class="titan-settings-stack">
-              <label class="setting-label" for="buildingDistanceInput">건물까지의 거리</label>
-              <div class="affix-input has-suffix"><input type="tel" inputmode="numeric" id="buildingDistanceInput" value="1"><span class="affix-suffix">타일</span></div>
+              <label class="setting-label" for="buildingDistanceInput">${t("building.settings.distanceLabel")}</label>
+              <div class="affix-input has-suffix"><input type="tel" inputmode="numeric" id="buildingDistanceInput" value="1"><span class="affix-suffix">${t("building.settings.distanceUnit")}</span></div>
             </div>
             <!-- "건물까지의 거리"는 라벨(위)+입력칸(아래) 2줄인데 "연속 전투"는 라벨+토글이 한
                  줄이라 키가 안 맞았음 - 진짜로 위쪽에 보이지 않는 라벨을 하나 더 두면(.titan-settings-stack
@@ -400,25 +419,25 @@ function renderBuildingPage(container) {
                  (사용자 확정 - "옆에 있는 타일수의 입력칸과 높이를 똑같이 맞춰... 위쪽에 투명
                  글자가 있다라고 생각해도 좋다는거지") -->
             <div class="titan-settings-stack">
-              <label class="setting-label" style="visibility:hidden">건물까지의 거리</label>
+              <label class="setting-label" style="visibility:hidden">${t("building.settings.distanceLabel")}</label>
               <div class="titan-settings-row">
-                <label class="setting-label">연속 전투</label>
+                <label class="setting-label">${t("building.settings.continuousBattleLabel")}</label>
                 <label class="switch"><input type="checkbox" id="buildingContinuousToggle"><span class="slider round"></span></label>
               </div>
             </div>
           </div>
           <div class="titan-settings-levelblock">
             <div class="titan-settings-stack">
-              <label class="setting-label">적 투석기 공격 레벨</label>
+              <label class="setting-label">${t("building.settings.catapultLevelLabel")}</label>
               <div class="custom-dropdown" id="buildingCatapultLevelDropdown">
-                <div class="selected-value" id="buildingCatapultLevelSelectedValue">없음</div>
+                <div class="selected-value" id="buildingCatapultLevelSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="buildingCatapultLevelList"></ul>
               </div>
             </div>
             <div class="titan-settings-stack">
-              <label class="setting-label">적 투석기 발사속도 레벨</label>
+              <label class="setting-label">${t("building.settings.catapultSpeedLabel")}</label>
               <div class="custom-dropdown" id="buildingCatapultSpeedDropdown">
-                <div class="selected-value" id="buildingCatapultSpeedSelectedValue">Lv.0 (6.0초)</div>
+                <div class="selected-value" id="buildingCatapultSpeedSelectedValue">${t("building.settings.catapultSpeedDefault")}</div>
                 <ul class="dropdown-list" id="buildingCatapultSpeedList"></ul>
               </div>
             </div>
@@ -427,33 +446,33 @@ function renderBuildingPage(container) {
       </div>
 
       <div class="battle-mode-panel" id="buildingQuickModeCard" style="display:none;">
-        <p class="quickcalc-desc">전투 설정에 지정한 건물·캐터펄트 조건 그대로, 공룡이 전멸하거나 앞쪽(직접 공격할) 건물이 부서질 때까지 실전과 같은 방식으로 시뮬레이션합니다.</p>
-        <button class="btn-simulate" id="buildingQcBtn">계산하기</button>
-        <p class="quickcalc-desc" id="buildingQcGuide" style="display:none;">먼저 전투 설정에서 직접 공격할 건물을 지정해주세요.</p>
+        <p class="quickcalc-desc">${t("building.quick.desc")}</p>
+        <button class="btn-simulate" id="buildingQcBtn">${t("building.quick.calcBtn")}</button>
+        <p class="quickcalc-desc" id="buildingQcGuide" style="display:none;">${t("building.quick.needTargetGuide")}</p>
         <div class="report-grid" id="buildingQcResult" style="display:none;">
-          <div class="report-tile"><div class="metric-label">총 대미지</div><div class="metric-value accent" id="buildingQcTotalDmg">-</div></div>
-          <div class="report-tile"><div class="metric-label">지진 대미지</div><div class="metric-value" id="buildingQcQuakeDmg">-</div></div>
-          <div class="report-tile"><div class="metric-label">전방 건물 파괴 시간</div><div class="metric-value" id="buildingQcFrontTime">-</div></div>
-          <div class="report-tile" id="buildingQcBehindTile" style="display:none;"><div class="metric-label" id="buildingQcBehindLabel">뒤쪽 남은 체력</div><div class="metric-value" id="buildingQcBehindValue">-</div></div>
-          <div class="report-tile"><div class="metric-label">죽은 공룡 수</div><div class="metric-value" id="buildingQcDeadCount">-</div></div>
-          <div class="report-tile"><div class="metric-label">평균 사망 시간</div><div class="metric-value" id="buildingQcDeathTime">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.quick.totalDmgLabel")}</div><div class="metric-value accent" id="buildingQcTotalDmg">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.quick.quakeDmgLabel")}</div><div class="metric-value" id="buildingQcQuakeDmg">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.quick.frontBreakTimeLabel")}</div><div class="metric-value" id="buildingQcFrontTime">-</div></div>
+          <div class="report-tile" id="buildingQcBehindTile" style="display:none;"><div class="metric-label" id="buildingQcBehindLabel">${t("building.quick.behindRemainingHpLabel")}</div><div class="metric-value" id="buildingQcBehindValue">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.quick.deadCountLabel")}</div><div class="metric-value" id="buildingQcDeadCount">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.quick.avgDeathTimeLabel")}</div><div class="metric-value" id="buildingQcDeathTime">-</div></div>
         </div>
         <div class="report-chart-section" id="buildingQcChartSection" style="display:none;">
-          <div class="report-chart-label">시간대별 공룡 체력 변화 추이</div>
+          <div class="report-chart-label">${t("building.quick.chartLabel")}</div>
           <div class="report-chart-box">
             <canvas id="buildingHpChart"></canvas>
           </div>
-          <div id="buildingAvgHpPer" class="report-survival">평균 생존 체력: 0%</div>
+          <div id="buildingAvgHpPer" class="report-survival">${t("building.quick.avgSurvivalHpLabel", { percent: 0 })}</div>
         </div>
       </div>
 
       <div class="battle-mode-panel" id="buildingOptimizeModeCard" style="display:none;">
         <div class="dummy-optimizer">
-          <h3 class="dummy-optimizer-title">내 룬 레벨로 최적 조합 찾기</h3>
-          <p class="quickcalc-desc">적합 룬 중 보유한 룬의 레벨을 입력하세요(0 = 미보유). 지금 스탯·별자리·전투 설정 기준으로 적 건물을 가장 빨리 부수는 조합을 "빠른 계산"과 같은 방식으로 실전 시뮬레이션해 찾아줍니다.</p>
+          <h3 class="dummy-optimizer-title">${t("building.optimize.title")}</h3>
+          <p class="quickcalc-desc">${t("building.optimize.desc")}</p>
           <div class="titan-quick-summary" id="buildingOptimizeQuickSummary"></div>
           <div class="dummy-owned-rune-grid" id="buildingOwnedRuneGrid"></div>
-          <button class="btn-simulate" id="buildingOptimizeBtn">최적 조합 찾기</button>
+          <button class="btn-simulate" id="buildingOptimizeBtn">${t("building.optimize.startBtn")}</button>
           <div id="buildingOptimizeResult"></div>
         </div>
       </div>
@@ -486,7 +505,7 @@ function renderBuildingPage(container) {
                       <div class="building-dino-avatar-slot">
                         <div class="building-dino-hpbar"><div class="building-dino-hpfill" id="buildingDinoHpFill${i}"></div></div>
                         <div class="building-dino-avatar" id="buildingDinoAvatar${i}"></div>
-                        <div class="building-dino-avatar-name">내 공룡</div>
+                        <div class="building-dino-avatar-name">${t("building.dinoAvatarNameFallback")}</div>
                       </div>
                     `).join("")}
                   </div>
@@ -521,18 +540,18 @@ function renderBuildingPage(container) {
         </div>
 
         <div class="report-grid">
-          <div class="report-tile"><div class="metric-label">총 대미지</div><div class="metric-value accent" id="buildingTotalDmgEl">0</div></div>
-          <div class="report-tile"><div class="metric-label">경과 시간</div><div class="metric-value" id="buildingElapsedEl">0초</div></div>
-          <div class="report-tile"><div class="metric-label">평균 초당 대미지</div><div class="metric-value" id="buildingDpsEl">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.stats.totalDmgLabel")}</div><div class="metric-value accent" id="buildingTotalDmgEl">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.stats.elapsedLabel")}</div><div class="metric-value" id="buildingElapsedEl">${t("building.stats.elapsedValue", { sec: 0 })}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("building.stats.dpsLabel")}</div><div class="metric-value" id="buildingDpsEl">0</div></div>
         </div>
 
         <div class="battle-controls">
           <div class="custom-dropdown battle-speed-dropdown" id="buildingSpeedDropdown">
-            <div class="selected-value" id="buildingSpeedSelectedValue">보통</div>
+            <div class="selected-value" id="buildingSpeedSelectedValue">${t("building.speedNormal")}</div>
             <ul class="dropdown-list" id="buildingSpeedList"></ul>
           </div>
-          <button class="btn-simulate" id="buildingStartBtn">공격 시작</button>
-          <button class="battle-restart-btn" id="buildingRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+          <button class="btn-simulate" id="buildingStartBtn">${t("building.startBtnIdle")}</button>
+          <button class="battle-restart-btn" id="buildingRestartBtn" disabled title="${t("building.restartTooltip")}">↻</button>
         </div>
       </div>
     </div>
@@ -540,7 +559,7 @@ function renderBuildingPage(container) {
     <div class="friend-picker-overlay" id="buildingSelectOverlay" style="display:none;">
       <div class="friend-picker-modal">
         <div class="friend-picker-header">
-          <span>건축물 선택</span>
+          <span>${t("building.selectModal.title")}</span>
           <button class="close-btn" id="buildingSelectClose">✕</button>
         </div>
         <div id="buildingSelectList"></div>
@@ -551,7 +570,7 @@ function renderBuildingPage(container) {
   renderMyDinoPage(document.getElementById("buildingMyDinoSection"), {
     idPrefix: "buildingMy_",
     unsuitableList: BUILDING_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "건물 공략에 적합하지 않은 룬입니다",
+    unsuitableLabel: t("building.unsuitableRuneLabel"),
     onChange: () => {
       buildingRefreshMetricsCard();
       buildingResetDisplay();
@@ -688,20 +707,20 @@ function buildingUpdateMoveControls() {
   [0, 1, 2, 3].forEach((i) => {
     const btn = document.getElementById(`buildingMoveBtn${i}`);
     if (!btn) return;
-    const label = BUILDING_SLOT_LABELS[i];
+    const label = t(BUILDING_SLOT_LABEL_KEYS[i]);
     btn.classList.remove("active");
     if (buildingMaxHp[i] === null) {
-      btn.textContent = `${label}: 비어있음`;
+      btn.textContent = t("building.moveBtn.empty", { label });
       btn.disabled = true;
     } else if (buildingHp[i] <= 0) {
-      btn.textContent = `${label}: 파괴됨`;
+      btn.textContent = t("building.moveBtn.destroyed", { label });
       btn.disabled = true;
     } else if (buildingTargetSlot === i) {
-      btn.textContent = `${label}: 공격 중`;
+      btn.textContent = t("building.moveBtn.attacking", { label });
       btn.disabled = false;
       btn.classList.add("active");
     } else {
-      btn.textContent = `${label}으로 이동`;
+      btn.textContent = t("building.moveBtn.moveTo", { label });
       btn.disabled = false;
     }
   });
@@ -712,8 +731,8 @@ function buildingInitMetricsCard() {
     tile.onclick = () => {
       const key = tile.dataset.metric;
       buildingActiveMetricKey = buildingActiveMetricKey === key ? null : key;
-      document.querySelectorAll("#buildingMetricsGrid .metric-tile").forEach((t) => {
-        t.classList.toggle("active", t.dataset.metric === buildingActiveMetricKey);
+      document.querySelectorAll("#buildingMetricsGrid .metric-tile").forEach((tileEl) => {
+        tileEl.classList.toggle("active", tileEl.dataset.metric === buildingActiveMetricKey);
       });
       buildingRenderMetricDetail();
     };
@@ -769,43 +788,43 @@ function buildingRenderMetricDetail() {
   const critDmgOf = (baseAmount) => baseAmount * (buildingSafeNum(m.cDmg) / 100);
 
   if (buildingActiveMetricKey === "basicDmg") {
-    title = "평타 대미지 계산 내역";
+    title = t("building.detail.basicDmgTitle");
     // 치명타 확률/피해 수치는 빼고, 증폭 후 공격력에 실제 크리티컬이 떴을 때의 대미지를 보여줌
     // (사용자 확정 - "치명타 확률, 피해 수치를 빼고 증폭 후 크리티컬 대미지 추가하기")
     rows = [
-      { label: "증폭 전 공격력", value: Math.round(buildingSafeNum(m.preAmpAtk)).toLocaleString() },
-      { label: "증폭 후 공격력", value: Math.round(buildingSafeNum(m.atk)).toLocaleString() },
-      { label: "증폭 후 크리티컬 대미지", value: Math.round(critDmgOf(buildingSafeNum(m.atk))).toLocaleString() }
+      { label: t("building.detail.originalAtkLabel"), value: Math.round(buildingSafeNum(m.preAmpAtk)).toLocaleString() },
+      { label: t("building.detail.ampAtkLabel"), value: Math.round(buildingSafeNum(m.atk)).toLocaleString() },
+      { label: t("building.detail.ampCritDmgLabel"), value: Math.round(critDmgOf(buildingSafeNum(m.atk))).toLocaleString() }
     ];
   } else if (buildingActiveMetricKey === "quakeDmg") {
-    title = "지진 대미지 계산 내역";
+    title = t("building.detail.quakeDmgTitle");
     // 사용자 확정 - "지진의 원래 대미지를 넣은 다음 그 밑에줄에 크리티컬 대미지를 추가" - 원래
     // 대미지는 치확/치피를 안 섞은 기본 스플래시 값(주기/발동 확률과 무관하게 "한 번 터졌을 때"
     // 들어가는 값), 그 아래 크리티컬 대미지는 그 발동이 확정 크리티컬이었을 때의 값
     if (m.earthquake) {
       const rawQuakeDmg = buildingSafeNum(m.atk) * (m.earthquake.burst_p / 100);
       rows = [{
-        label: `지진 (${m.earthquake.count}타마다 ${m.earthquake.burst_p}% 스플래시)`,
+        label: t("building.detail.quakeLabel", { count: m.earthquake.count, percent: m.earthquake.burst_p }),
         value: Math.round(rawQuakeDmg).toLocaleString(),
-        subs: [`크리티컬 대미지 ${Math.round(critDmgOf(rawQuakeDmg)).toLocaleString()}`]
+        subs: [t("building.detail.critDmgSub", { value: Math.round(critDmgOf(rawQuakeDmg)).toLocaleString() })]
       }];
     }
   } else if (buildingActiveMetricKey === "atkAmp") {
-    title = "공격력 증폭 내역";
+    title = t("building.detail.atkAmpTitle");
     rows = m.destroyerBreakdown.map((d) => ({
-      label: `${d.name} (증폭 +${buildingSafeNum(d.percent).toFixed(2)}%)`,
+      label: t("building.detail.destroyerLabel", { name: ruleDisplayName(d.name), percent: buildingSafeNum(d.percent).toFixed(2) }),
       value: `+${Math.round(buildingSafeNum(m.preAmpAtk) * (buildingSafeNum(d.percent) / 100)).toLocaleString()}`
     }));
   } else if (buildingActiveMetricKey === "finalAvgDmg") {
-    title = "최종 평균 대미지 계산 내역";
+    title = t("building.detail.finalAvgDmgTitle");
     rows = [
-      { label: "평타 대미지", value: Math.round(buildingSafeNum(m.avgHitDamage)).toLocaleString() },
-      { label: "지진 대미지", value: Math.round(buildingSafeNum(m.avgEarthquakeDamage)).toLocaleString() }
+      { label: t("building.detail.basicDmgLabel"), value: Math.round(buildingSafeNum(m.avgHitDamage)).toLocaleString() },
+      { label: t("building.detail.quakeDmgLabel"), value: Math.round(buildingSafeNum(m.avgEarthquakeDamage)).toLocaleString() }
     ];
   }
 
   if (rows.length === 0) {
-    box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">장착된 관련 룬이 없습니다</div>`;
+    box.innerHTML = `<div class="metric-detail-title">${title}</div><div class="metric-detail-empty">${t("building.detail.emptyMsg")}</div>`;
   } else {
     box.innerHTML = `<div class="metric-detail-title">${title}</div>${rows
       .map((r) => `<div class="metric-detail-row"><div class="metric-detail-row-main"><span>${r.label}</span><span>${r.value}</span></div>${(r.subs || []).map((s) => `<div class="metric-detail-row-sub">${s}</div>`).join("")}</div>`)
@@ -827,17 +846,17 @@ function buildingInitTileSettings() {
     buildingResetQuickCalc();
   };
 
-  const labelFor = (v) => BUFF_TOWER_OPTIONS.find((o) => o.value === v).label;
+  const labelFor = (v) => sharedOptionLabel(BUFF_TOWER_OPTIONS.find((o) => o.value === v).label);
 
   const atkList = document.getElementById("buildingAtkTowerList");
   const atkSelectedValue = document.getElementById("buildingAtkTowerSelectedValue");
   atkSelectedValue.textContent = labelFor(settings.atkTowerLevel);
   BUFF_TOWER_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       settings.atkTowerLevel = opt.value;
-      atkSelectedValue.textContent = opt.label;
+      atkSelectedValue.textContent = sharedOptionLabel(opt.label);
       atkList.style.display = "none";
       saveBuildingTileSettings(settings);
       buildingRefreshMetricsCard();
@@ -853,10 +872,10 @@ function buildingInitTileSettings() {
   hpSelectedValue.textContent = labelFor(settings.hpTowerLevel);
   BUFF_TOWER_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       settings.hpTowerLevel = opt.value;
-      hpSelectedValue.textContent = opt.label;
+      hpSelectedValue.textContent = sharedOptionLabel(opt.label);
       hpList.style.display = "none";
       saveBuildingTileSettings(settings);
       buildingRefreshMetricsCard();
@@ -870,16 +889,16 @@ function buildingInitTileSettings() {
   // 서버 레벨캡 - 4개 페이지(타이탄/공룡대전/허수아비/건물)가 공유하는 전역 설정이라 이 페이지만의
   // buildingTileSettings가 아니라 별도 localStorage 키(loadServerLevelCap/saveServerLevelCap,
   // my-dino-page.js)를 직접 읽고 씀
-  const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const capLabelFor = (v) => sharedOptionLabel(SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const capList = document.getElementById("buildingServerLevelCapList");
   const capSelectedValue = document.getElementById("buildingServerLevelCapSelectedValue");
   capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
   SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveServerLevelCap(opt.value);
-      capSelectedValue.textContent = opt.label;
+      capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
       buildingRefreshMetricsCard();
       buildingResetDisplay();
@@ -891,16 +910,16 @@ function buildingInitTileSettings() {
 
   // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정(loadConstellationLevelCap/
   // saveConstellationLevelCap, my-dino-page.js)
-  const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const constLabelFor = (v) => sharedOptionLabel(CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const constList = document.getElementById("buildingConstellationCapList");
   const constSelectedValue = document.getElementById("buildingConstellationCapSelectedValue");
   constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
   CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveConstellationLevelCap(opt.value);
-      constSelectedValue.textContent = opt.label;
+      constSelectedValue.textContent = sharedOptionLabel(opt.label);
       constList.style.display = "none";
       buildingRefreshMetricsCard();
       buildingResetDisplay();
@@ -919,30 +938,24 @@ function buildingInitCombatConfig() {
   // 버튼을 눌러야 건물 선택 모달(아이콘+체력 그리드, 육각형 타일 건설과 같은 모달)이 뜨는 방식
   // (사용자 확정 - "직접 공격할 건물 버튼을 눌러야 그리드가 나와야지" - 처음엔 그리드를 상시
   // 펼쳐놨는데 너무 길어서 모달로 되돌림)
-  const buildingLabelFor = (id) => {
-    if (id === null) return "없음";
-    const def = BUILDING_TYPES.find((b) => b.id === id);
-    return def ? def.label : "없음";
-  };
-
   const targetSelectedValue = document.getElementById("buildingCombatTargetSelectedValue");
-  targetSelectedValue.textContent = buildingLabelFor(config.targetBuildingId);
+  targetSelectedValue.textContent = buildingTypeDisplayLabel(config.targetBuildingId);
   targetSelectedValue.onclick = () => {
     buildingOpenSelectModalGeneric(config.targetBuildingId, (id) => {
       config.targetBuildingId = id;
       saveBuildingCombatConfig(config);
-      targetSelectedValue.textContent = buildingLabelFor(id);
+      targetSelectedValue.textContent = buildingTypeDisplayLabel(id);
       buildingRenderOptimizeSummary();
     });
   };
 
   const behindSelectedValue = document.getElementById("buildingCombatBehindSelectedValue");
-  behindSelectedValue.textContent = buildingLabelFor(config.behindBuildingId);
+  behindSelectedValue.textContent = buildingTypeDisplayLabel(config.behindBuildingId);
   behindSelectedValue.onclick = () => {
     buildingOpenSelectModalGeneric(config.behindBuildingId, (id) => {
       config.behindBuildingId = id;
       saveBuildingCombatConfig(config);
-      behindSelectedValue.textContent = buildingLabelFor(id);
+      behindSelectedValue.textContent = buildingTypeDisplayLabel(id);
       // 뒤 건물 여부가 빠른 계산의 지진 스플래시 결과에 직접 영향을 주므로, 바뀌면 이전 결과를
       // 지워서 재계산 전까지 낡은 값이 남아있지 않게 함(다른 설정 드롭다운들과 같은 패턴)
       buildingResetQuickCalc();
@@ -958,7 +971,7 @@ function buildingInitCombatConfig() {
   // 같은 "아이콘 + 텍스트" 커스텀 드롭다운 패턴
   const catapultOptionHtml = (opt) => `
     ${opt.img ? `<img class="building-catapult-ammo-icon" src="./assets/tribe/${opt.img}" alt="">` : ""}
-    <span>${opt.label}</span>
+    <span>${buildingCatapultLevelLabel(opt.value)}</span>
   `;
   catapultSelectedValue.innerHTML = catapultOptionHtml(catapultOptFor(config.catapultLevel));
   BUILDING_CATAPULT_LEVELS.forEach((opt) => {
@@ -978,14 +991,13 @@ function buildingInitCombatConfig() {
 
   const speedList = document.getElementById("buildingCatapultSpeedList");
   const speedSelectedValue = document.getElementById("buildingCatapultSpeedSelectedValue");
-  const speedLabelFor = (v) => BUILDING_CATAPULT_SPEED_OPTIONS.find((o) => o.value === v).label;
-  speedSelectedValue.textContent = speedLabelFor(config.catapultSpeedLevel);
+  speedSelectedValue.textContent = buildingCatapultSpeedLabel(config.catapultSpeedLevel);
   BUILDING_CATAPULT_SPEED_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = buildingCatapultSpeedLabel(opt.value);
     li.onclick = () => {
       config.catapultSpeedLevel = opt.value;
-      speedSelectedValue.textContent = opt.label;
+      speedSelectedValue.textContent = buildingCatapultSpeedLabel(opt.value);
       speedList.style.display = "none";
       saveBuildingCombatConfig(config);
       buildingRenderOptimizeSummary();
@@ -1027,25 +1039,20 @@ function buildingRenderOptimizeSummary() {
   const el = document.getElementById("buildingOptimizeQuickSummary");
   if (!el) return;
   const config = loadBuildingCombatConfig();
-  const buildingLabelFor = (id) => {
-    if (id === null) return "없음";
-    const def = BUILDING_TYPES.find((b) => b.id === id);
-    return def ? def.label : "없음";
-  };
-  const catapultLabel = BUILDING_CATAPULT_LEVELS.find((o) => o.value === config.catapultLevel).label;
-  const speedLabel = BUILDING_CATAPULT_SPEED_OPTIONS.find((o) => o.value === config.catapultSpeedLevel).label;
+  const catapultLabel = buildingCatapultLevelLabel(config.catapultLevel);
+  const speedLabel = buildingCatapultSpeedLabel(config.catapultSpeedLevel);
 
   el.innerHTML = `
     <div class="titan-quick-summary-grid">
       <div class="titan-quick-summary-col">
-        <div class="titan-quick-summary-item"><span>직접 공격할 건물</span><b>${buildingLabelFor(config.targetBuildingId)}</b></div>
-        <div class="titan-quick-summary-item"><span>건물까지의 거리</span><b>${config.distanceTiles}타일</b></div>
-        <div class="titan-quick-summary-item"><span>적 투석기 공격 레벨</span><b>${catapultLabel}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.targetBuildingLabel")}</span><b>${buildingTypeDisplayLabel(config.targetBuildingId)}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.distanceLabel")}</span><b>${t("building.summary.distanceValue", { count: config.distanceTiles })}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.catapultLevelLabel")}</span><b>${catapultLabel}</b></div>
       </div>
       <div class="titan-quick-summary-col">
-        <div class="titan-quick-summary-item"><span>뒤에 있는 건물</span><b>${buildingLabelFor(config.behindBuildingId)}</b></div>
-        <div class="titan-quick-summary-item"><span>연속 전투</span><b>${config.continuousBattle ? "ON" : "OFF"}</b></div>
-        <div class="titan-quick-summary-item"><span>적 투석기 발사속도 레벨</span><b>${speedLabel}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.behindBuildingLabel")}</span><b>${buildingTypeDisplayLabel(config.behindBuildingId)}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.continuousBattleLabel")}</span><b>${config.continuousBattle ? "ON" : "OFF"}</b></div>
+        <div class="titan-quick-summary-item"><span>${t("building.summary.catapultSpeedLabel")}</span><b>${speedLabel}</b></div>
       </div>
     </div>
   `;
@@ -1071,18 +1078,18 @@ function buildingInitSelectModal() {
 // "직접 공격할 건물/뒤에 있는 건물" 인라인 선택(사용자 확정 - "공격할 건물의 드롭다운에는 해당
 // 건물의 체력 표시하기... 그리드로 바꿔서 각 건물의 체력을 표시") 둘 다 이걸 씀. emptyLabel은
 // 모달에서만 "없음(비우기)"로 다르게 쓰고 싶어서 인자로 뺌
-function buildingRenderSelectGrid(container, currentId, onSelect, emptyLabel = "없음") {
+function buildingRenderSelectGrid(container, currentId, onSelect, emptyLabel) {
   const emptyCell = `
     <div class="building-select-item${currentId === null ? " active" : ""}" data-id="">
       <div class="building-select-empty-icon">✕</div>
-      <span>${emptyLabel}</span>
+      <span>${emptyLabel || t("building.selectModal.emptyLabel")}</span>
     </div>
   `;
   const buildingCells = BUILDING_TYPES.map((b) => `
     <div class="building-select-item${b.locked ? " locked" : ""}${b.id === currentId ? " active" : ""}" data-id="${b.locked ? "" : b.id}">
-      <img src="./assets/tribe/${b.img}" alt="${b.label}">
-      <span>${b.label}</span>
-      ${b.locked ? `<span class="building-select-lock">미출시</span>` : `<span class="building-select-hp">${b.hp.toLocaleString()}</span>`}
+      <img src="./assets/tribe/${b.img}" alt="${t(b.labelKey)}">
+      <span>${t(b.labelKey)}</span>
+      ${b.locked ? `<span class="building-select-lock">${t("building.selectModal.lockedTag")}</span>` : `<span class="building-select-hp">${b.hp.toLocaleString()}</span>`}
     </div>
   `).join("");
 
@@ -1101,7 +1108,7 @@ function buildingRenderSelectGrid(container, currentId, onSelect, emptyLabel = "
 // 건물 선택 모달을 여는 공용 함수 - 육각형 타일 건설(buildingOpenSelectModal)과 전투 설정 탭의
 // "직접 공격할 건물/뒤에 있는 건물" 버튼(사용자 확정 - "직접 공격할 건물 버튼을 눌러야 그리드가
 // 나와야지" - 처음엔 그리드를 상시 펼쳐놨었는데 너무 길어서 모달로 되돌림) 둘 다 이걸 씀
-function buildingOpenSelectModalGeneric(currentId, onChoose, emptyLabel = "없음") {
+function buildingOpenSelectModalGeneric(currentId, onChoose, emptyLabel) {
   const list = document.getElementById("buildingSelectList");
   buildingRenderSelectGrid(list, currentId, (id) => {
     onChoose(id);
@@ -1119,7 +1126,7 @@ function buildingOpenSelectModal(slotIdx) {
     saveBuildingSlots(updated);
     buildingRenderWalls();
     buildingResetDisplay();
-  }, "없음(비우기)");
+  }, t("building.selectModal.emptyLabelClear"));
 }
 
 // 건물 타입별 크기 배율(사용자 확정 - 원본 이미지 크기 기준 1.3배가 기본값, 투석기(catapult_*)는
@@ -1151,7 +1158,7 @@ function buildingRenderWalls() {
     }
 
     sprite.src = `./assets/tribe/${def.img}`;
-    sprite.alt = def.label;
+    sprite.alt = t(def.labelKey);
     sprite.style.display = "";
     // 이 이미지에서 육각형 중심에 와야 하는 정확한 지점(사용자가 직접 측정해서 준 좌표) - 예전엔
     // 발밑 정렬 기준으로 알파채널 여백/그림자/원근감을 어림짐작으로 보정했는데 이제 그럴 필요 없음
@@ -1172,7 +1179,7 @@ function buildingUpdateStartButtonState() {
   const btn = document.getElementById("buildingStartBtn");
   const hasTarget = buildingFrontTargetIndex() !== -1;
   btn.disabled = !hasTarget && !buildingRunning;
-  btn.title = hasTarget ? "" : "먼저 건물을 세우고, 아래 이동 버튼으로 공격할 타일로 이동해주세요";
+  btn.title = hasTarget ? "" : t("building.moveBtnDisabledTooltip");
 }
 
 // 타이탄과 같은 4탭 구조(사용자 확정 - "타이탄처럼 해달라고"): 전투 설정/빠른 계산/시뮬레이션/
@@ -1215,10 +1222,10 @@ function buildingInitModeTabs() {
 // 걸리는 경우가 흔해 그냥 초로만 보여주면 읽기 어려움
 function buildingFormatTime(sec) {
   const s = Math.round(sec);
-  if (s < 60) return `${s}초`;
+  if (s < 60) return t("building.time.secondsOnly", { s });
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return r > 0 ? `${m}분 ${r}초` : `${m}분`;
+  return r > 0 ? t("building.time.minutesSeconds", { m, s: r }) : t("building.time.minutesOnly", { m });
 }
 
 // 확률 요소(희생/마지막 선물)가 있으면 death-trigger 분기까지 안정적으로 평균 내야 해서 회차를
@@ -1260,16 +1267,16 @@ async function buildingRunQuickCalc() {
     catapultDmg: combatConfig.catapultLevel ? BUILDING_CATAPULT_DAMAGE[combatConfig.catapultLevel] : null,
     catapultPeriodSec: BUILDING_CATAPULT_SPEED_SECONDS[combatConfig.catapultSpeedLevel],
     iterations: buildingPickIterations(inputs.selectedRunes),
-    onProgress: (c, t) => {
-      btn.textContent = `계산 중 (${c}/${t})...`;
-      btn.style.setProperty("--progress", String((c / t) * 100));
+    onProgress: (c, total) => {
+      btn.textContent = t("building.quick.calcBtnBusy", { current: c, total });
+      btn.style.setProperty("--progress", String((c / total) * 100));
     }
   });
 
   buildingRenderQuickCalcReport(result, behindDef);
 
   btn.disabled = false;
-  btn.textContent = "계산하기";
+  btn.textContent = t("building.quick.calcBtn");
   btn.classList.remove("btn-progress");
   btn.style.removeProperty("--progress");
 }
@@ -1287,10 +1294,10 @@ function buildingRenderQuickCalcReport(result, behindDef) {
     // 뒤 건물도 결국 부서진 iteration이 절반 이상이면 "걸린 시간"이 더 유용한 정보이고, 대부분
     // 안 부서졌으면 "남은 체력"이 더 유용함(사용자 확정 - "부숴졌다면 체력 0일테니... 걸린 시간도 표시")
     if (result.behindBreakRate >= 0.5) {
-      label.innerText = "후방 건물 파괴 시간";
+      label.innerText = t("building.quick.behindBreakTimeLabel");
       value.innerText = buildingFormatTime(result.avgBehindBreakTimeSec);
     } else {
-      label.innerText = "후방 건물 남은 체력";
+      label.innerText = t("building.quick.behindRemainingHpLabel2");
       value.innerText = `${Math.round(result.avgBehindRemainingHp).toLocaleString()} / ${behindDef.hp.toLocaleString()}`;
     }
     behindTile.style.display = "";
@@ -1298,7 +1305,7 @@ function buildingRenderQuickCalcReport(result, behindDef) {
     behindTile.style.display = "none";
   }
 
-  document.getElementById("buildingQcDeadCount").innerText = `${result.avgDeadCount.toFixed(1)}마리`;
+  document.getElementById("buildingQcDeadCount").innerText = t("building.quick.deadCountValue", { count: result.avgDeadCount.toFixed(1) });
   document.getElementById("buildingQcDeathTime").innerText =
     result.avgDeathTimeSec !== null ? buildingFormatTime(result.avgDeathTimeSec) : "-";
 
@@ -1306,7 +1313,7 @@ function buildingRenderQuickCalcReport(result, behindDef) {
 
   const chartSection = document.getElementById("buildingQcChartSection");
   if (result.chartData.length >= 2) {
-    document.getElementById("buildingAvgHpPer").innerText = `평균 생존 체력: ${result.avgSurvivalPercent.toFixed(1)}%`;
+    document.getElementById("buildingAvgHpPer").innerText = t("building.quick.avgSurvivalHpLabel", { percent: result.avgSurvivalPercent.toFixed(1) });
     chartSection.style.display = "";
     drawHpChart(document.getElementById("buildingHpChart"), result.chartData, result.limitSec);
   } else {
@@ -1331,7 +1338,7 @@ function buildingInitOwnedRuneGrid() {
   const grid = document.getElementById("buildingOwnedRuneGrid");
   grid.innerHTML = buildingSuitableRuneNames().map((name) => `
     <div class="dummy-owned-rune-row">
-      <span class="dummy-owned-rune-name">${name}</span>
+      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
       <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
     </div>
   `).join("");
@@ -1372,8 +1379,8 @@ function buildingCombinations(arr, k) {
 // 목표에 얼마나 가까웠는지"를 같은 잣대로 보여줌)
 function buildingOptimizeResultLabel(r) {
   return r.frontBreakRate > 0
-    ? `${buildingFormatTime(r.avgFrontBreakTimeSec)} 만에 파괴`
-    : `${Math.round(r.avgTotalDmg).toLocaleString()} 대미지 (파괴 못 함)`;
+    ? t("building.optimize.brokeInTime", { time: buildingFormatTime(r.avgFrontBreakTimeSec) })
+    : t("building.optimize.notBroken", { dmg: Math.round(r.avgTotalDmg).toLocaleString() });
 }
 
 // 조합 두 개를 "적 건물을 더 빨리 부순 쪽이 우선"이라는 단일 목표로 비교(사용자 확정 - Stage D
@@ -1396,13 +1403,13 @@ async function buildingRunOptimizer() {
   const btn = document.getElementById("buildingOptimizeBtn");
 
   if (owned.length === 0) {
-    resultEl.innerHTML = `<p class="quickcalc-desc">보유한 룬 레벨을 먼저 입력해주세요.</p>`;
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("building.optimize.needLevelsMsg")}</p>`;
     return;
   }
 
   const combatConfig = loadBuildingCombatConfig();
   if (!combatConfig.targetBuildingId) {
-    resultEl.innerHTML = `<p class="quickcalc-desc">먼저 전투 설정에서 직접 공격할 건물을 지정해주세요.</p>`;
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("building.optimize.needTargetMsg")}</p>`;
     return;
   }
 
@@ -1444,7 +1451,7 @@ async function buildingRunOptimizer() {
       screened.push({ names, selectedRunes, dps, timeToFirstDeath });
     }
     if (end < combos.length) {
-      btn.textContent = `1단계 계산 중 (${end.toLocaleString()}/${combos.length.toLocaleString()})...`;
+      btn.textContent = t("building.optimize.stage1Progress", { current: end.toLocaleString(), total: combos.length.toLocaleString() });
       btn.style.setProperty("--progress", String((end / combos.length) * 15));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
@@ -1477,33 +1484,33 @@ async function buildingRunOptimizer() {
       names: c.names, avgFrontBreakTimeSec: result.avgFrontBreakTimeSec, frontBreakRate: result.frontBreakRate,
       avgTotalDmg: result.avgTotalDmg, avgDeadCount: result.avgDeadCount
     });
-    btn.textContent = `2단계 정밀 계산 중 (${i + 1}/${candidates.length})...`;
+    btn.textContent = t("building.optimize.stage2Progress", { current: i + 1, total: candidates.length });
     btn.style.setProperty("--progress", String(15 + ((i + 1) / candidates.length) * 85));
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   refined.sort(buildingCompareOptimizeResults);
   const top = refined.slice(0, 3);
-  const bestLine = top[0].names.map((n) => `${n} Lv.${levels[n]}`).join(" · ");
+  const bestLine = top[0].names.map((n) => `${ruleDisplayName(n)} Lv.${levels[n]}`).join(" · ");
 
   resultEl.innerHTML = `
-    ${slotCount < 5 ? `<p class="quickcalc-desc">보유한 적합 룬이 ${owned.length}개뿐이라 ${slotCount}개짜리 조합까지만 계산했습니다.</p>` : ""}
+    ${slotCount < 5 ? `<p class="quickcalc-desc">${t("building.optimize.limitedSlotMsg", { count: owned.length, slotCount })}</p>` : ""}
     <div class="report-grid">
       <div class="report-tile dummy-optimize-best-tile">
-        <div class="metric-label">최적 조합</div>
+        <div class="metric-label">${t("building.optimize.bestComboLabel")}</div>
         <div class="dummy-optimize-best-combo">${bestLine}</div>
       </div>
-      <div class="report-tile"><div class="metric-label">결과</div><div class="metric-value accent">${buildingOptimizeResultLabel(top[0])}</div></div>
+      <div class="report-tile"><div class="metric-label">${t("building.optimize.resultLabel")}</div><div class="metric-value accent">${buildingOptimizeResultLabel(top[0])}</div></div>
     </div>
     ${top.length > 1 ? `
       <div class="dummy-optimize-runner-ups">
-        ${top.slice(1).map((r, i) => `<div class="dummy-optimize-runner-up">${i + 2}위 · ${r.names.join(", ")} (${buildingOptimizeResultLabel(r)})</div>`).join("")}
+        ${top.slice(1).map((r, i) => `<div class="dummy-optimize-runner-up">${i + 2}위 · ${r.names.map(ruleDisplayName).join(", ")} (${buildingOptimizeResultLabel(r)})</div>`).join("")}
       </div>
     ` : ""}
   `;
 
   btn.disabled = false;
-  btn.textContent = "최적 조합 찾기";
+  btn.textContent = t("building.optimize.startBtn");
   btn.classList.remove("btn-progress");
   btn.style.removeProperty("--progress");
 }
@@ -1512,14 +1519,14 @@ function buildingInitSpeedDropdown() {
   const currentMs = buildingGetSpeedMs();
   const list = document.getElementById("buildingSpeedList");
   const selectedValue = document.getElementById("buildingSpeedSelectedValue");
-  selectedValue.textContent = BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label;
+  selectedValue.textContent = sharedOptionLabel(BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label);
 
   BATTLE_SPEED_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       localStorage.setItem(BUILDING_SPEED_KEY, String(opt.ms));
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
       if (buildingRunning) {
         clearInterval(buildingAttackTimer);
@@ -1547,7 +1554,7 @@ function buildingOnStartButtonClick() {
 function buildingStartAttack() {
   if (buildingFrontTargetIndex() === -1) return;
   buildingRunning = true;
-  document.getElementById("buildingStartBtn").textContent = "일시정지";
+  document.getElementById("buildingStartBtn").textContent = t("building.startBtnRunning");
   document.getElementById("buildingRestartBtn").disabled = false;
 
   // "전투 설정" 탭을 건드리면(카테펄트 레벨 등) 지금 켜져있는 "시뮬레이션" 탭을 자동으로
@@ -1565,7 +1572,7 @@ function buildingPauseAttack() {
   buildingRunning = false;
   clearInterval(buildingAttackTimer);
   buildingClearPendingCatapultTimers();
-  document.getElementById("buildingStartBtn").textContent = "재개";
+  document.getElementById("buildingStartBtn").textContent = t("building.startBtnPaused");
 }
 
 function buildingResetDisplay() {
@@ -1575,7 +1582,7 @@ function buildingResetDisplay() {
   buildingElapsedSec = 0;
   buildingTotalDmg = 0;
   buildingAttackCount = 0;
-  document.getElementById("buildingStartBtn").textContent = "공격 시작";
+  document.getElementById("buildingStartBtn").textContent = t("building.startBtnIdle");
   document.getElementById("buildingRestartBtn").disabled = true;
   document.querySelectorAll(".building-hit-effect-fixed, .building-dmg-popup-fixed, .building-projectile-fixed").forEach((el) => el.remove());
   document.querySelectorAll(".building-sprite").forEach((el) => el.classList.remove("building-shaking"));
@@ -1875,7 +1882,7 @@ function buildingSpawnDamagePopupOn(targetEl, text, { isCrit = false, isSplash =
 function buildingSpawnDamagePopup(idx, dmg, isCrit, isSplash) {
   buildingSpawnDamagePopupOn(
     document.getElementById(`buildingSprite${idx}`),
-    (isSplash ? "지진 " : "") + Math.round(dmg).toLocaleString(),
+    (isSplash ? t("building.quakeDamagePopupPrefix") : "") + Math.round(dmg).toLocaleString(),
     { isCrit, isSplash }
   );
 }
@@ -1891,7 +1898,7 @@ function buildingSpawnDinoDamagePopup(dinoIdx, dmg, isCrit) {
 
 function buildingUpdateStatsDisplay() {
   document.getElementById("buildingTotalDmgEl").innerText = Math.round(buildingTotalDmg).toLocaleString();
-  document.getElementById("buildingElapsedEl").innerText = `${buildingElapsedSec}초`;
+  document.getElementById("buildingElapsedEl").innerText = t("building.stats.elapsedValue", { sec: buildingElapsedSec });
   const dps = buildingElapsedSec > 0 ? buildingTotalDmg / buildingElapsedSec : 0;
   document.getElementById("buildingDpsEl").innerText = Math.round(dps).toLocaleString();
 }

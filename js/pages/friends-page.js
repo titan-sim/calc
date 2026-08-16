@@ -15,8 +15,8 @@ async function renderFriendsPage(container) {
   if (!session) {
     container.innerHTML = `
       <div class="card">
-        <h2>친구</h2>
-        <p style="color:var(--text-sub); font-size:14px;">로그인 후 이용할 수 있습니다.</p>
+        <h2>${t("friends.title")}</h2>
+        <p style="color:var(--text-sub); font-size:14px;">${t("friends.loginRequired")}</p>
       </div>
     `;
     return;
@@ -24,19 +24,19 @@ async function renderFriendsPage(container) {
 
   container.innerHTML = `
     <div class="card">
-      <h2>친구 추가</h2>
+      <h2>${t("friends.addTitle")}</h2>
       <div class="friend-search-row">
-        <input type="text" id="friendSearchInput" placeholder="닉네임 입력" autocomplete="off">
-        <button class="friend-search-btn" id="friendSearchBtn">요청 보내기</button>
+        <input type="text" id="friendSearchInput" placeholder="${t("friends.searchPlaceholder")}" autocomplete="off">
+        <button class="friend-search-btn" id="friendSearchBtn">${t("friends.searchBtn")}</button>
       </div>
       <div class="auth-nickname-hint" id="friendSearchHint"></div>
     </div>
 
     <div class="card">
       <div class="dino-tabs">
-        <button class="dino-tab active" data-panel="received">받은 요청<span class="nav-soon-tag" id="countReceived"></span></button>
-        <button class="dino-tab" data-panel="sent">보낸 요청<span class="nav-soon-tag" id="countSent"></span></button>
-        <button class="dino-tab" data-panel="friends">친구 목록<span class="nav-soon-tag" id="countFriends"></span></button>
+        <button class="dino-tab active" data-panel="received">${t("friends.tab.received")}<span class="nav-soon-tag" id="countReceived"></span></button>
+        <button class="dino-tab" data-panel="sent">${t("friends.tab.sent")}<span class="nav-soon-tag" id="countSent"></span></button>
+        <button class="dino-tab" data-panel="friends">${t("friends.tab.friends")}<span class="nav-soon-tag" id="countFriends"></span></button>
         <div class="dino-tab-indicator"></div>
       </div>
       <div id="friendsPanelReceived"></div>
@@ -47,7 +47,7 @@ async function renderFriendsPage(container) {
     <div class="friend-picker-overlay" id="friendStatOverlay" style="display:none;">
       <div class="friend-picker-modal">
         <div class="friend-picker-header">
-          <span id="friendStatTitle">공룡 스탯</span>
+          <span id="friendStatTitle">${t("friends.statModal.defaultTitle")}</span>
           <button class="close-btn" id="friendStatClose">✕</button>
         </div>
         <div id="friendStatBody"></div>
@@ -123,12 +123,12 @@ async function sendFriendRequest(myId) {
     .maybeSingle();
 
   if (lookupError || !target) {
-    hint.innerText = "해당 닉네임의 유저를 찾을 수 없습니다.";
+    hint.innerText = t("friends.search.notFound");
     hint.classList.add("auth-nickname-hint-bad");
     return;
   }
   if (target.id === myId) {
-    hint.innerText = "본인에게는 친구 요청을 보낼 수 없습니다.";
+    hint.innerText = t("friends.search.selfRequest");
     hint.classList.add("auth-nickname-hint-bad");
     return;
   }
@@ -141,19 +141,19 @@ async function sendFriendRequest(myId) {
 
   if (existing) {
     if (existing.status === "accepted") {
-      hint.innerText = "이미 친구입니다.";
+      hint.innerText = t("friends.search.alreadyFriends");
       hint.classList.add("auth-nickname-hint-bad");
       return;
     }
     if (existing.from_user === myId) {
-      hint.innerText = "이미 요청을 보냈습니다.";
+      hint.innerText = t("friends.search.alreadySent");
       hint.classList.add("auth-nickname-hint-bad");
       return;
     }
     // 상대가 이미 나에게 보낸 요청이 있으면, 새로 보내는 대신 그 자리에서 바로 수락 처리
     const { error } = await supabaseClient.from("friend_requests").update({ status: "accepted" }).eq("id", existing.id);
     if (!error) {
-      hint.innerText = `${target.nickname}님과 서로 요청이 있어 바로 친구가 되었습니다.`;
+      hint.innerText = t("friends.search.mutualAccepted", { nickname: target.nickname });
       hint.classList.add("auth-nickname-hint-good");
       input.value = "";
       loadFriendsData(myId);
@@ -166,11 +166,11 @@ async function sendFriendRequest(myId) {
     .insert({ from_user: myId, to_user: target.id, status: "pending" });
 
   if (insertError) {
-    hint.innerText = "요청 전송 중 오류가 발생했습니다.";
+    hint.innerText = t("friends.search.sendError");
     hint.classList.add("auth-nickname-hint-bad");
     return;
   }
-  hint.innerText = `${target.nickname}님에게 요청을 보냈습니다.`;
+  hint.innerText = t("friends.search.sent", { nickname: target.nickname });
   hint.classList.add("auth-nickname-hint-good");
   input.value = "";
   notifyFriendRequestSent(target.id, myId);
@@ -181,7 +181,7 @@ async function sendFriendRequest(myId) {
 // 걸 실시간으로 쏴줌 - 새로고침 없이 바로 알림/목록 갱신이 되게 하기 위함
 async function notifyFriendRequestSent(targetId, myId) {
   const me = await getCurrentUser();
-  const myNickname = me && me.username ? me.username : "친구";
+  const myNickname = me && me.username ? me.username : t("friends.request.myNicknameFallback");
   const ch = supabaseClient.channel(`user-notify:${targetId}`, { config: { broadcast: { self: false } } });
   ch.subscribe((status) => {
     if (status !== "SUBSCRIBED") return;
@@ -223,36 +223,36 @@ async function loadFriendsData(myId) {
   }
 
   renderFriendList("friendsPanelReceived", received, (r) => [
-    { label: "수락", onClick: () => respondToRequest(r.id, "accept", myId) },
-    { label: "거절", onClick: () => respondToRequest(r.id, "decline", myId) }
-  ], "받은 요청이 없습니다.", myId, nicknameOf);
+    { label: t("friends.action.accept"), onClick: () => respondToRequest(r.id, "accept", myId) },
+    { label: t("friends.action.decline"), onClick: () => respondToRequest(r.id, "decline", myId) }
+  ], t("friends.list.receivedEmpty"), myId, nicknameOf);
 
   renderFriendList("friendsPanelSent", sent, (r) => [
-    { label: "취소", onClick: () => respondToRequest(r.id, "decline", myId) }
-  ], "보낸 요청이 없습니다.", myId, nicknameOf);
+    { label: t("friends.action.cancel"), onClick: () => respondToRequest(r.id, "decline", myId) }
+  ], t("friends.list.sentEmpty"), myId, nicknameOf);
 
   renderFriendList("friendsPanelFriends", friends, (r) => [
-    { label: "스탯 확인", onClick: () => showFriendStats(r, myId, nicknameOf) },
-    { label: "친구 끊기", onClick: () => respondToRequest(r.id, "decline", myId) }
-  ], "아직 친구가 없습니다.", myId, nicknameOf);
+    { label: t("friends.action.checkStats"), onClick: () => showFriendStats(r, myId, nicknameOf) },
+    { label: t("friends.action.unfriend"), onClick: () => respondToRequest(r.id, "decline", myId) }
+  ], t("friends.list.friendsEmpty"), myId, nicknameOf);
 
   return { nicknameOf, friends };
 }
 
 async function showFriendStats(row, myId, nicknameOf) {
   const friendId = row.from_user === myId ? row.to_user : row.from_user;
-  const nickname = nicknameOf[friendId] || "(알 수 없음)";
+  const nickname = nicknameOf[friendId] || t("friends.unknownNickname");
   const overlay = document.getElementById("friendStatOverlay");
   const body = document.getElementById("friendStatBody");
-  document.getElementById("friendStatTitle").textContent = `${nickname}의 공룡 스탯`;
-  body.innerHTML = `<div class="friend-picker-empty">불러오는 중...</div>`;
+  document.getElementById("friendStatTitle").textContent = t("friends.statModal.titleWithName", { nickname });
+  body.innerHTML = `<div class="friend-picker-empty">${t("friends.statModal.loading")}</div>`;
   overlay.style.display = "flex";
   sessionStorage.setItem(FRIEND_STAT_REOPEN_KEY, friendId);
 
   const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "view" });
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
   if (error || !data) {
-    body.innerHTML = `<div class="friend-picker-empty">이 친구는 공룡 스탯을 공개하지 않았습니다.</div>`;
+    body.innerHTML = `<div class="friend-picker-empty">${t("friends.statModal.notShared")}</div>`;
     return;
   }
   renderFriendStatBreakdown(body, data);
@@ -267,36 +267,36 @@ function renderFriendStatBreakdown(container, profile) {
   if (profile.baseAtk !== undefined) {
     sections.push(`
       <div class="friend-stat-section">
-        <div class="friend-stat-section-title">기본 스탯</div>
+        <div class="friend-stat-section-title">${t("friends.stat.sectionBase")}</div>
         <div class="friend-stat-grid">
-          <div><span>체력</span><b>${profile.baseHp}</b></div>
-          <div><span>공격력</span><b>${profile.baseAtk}</b></div>
-          <div><span>이동속도</span><b>${profile.moveSpeed}</b></div>
-          <div><span>공룡 수</span><b>${profile.dinoCount}마리</b></div>
-          <div><span>VIP</span><b>${profile.vip}</b></div>
-          <div><span>둥지·알스킨</span><b>공 +${profile.bonusPercent.atk}% / 체 +${profile.bonusPercent.hp}%</b></div>
+          <div><span>${t("friends.stat.hp")}</span><b>${profile.baseHp}</b></div>
+          <div><span>${t("friends.stat.atk")}</span><b>${profile.baseAtk}</b></div>
+          <div><span>${t("friends.stat.moveSpeed")}</span><b>${profile.moveSpeed}</b></div>
+          <div><span>${t("friends.stat.dinoCount")}</span><b>${t("friends.stat.dinoCountValue", { count: profile.dinoCount })}</b></div>
+          <div><span>${t("friends.stat.vip")}</span><b>${profile.vip}</b></div>
+          <div><span>${t("friends.stat.nestEggSkin")}</span><b>${t("friends.stat.nestEggSkinValue", { atk: profile.bonusPercent.atk, hp: profile.bonusPercent.hp })}</b></div>
         </div>
       </div>
     `);
   } else {
-    sections.push(friendStatHiddenSection("기본 스탯"));
+    sections.push(friendStatHiddenSection(t("friends.stat.sectionBase")));
   }
 
   if (profile.constellation !== undefined) {
     const c = profile.constellation || {};
     sections.push(`
       <div class="friend-stat-section">
-        <div class="friend-stat-section-title">별자리</div>
+        <div class="friend-stat-section-title">${t("friends.stat.sectionConstellation")}</div>
         <div class="friend-stat-grid">
-          <div><span>체력</span><b>+${c.hp || 0}</b></div>
-          <div><span>공격력</span><b>+${c.atk || 0}</b></div>
-          <div><span>치명타 확률</span><b>+${c.critRate || 0}%</b></div>
-          <div><span>치명타 피해</span><b>+${c.critDmg || 0}%</b></div>
+          <div><span>${t("friends.stat.hp")}</span><b>+${c.hp || 0}</b></div>
+          <div><span>${t("friends.stat.atk")}</span><b>+${c.atk || 0}</b></div>
+          <div><span>${t("friends.stat.critRate")}</span><b>+${c.critRate || 0}%</b></div>
+          <div><span>${t("friends.stat.critDmg")}</span><b>+${c.critDmg || 0}%</b></div>
         </div>
       </div>
     `);
   } else {
-    sections.push(friendStatHiddenSection("별자리"));
+    sections.push(friendStatHiddenSection(t("friends.stat.sectionConstellation")));
   }
 
   // "룬"(현재 장착 중인 룬)과 "프리셋"(저장해둔 조합 목록)이 각자 룬 아이콘을 따로 보여주면
@@ -304,21 +304,21 @@ function renderFriendStatBreakdown(container, profile) {
   // 표시 자체가 그 프리셋의 룬 구성으로 바뀜(별도 미리보기 영역을 새로 만들지 않고 한 자리를 재사용)
   const runesBlockHtml = profile.runes !== undefined
     ? `<div class="readonly-slot-row friend-stat-slot-row" id="friendRuneSlots">${friendRuneSlotsHtml(profile.runes)}</div>`
-    : `<div class="friend-stat-hidden-text">비공개</div>`;
+    : `<div class="friend-stat-hidden-text">${t("friends.stat.hiddenLabel")}</div>`;
 
   let presetBlockHtml;
   if (profile.runePresets !== undefined) {
     const presets = profile.runePresets || [];
     presetBlockHtml = presets.length
       ? `<div class="friend-preset-list" id="friendPresetList">${presets.map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`).join("")}</div>`
-      : `<span class="friend-stat-hidden-text">저장된 프리셋이 없습니다.</span>`;
+      : `<span class="friend-stat-hidden-text">${t("friends.rune.noPresets")}</span>`;
   } else {
-    presetBlockHtml = `<div class="friend-stat-hidden-text">비공개</div>`;
+    presetBlockHtml = `<div class="friend-stat-hidden-text">${t("friends.stat.hiddenLabel")}</div>`;
   }
 
   sections.push(`
     <div class="friend-stat-section">
-      <div class="friend-stat-section-title">룬<span class="friend-stat-section-hint">프리셋을 눌러 룬 구성 미리보기</span></div>
+      <div class="friend-stat-section-title">${t("friends.rune.sectionTitle")}<span class="friend-stat-section-hint">${t("friends.rune.hint")}</span></div>
       ${runesBlockHtml}
       <div class="friend-stat-subrow">${presetBlockHtml}</div>
     </div>
@@ -331,7 +331,7 @@ function renderFriendStatBreakdown(container, profile) {
   if (profile.runePresets !== undefined) {
     sections.push(`
       <div class="friend-stat-section">
-        <div class="friend-stat-section-title">아레나 프리셋<span class="friend-stat-section-hint">눌러서 배치 보기</span></div>
+        <div class="friend-stat-section-title">${t("friends.arena.sectionTitle")}<span class="friend-stat-section-hint">${t("friends.arena.hint")}</span></div>
         <div class="friend-preset-list" id="friendArenaFormationList"></div>
         <div id="friendArenaFormationDetail"></div>
       </div>
@@ -382,9 +382,10 @@ function friendArenaFormationDetailHtml(formation, runePresets) {
   const slotPresetIndices = (formation && formation.slotPresetIndices) || [null, null, null, null, null];
   return slotPresetIndices.map((idx, i) => {
     const preset = idx !== null ? runePresets[idx] : null;
+    const presetName = preset ? `· ${preset.name}` : t("friends.arena.unassigned");
     return `
       <div class="friend-arena-slot-row">
-        <div class="friend-arena-slot-label">${i + 1}번 ${preset ? `· ${preset.name}` : "· 미배정"}</div>
+        <div class="friend-arena-slot-label">${t("friends.arena.slotLabel", { index: i + 1, presetName })}</div>
         <div class="readonly-slot-row friend-stat-slot-row">${friendRuneSlotsHtml(preset ? preset.runes : null)}</div>
       </div>
     `;
@@ -403,7 +404,7 @@ function mountFriendArenaFormationViewer(container, profile) {
     const formations = arenaFormations.formations || [];
     listEl.innerHTML = formations.length
       ? formations.map((f, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === activeFormationIndex ? "★ " : ""}${f.name}</div>`).join("")
-      : '<span class="friend-stat-hidden-text">저장된 배치가 없습니다.</span>';
+      : `<span class="friend-stat-hidden-text">${t("friends.arena.noFormations")}</span>`;
     listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
       el.onclick = () => {
         selectedIdx = Number(el.dataset.idx);
@@ -420,7 +421,7 @@ function friendStatHiddenSection(label) {
   return `
     <div class="friend-stat-section friend-stat-hidden">
       <div class="friend-stat-section-title">${label}</div>
-      <div class="friend-stat-hidden-text">비공개</div>
+      <div class="friend-stat-hidden-text">${t("friends.stat.hiddenLabel")}</div>
     </div>
   `;
 }
@@ -434,7 +435,7 @@ function renderFriendList(containerId, rows, buildActions, emptyMsg, myId, nickn
   el.innerHTML = rows
     .map((r) => {
       const otherId = r.from_user === myId ? r.to_user : r.from_user;
-      const nickname = nicknameOf[otherId] || "(알 수 없음)";
+      const nickname = nicknameOf[otherId] || t("friends.unknownNickname");
       const actions = buildActions(r)
         .map((a, i) => `<button class="friend-row-btn" data-row="${r.id}" data-action="${i}">${a.label}</button>`)
         .join("");

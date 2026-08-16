@@ -99,14 +99,14 @@ function animateStatValue(el, newText) {
 // 됨 - 타일 클릭 시 펼쳐지는 세부 내역(수식 브레이크다운)은 페이지마다 계산 방식이 달라서 그대로
 // 페이지 쪽 로직(각자의 metric-detail 렌더 함수)에 남겨둠, 여기선 마크업 뼈대만 공용화
 function renderMetricsCard(gridId, detailId, tiles) {
-  const tileHtml = tiles.map((t) => `
-        <button type="button" class="metric-tile" data-metric="${t.key}">
-          <div class="metric-label">${t.label}</div>
-          <div class="metric-value" id="${t.id}">0</div>
+  const tileHtml = tiles.map((tile) => `
+        <button type="button" class="metric-tile" data-metric="${tile.key}">
+          <div class="metric-label">${tile.label}</div>
+          <div class="metric-value" id="${tile.id}">0</div>
         </button>`).join("");
   return `
     <div class="card">
-      <h2>관련 수치</h2>
+      <h2>${t("common.relatedMetricsTitle")}</h2>
       <div class="metrics-grid" id="${gridId}">${tileHtml}
       </div>
       <div class="metric-detail" id="${detailId}" style="display:none;"></div>

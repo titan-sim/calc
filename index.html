@@ -47,7 +47,7 @@
 
   <div id="sideMenu" class="side-menu">
     <div class="side-header">
-      <span style="font-weight: bold;">메뉴</span>
+      <span style="font-weight: bold;" data-i18n-key="index_html.menuLabel">메뉴</span>
       <button class="close-btn" id="closeMenuBtn">✕</button>
     </div>
     <div class="menu-content">
@@ -56,16 +56,16 @@
       <div class="menu-divider"></div>
 
       <nav class="nav-list">
-        <a class="nav-link" href="#home">홈</a>
-        <a class="nav-link" href="#my-dino">내 공룡</a>
-        <a class="nav-link" href="#titan">타이탄</a>
-        <a class="nav-link" href="#dino-battle">공룡 대전</a>
-        <a class="nav-link" href="#arena">아레나</a>
-        <a class="nav-link" href="#dummy">허수아비</a>
-        <a class="nav-link" href="#building">건물</a>
+        <a class="nav-link" href="#home" data-i18n-key="index_html.navHome">홈</a>
+        <a class="nav-link" href="#my-dino" data-i18n-key="index_html.navMyDino">내 공룡</a>
+        <a class="nav-link" href="#titan" data-i18n-key="index_html.navTitan">타이탄</a>
+        <a class="nav-link" href="#dino-battle" data-i18n-key="index_html.navDinoBattle">공룡 대전</a>
+        <a class="nav-link" href="#arena" data-i18n-key="index_html.navArena">아레나</a>
+        <a class="nav-link" href="#dummy" data-i18n-key="index_html.navDummy">허수아비</a>
+        <a class="nav-link" href="#building" data-i18n-key="index_html.navBuilding">건물</a>
         <div class="menu-divider"></div>
-        <div class="nav-section-label">외부 사이트</div>
-        <a class="nav-link nav-link-external" href="https://3n74l.github.io/Dino_Run/" target="_blank" rel="noopener noreferrer">Dino Run (팬메이드 게임)<svg class="external-link-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z"/></svg></a>
+        <div class="nav-section-label" data-i18n-key="index_html.navExternalSiteLabel">외부 사이트</div>
+        <a class="nav-link nav-link-external" href="https://3n74l.github.io/Dino_Run/" target="_blank" rel="noopener noreferrer"><span data-i18n-key="index_html.navExternalGameLink">Dino Run (팬메이드 게임)</span><svg class="external-link-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7z"/></svg></a>
       </nav>
 
       <div class="menu-bottom">
@@ -73,18 +73,25 @@
         <div class="menu-setting-row">
           <button type="button" class="theme-slider" id="themeSlider">
             <span class="theme-slider-glow"></span>
-            <span class="theme-slider-label theme-slider-label-dark">다크모드</span>
-            <span class="theme-slider-label theme-slider-label-light">라이트모드</span>
+            <span class="theme-slider-label theme-slider-label-dark" data-i18n-key="index_html.themeDark">다크모드</span>
+            <span class="theme-slider-label theme-slider-label-light" data-i18n-key="index_html.themeLight">라이트모드</span>
           </button>
         </div>
         <div class="menu-setting-row">
-          <span style="font-size: 14px;">상세 로그 수집</span>
+          <span style="font-size: 14px;" data-i18n-key="common.languageLabel">언어</span>
+          <div class="custom-dropdown menu-lang-dropdown" id="langDropdown">
+            <div class="selected-value" id="langSelectedValue">한국어</div>
+            <ul class="dropdown-list" id="langList"></ul>
+          </div>
+        </div>
+        <div class="menu-setting-row">
+          <span style="font-size: 14px;" data-i18n-key="index_html.logToggleLabel">상세 로그 수집</span>
           <label class="switch">
             <input type="checkbox" id="logToggle">
             <span class="slider round"></span>
           </label>
         </div>
-        <a class="menu-footer-link" href="#privacy">개인정보처리방침</a>
+        <a class="menu-footer-link" href="#privacy" data-i18n-key="index_html.privacyFooterLink">개인정보처리방침</a>
       </div>
     </div>
   </div>
@@ -104,7 +111,7 @@
       </button>
       <div class="app-title">
         <span class="brand">DINO MUTANT</span>
-        <span class="sub">시뮬레이터</span>
+        <span class="sub" data-i18n-key="index_html.headerSubtitle">시뮬레이터</span>
       </div>
     </div>
   </header>
@@ -118,6 +125,7 @@
   <script src="js/core/data-sync.js"></script>
   <script src="js/core/friend-session.js"></script>
   <script src="js/core/update-check.js"></script>
+  <script src="js/core/i18n.js"></script>
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
   <script src="js/data/constellation-data.js"></script>

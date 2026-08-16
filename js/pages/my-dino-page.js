@@ -8,7 +8,7 @@ const RUNE_PRESET_COUNT = 9;
 
 function defaultRunePresets() {
   return Array.from({ length: RUNE_PRESET_COUNT }, (_, i) => ({
-    name: `프리셋 ${i + 1}`,
+    name: t("my_dino.presetDefaultName", { index: i + 1 }),
     runes: [null, null, null, null, null]
   }));
 }
@@ -112,7 +112,7 @@ const SERVER_LEVEL_CAP_KEY = "dino_server_level_cap";
 
 // "없음" + 1200~3000(100단위, 사용자 확정) - BUFF_TOWER_OPTIONS 만드는 방식과 동일하게 매핑
 const SERVER_LEVEL_CAP_OPTIONS = [
-  { value: null, label: "없음" },
+  { value: null, label: "없음" }, // dummy-page.js의 dummyOptLabel()이 표시 시점에 번역함(공유 상수라 label 원문은 그대로 둠)
   ...Array.from({ length: 19 }, (_, i) => {
     const v = 1200 + i * 100;
     return { value: v, label: v.toLocaleString() };
@@ -272,11 +272,11 @@ function getVipIconFile(vip) {
 // VIP 레벨별 설명(부족 유닛 슬롯 + 11~13은 공격력·체력 % 보너스도 함께 표시)
 function getVipDesc(vip) {
   if (vip <= 0) return "";
-  if (vip <= 7) return "부족 유닛: +1";
-  if (vip <= 10) return "부족 유닛: +2";
-  if (vip === 11) return "부족 유닛: +3, 공·체 +3%";
-  if (vip === 12) return "부족 유닛: +3, 공·체 +6%";
-  return "부족 유닛: +3, 공·체 +9%";
+  if (vip <= 7) return t("my_dino.vip.desc.tribeUnit1");
+  if (vip <= 10) return t("my_dino.vip.desc.tribeUnit2");
+  if (vip === 11) return t("my_dino.vip.desc.tribeUnit3pct3");
+  if (vip === 12) return t("my_dino.vip.desc.tribeUnit3pct6");
+  return t("my_dino.vip.desc.tribeUnit3pct9");
 }
 
 // VIP 11~13의 공격력/체력 %보너스. 룬·둥지·알스킨과 같은 퍼센트 바구니에 더해짐
@@ -331,13 +331,22 @@ function renderMyDinoPage(container, options = {}) {
   const profile = readOnly ? normalizeDinoProfile(options.readOnly.profile) : loadMyDinoProfile(storageKey);
 
   // splitCritStat: 아레나처럼 "공룡 수"가 의미 없는 컨텍스트에서, 그 자리를 비우는 대신 치확/치피를
-  // 각각 별도 항목으로 나눠서 5칸을 그대로 채움(기본값은 기존 그대로 "치확 / 치피" 한 칸 + 공룡 수)
+  // 각각 별도 항목(칸)으로 나눠서 5칸을 그대로 채움. 기본값(공룡 수가 있는 컨텍스트)은 한 칸 안에
+  // 치확/치피 두 쌍을 위아래로 쌓음(사용자 확정 - "치확/치피 한 칸에 아래위로 나눠서") - 두 경우
+  // 모두 sumCritRate/sumCritDmg id를 그대로 쓰므로 updateSummary()는 분기 없이 항상 같은 코드로
+  // 값을 채움(라벨 span에 stat-readout-label을 그대로 재사용해서 다른 칸의 라벨과 스타일이 완전히
+  // 같아짐 - 이전엔 라벨까지 값 문자열 안에 통짜로 넣어서 값(굵은 글씨)과 스타일이 안 맞았음)
   const splitCrit = !!options.splitCritStat;
   const critItemsHtml = splitCrit
-    ? `<div class="stat-readout-item"><div class="stat-readout-label">치명타 확률</div><div class="stat-readout-value" id="${id("sumCritRate")}">0%</div></div>
-       <div class="stat-readout-item"><div class="stat-readout-label">치명타 피해</div><div class="stat-readout-value" id="${id("sumCritDmg")}">0%</div></div>`
-    : `<div class="stat-readout-item"><div class="stat-readout-label">치확 / 치피</div><div class="stat-readout-value" id="${id("sumCrit")}">0% / 0%</div></div>
-       <div class="stat-readout-item"><div class="stat-readout-label">공룡 수</div><div class="stat-readout-value" id="${id("sumCount")}">0마리</div></div>`;
+    ? `<div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.critRate")}</div><div class="stat-readout-value" id="${id("sumCritRate")}">0%</div></div>
+       <div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.critDmg")}</div><div class="stat-readout-value" id="${id("sumCritDmg")}">0%</div></div>`
+    : `<div class="stat-readout-item">
+         <div class="stat-readout-crit-stack">
+           <div class="stat-readout-crit-pair"><div class="stat-readout-label">${t("my_dino.stat.critRate")}</div><div class="stat-readout-value" id="${id("sumCritRate")}">0%</div></div>
+           <div class="stat-readout-crit-pair"><div class="stat-readout-label">${t("my_dino.stat.critDmg")}</div><div class="stat-readout-value" id="${id("sumCritDmg")}">0%</div></div>
+         </div>
+       </div>
+       <div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.dinoCount")}</div><div class="stat-readout-value" id="${id("sumCount")}">${t("my_dino.stat.dinoCountValue", { count: 0 })}</div></div>`;
 
   // extraTab: 컨텍스트별로 탭을 하나 추가할 수 있는 훅(예: 아레나 배치) - { id, label, render(panelEl) }.
   // 이 파일은 어떤 페이지가 뭘 넣는지 몰라도 되게, 탭 전환/패널 표시만 일반적으로 처리함
@@ -346,21 +355,21 @@ function renderMyDinoPage(container, options = {}) {
   container.innerHTML = `
     <div class="card dino-panel${readOnly ? " dino-panel-readonly" : ""}">
       ${dinoPanelHeaderHtml(options.header)}
-      ${readOnly ? `<div class="dino-panel-readonly-tag">${options.readOnly.tagText || "🔒 읽기 전용"}</div>` : ""}
+      ${readOnly ? `<div class="dino-panel-readonly-tag">${options.readOnly.tagText || t("my_dino.readonlyDefaultTag")}</div>` : ""}
       <div class="dino-summary-bar">
         <div class="stat-readout">
-          <div class="stat-readout-item"><div class="stat-readout-label">레벨</div><div class="stat-readout-value accent" id="${id("sumLevel")}">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">공격력</div><div class="stat-readout-value" id="${id("sumAtk")}">0</div></div>
-          <div class="stat-readout-item"><div class="stat-readout-label">체력</div><div class="stat-readout-value" id="${id("sumHp")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.level")}</div><div class="stat-readout-value accent" id="${id("sumLevel")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.atk")}</div><div class="stat-readout-value" id="${id("sumAtk")}">0</div></div>
+          <div class="stat-readout-item"><div class="stat-readout-label">${t("my_dino.stat.hp")}</div><div class="stat-readout-value" id="${id("sumHp")}">0</div></div>
           ${critItemsHtml}
         </div>
       </div>
 
       <div class="dino-tabs">
-        <button class="dino-tab active" data-tab="base">기본 스탯</button>
-        <button class="dino-tab" data-tab="constellation">별자리</button>
-        <button class="dino-tab" data-tab="bonus">둥지·알스킨</button>
-        <button class="dino-tab" data-tab="rune">룬 조합</button>
+        <button class="dino-tab active" data-tab="base">${t("my_dino.tab.base")}</button>
+        <button class="dino-tab" data-tab="constellation">${t("my_dino.tab.constellation")}</button>
+        <button class="dino-tab" data-tab="bonus">${t("my_dino.tab.bonus")}</button>
+        <button class="dino-tab" data-tab="rune">${t("my_dino.tab.rune")}</button>
         ${extraTab ? `<button class="dino-tab" data-tab="${extraTab.id}">${extraTab.label}</button>` : ""}
         <div class="dino-tab-indicator" id="${id("tabIndicator")}"></div>
       </div>
@@ -368,17 +377,17 @@ function renderMyDinoPage(container, options = {}) {
       <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="base">
         <div class="input-grid">
           <div class="full-width">
-            <label>VIP</label>
+            <label>${t("my_dino.field.vip")}</label>
             <div class="custom-dropdown vip-dropdown" id="${id("vipDropdown")}">
               <div class="selected-value vip-selected-value" id="${id("vipSelectedValue")}"></div>
               <ul class="dropdown-list vip-dropdown-list" id="${id("vipList")}"></ul>
             </div>
           </div>
-          <div><label>체력</label><input type="tel" inputmode="numeric" id="${id("fBaseHp")}"></div>
-          <div><label>공격력</label><input type="tel" inputmode="numeric" id="${id("fBaseAtk")}"></div>
-          <div><label>이동속도</label><input type="tel" inputmode="numeric" id="${id("fMoveSpeed")}"></div>
+          <div><label>${t("my_dino.field.hp")}</label><input type="tel" inputmode="numeric" id="${id("fBaseHp")}"></div>
+          <div><label>${t("my_dino.field.atk")}</label><input type="tel" inputmode="numeric" id="${id("fBaseAtk")}"></div>
+          <div><label>${t("my_dino.field.moveSpeed")}</label><input type="tel" inputmode="numeric" id="${id("fMoveSpeed")}"></div>
           <div>
-            <label>공룡 수</label>
+            <label>${t("my_dino.field.dinoCount")}</label>
             <div class="custom-dropdown" id="${id("dinoCountDropdown")}">
               <div class="selected-value" id="${id("dinoCountSelectedValue")}"></div>
               <ul class="dropdown-list" id="${id("dinoCountList")}"></ul>
@@ -390,39 +399,39 @@ function renderMyDinoPage(container, options = {}) {
       <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="constellation" style="display:none;">
         <div class="input-grid">
           <div>
-            <label>체력</label>
+            <label>${t("my_dino.field.constHp")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstHp")}"></div>
           </div>
           <div>
-            <label>공격력</label>
+            <label>${t("my_dino.field.constAtk")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstAtk")}"></div>
           </div>
           <div>
-            <label>치명타 확률</label>
+            <label>${t("my_dino.field.constCritRate")}</label>
             <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritRate")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
-            <label>치명타 피해</label>
+            <label>${t("my_dino.field.constCritDmg")}</label>
             <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritDmg")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
-            <label>건축물 피해 증가</label>
+            <label>${t("my_dino.field.constBuildingDmg")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBuildingDmg")}"></div>
           </div>
           <div>
-            <label>스튜 효과 증가</label>
+            <label>${t("my_dino.field.constStewEffect")}</label>
             <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstStewEffect")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
-            <label>이동 속도</label>
+            <label>${t("my_dino.field.constMoveSpeed")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstMoveSpeed")}"></div>
           </div>
           <div>
-            <label>보스 피해 감소</label>
+            <label>${t("my_dino.field.constBossDmgReduction")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgReduction")}"></div>
           </div>
           <div>
-            <label>보스 피해 증가</label>
+            <label>${t("my_dino.field.constBossDmgIncrease")}</label>
             <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgIncrease")}"></div>
           </div>
         </div>
@@ -431,11 +440,11 @@ function renderMyDinoPage(container, options = {}) {
       <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="bonus" style="display:none;">
         <div class="input-grid">
           <div>
-            <label>공격력</label>
+            <label>${t("my_dino.field.bonusAtk")}</label>
             <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusAtk")}"><span class="affix-suffix">%</span></div>
           </div>
           <div>
-            <label>체력</label>
+            <label>${t("my_dino.field.bonusHp")}</label>
             <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusHp")}"><span class="affix-suffix">%</span></div>
           </div>
         </div>
@@ -462,8 +471,8 @@ function renderMyDinoPage(container, options = {}) {
               <div class="desc-box" id="${id("detailDesc")}"></div>
             </div>
             <div class="btn-apply-row">
-              <button class="btn-apply" id="${id("applyBtn")}">슬롯에 장착</button>
-              <button class="btn-apply btn-apply-secondary" id="${id("removeBtn")}">장착 해제</button>
+              <button class="btn-apply" id="${id("applyBtn")}">${t("my_dino.rune.applyBtn")}</button>
+              <button class="btn-apply btn-apply-secondary" id="${id("removeBtn")}">${t("my_dino.rune.removeBtn")}</button>
             </div>
           </div>
         </div>
@@ -560,13 +569,13 @@ function initMyDinoPage(profile, options = {}, container) {
 
   function setDinoCount(count) {
     profile.dinoCount = count;
-    dinoCountSelectedValue.textContent = `${count}마리`;
+    dinoCountSelectedValue.textContent = t("my_dino.stat.dinoCountValue", { count });
     markChanged(dinoCountSelectedValue, count !== 5);
   }
 
   for (let i = 1; i <= 13; i++) {
     const li = document.createElement("li");
-    li.textContent = `${i}마리`;
+    li.textContent = t("my_dino.stat.dinoCountValue", { count: i });
     on(li, "onclick", () => {
       setDinoCount(i);
       dinoCountList.style.display = "none";
@@ -587,7 +596,7 @@ function initMyDinoPage(profile, options = {}, container) {
   }
 
   function renderVipSelected() {
-    const label = profile.vip <= 0 ? "VIP 없음" : `VIP ${profile.vip}`;
+    const label = profile.vip <= 0 ? t("my_dino.vip.noneLabel") : t("my_dino.vip.levelLabel", { level: profile.vip });
     vipSelectedValue.innerHTML = `${vipIconMarkup(profile.vip, "small")}<span>${label}</span>`;
     markChanged(vipSelectedValue, profile.vip !== 0);
   }
@@ -595,7 +604,7 @@ function initMyDinoPage(profile, options = {}, container) {
   for (let v = 0; v <= 13; v++) {
     const li = document.createElement("li");
     li.className = "vip-option";
-    const label = v <= 0 ? "VIP 없음" : `VIP ${v}`;
+    const label = v <= 0 ? t("my_dino.vip.noneLabel") : t("my_dino.vip.levelLabel", { level: v });
     const desc = getVipDesc(v);
     li.innerHTML = `
       ${vipIconMarkup(v)}
@@ -771,7 +780,7 @@ function initMyDinoPage(profile, options = {}, container) {
       btn.style.backgroundImage = `url("${getPresetBtnImg(idx, isActive)}")`;
       btn.innerHTML = `
         <span class="preset-btn-name" data-idx="${idx}">${preset.name}</span>
-        ${isActive && !readOnly ? '<button type="button" class="preset-edit-btn" title="이름 수정">✏️</button>' : ""}
+        ${isActive && !readOnly ? `<button type="button" class="preset-edit-btn" title="${t("my_dino.preset.editTooltip")}">✏️</button>` : ""}
       `;
       // selectPreset() 자기 자신이 readOnly/allowPresetSwitch 가드를 갖고 있으므로 여기서는 그냥
       // 항상 호출 - 다른 el들처럼 on()으로 감싸지 않음(스냅샷 로컬 미리보기 때는 readOnly여도
@@ -854,18 +863,12 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
   };
   setVal(id("sumAtk"), Math.floor(stats.fAtk).toLocaleString());
   setVal(id("sumHp"), Math.floor(stats.fHp).toLocaleString());
-  if (splitCrit) {
-    setVal(id("sumCritRate"), `${stats.cRate.toFixed(2)}%`);
-    setVal(id("sumCritDmg"), `${stats.cDmg.toFixed(2)}%`);
-  } else {
-    // "/" 앞뒤 공백으로만 자연 줄바꿈에 맡기면, 값이 바뀔 때 js/ui/stat-roll-ui.js의 자릿수 롤링
-    // 애니메이션 도중엔 오도미터 <span>들이 섞인 구조라 줄바꿈 지점이 최종 텍스트 상태와 미묘하게
-    // 달라져서(부분픽셀 폭 차이로 추정) 모션 중에만 순간적으로 다른 위치에서 줄이 갈렸음(사용자
-    // 지적 - "모션이 일어날 때는 1줄로 길게 되었다가 모션 끝나면 다시 /로 위아래 나뉨"). "/" 뒤에
-    // 실제 개행문자를 넣어서 항상 같은 지점에서 줄이 갈리게 고정(.stat-readout-value의
-    // white-space:pre-line과 짝) - 애니메이션 중이든 끝난 뒤든 완전히 같은 지점에서 끊김
-    setVal(id("sumCrit"), `${stats.cRate.toFixed(2)}% /\n${stats.cDmg.toFixed(2)}%`);
-    setVal(id("sumCount"), `${profile.dinoCount}마리`);
+  // 치확/치피는 splitCritStat이든 아니든(한 칸에 두 쌍을 쌓든, 별도 두 칸이든) 항상 같은 id를 쓰므로
+  // 분기 없이 동일하게 채움 - 라벨은 HTML 쪽 stat-readout-label에 이미 있으니 여기서는 숫자값만
+  setVal(id("sumCritRate"), `${stats.cRate.toFixed(2)}%`);
+  setVal(id("sumCritDmg"), `${stats.cDmg.toFixed(2)}%`);
+  if (!splitCrit) {
+    setVal(id("sumCount"), t("my_dino.stat.dinoCountValue", { count: profile.dinoCount }));
   }
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817

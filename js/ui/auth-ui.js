@@ -18,13 +18,13 @@ async function renderAuthRow() {
 
   if (user && user.username) {
     row.innerHTML = `
-      <div class="auth-identity" id="authIdentityBtn" title="프로필로 이동">
+      <div class="auth-identity" id="authIdentityBtn" title="${t("common.authRow.profileTooltip")}">
         <div class="auth-avatar">${user.username.slice(0, 1)}</div>
         <div class="auth-username" title="${user.username}">${user.username}</div>
       </div>
       <div class="auth-actions">
-        <button id="authFriendsBtn" class="auth-text-btn">친구</button>
-        <button id="logoutBtn" class="auth-text-btn">로그아웃</button>
+        <button id="authFriendsBtn" class="auth-text-btn">${t("common.authRow.friendsBtn")}</button>
+        <button id="logoutBtn" class="auth-text-btn">${t("common.authRow.logoutBtn")}</button>
       </div>
     `;
     document.getElementById("logoutBtn").onclick = handleLogout;
@@ -39,7 +39,7 @@ async function renderAuthRow() {
       location.hash = "#profile";
     };
   } else {
-    row.innerHTML = `<button id="loginBtn" class="login-btn">로그인</button>`;
+    row.innerHTML = `<button id="loginBtn" class="login-btn">${t("common.authRow.loginBtn")}</button>`;
     document.getElementById("loginBtn").onclick = () => {
       const sideMenu = document.getElementById("sideMenu");
       if (sideMenu && sideMenu.classList.contains("open")) toggleMenu();
@@ -56,21 +56,21 @@ async function handleLogout() {
 // 회원 탈퇴: auth.users 행을 지우는 RPC를 호출함. profiles/user_data/friend_requests는
 // 전부 auth.users를 참조하는 on delete cascade 외래키라 서버에서 자동으로 같이 삭제됨.
 async function handleDeleteAccount() {
-  const sure = confirm("정말 탈퇴하시겠습니까? 저장된 룬 조합 등 계정 데이터가 모두 삭제되며 되돌릴 수 없습니다.");
+  const sure = confirm(t("common.deleteAccount.confirm"));
   if (!sure) return;
 
   const btn = document.getElementById("deleteAccountBtn");
   if (btn) {
     btn.disabled = true;
-    btn.innerText = "탈퇴 처리 중...";
+    btn.innerText = t("common.deleteAccount.busy");
   }
 
   const { error } = await supabaseClient.rpc("delete_own_account");
   if (error) {
-    alert("탈퇴 처리 중 오류가 발생했습니다: " + error.message);
+    alert(t("common.deleteAccount.error", { error: error.message }));
     if (btn) {
       btn.disabled = false;
-      btn.innerText = "회원 탈퇴";
+      btn.innerText = t("common.deleteAccount.btn");
     }
     return;
   }

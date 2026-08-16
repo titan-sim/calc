@@ -90,6 +90,11 @@
 
 .dino-summary-bar .stat-readout-item {
   align-items: center;
+  /* 치확/치피 칸(라벨+값 두 쌍)이 다른 칸(한 쌍)보다 세로로 더 길어서, 그리드가 행 높이를 그
+     큰 칸에 맞춰 늘림 - justify-content 없이 기본값(flex-start)이면 짧은 칸들 내용물이 위에
+     붙고 밑에만 빈 공간이 남아 칸마다 여백이 안 맞았음(사용자 지적) - 세로 가운데 정렬로 모든
+     칸이 행 안에서 위아래 여백이 똑같이 나뉘게 함 */
+  justify-content: center;
   text-align: center;
   gap: 2px;
 }
@@ -101,15 +106,27 @@
 
 .dino-summary-bar .stat-readout-value {
   font-size: clamp(11px, 3.2cqw, 15px);
-  /* "치확 / 치피"처럼 값 안에 실제 개행문자(\n)가 들어있으면 그 지점에서 항상 줄바꿈 - 자릿수
-     롤링 애니메이션 중에도 최종 텍스트 상태와 완전히 같은 지점에서 끊기게 하기 위함(js/pages/
-     my-dino-page.js의 updateSummary() 참고) */
-  white-space: pre-line;
-  word-break: keep-all;
   /* 아래 .stat-roll-digit이 애니메이션 도중 쓰는 line-height(1.1em)와 정확히 맞춰서, 애니메이션이
      끝나고 일반 텍스트로 돌아갈 때 줄 높이 차이로 글자가 위아래로 튀는 걸 방지(1.2는 미세하게
      어긋나 있었음) */
   line-height: 1.1;
+}
+
+/* 치확/치피를 한 칸 안에 "라벨 위, 값 아래" 쌍 두 개로 세로로 쌓음(사용자 확정 - "치확/치피 한
+   칸에 아래위로 나눠서") - stat-readout-label/value를 그대로 재사용해서 다른 칸의 라벨/값과 완전히
+   같은 스타일을 씀(값 문자열 안에 라벨 텍스트를 통짜로 섞어 넣었던 이전 방식은 라벨까지 값처럼
+   굵게 나와서 스타일이 안 맞았음 - 사용자 지적) */
+.stat-readout-crit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-readout-crit-pair {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 /* 설정을 바꿔서 요약바 숫자가 달라지면(js/ui/stat-roll-ui.js) 값이 커졌으면 초록, 작아졌으면

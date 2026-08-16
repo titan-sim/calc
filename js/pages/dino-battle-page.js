@@ -179,8 +179,8 @@ let unsubscribeFriendSession = null;
 // 직전 이벤트 기준 생존 마릿수(진급/팝인 연출 트리거용 - renderBattleEvent가 매번 갱신함)
 let lastAliveCount = { my: 0, opp: 0 };
 
-const TRIBE_LABELS = { none: "없음", mine: "내 부족", opponent: "상대 부족" };
-const ARRANGEMENT_LABELS = { same: "한 타일", separate: "다른 타일" };
+const TRIBE_LABEL_KEYS = { none: "dino_battle.tribe.none", mine: "dino_battle.tribe.mine", opponent: "dino_battle.tribe.opponent" };
+const ARRANGEMENT_LABEL_KEYS = { same: "dino_battle.arrangement.same", separate: "dino_battle.arrangement.separate" };
 
 function defaultTileSettings() {
   return {
@@ -216,36 +216,36 @@ function saveTileSettings(settings) {
 
 function renderDinoBattlePage(container) {
   container.innerHTML = `
-    <h2 class="sr-only">공룡 대전</h2>
+    <h2 class="sr-only">${t("dino_battle.heading")}</h2>
     <div class="card battle-tile-card">
-      <h2 class="battle-tile-heading">타일 설정</h2>
+      <h2 class="battle-tile-heading">${t("dino_battle.tileCard.title")}</h2>
 
       <div class="tile-group">
-        <div class="tile-group-label">환경</div>
+        <div class="tile-group-label">${t("dino_battle.tileGroup.environment")}</div>
         <div class="setting-list">
           <div class="setting-row">
-            <div class="setting-label">자연 구조물과 인접 (자연의 포옹)</div>
+            <div class="setting-label">${t("dino_battle.tile.natureLabel")}</div>
             <label class="switch"><input type="checkbox" id="tileNatureToggle"><span class="slider round"></span></label>
           </div>
           <div class="setting-row">
-            <div class="setting-label">부족 점령 상태 (부족의 축복)</div>
+            <div class="setting-label">${t("dino_battle.tile.tribeLabel")}</div>
             <div class="custom-dropdown setting-control" id="tileTribeDropdown">
-              <div class="selected-value" id="tileTribeSelectedValue">없음</div>
+              <div class="selected-value" id="tileTribeSelectedValue">${t("dino_battle.tribe.none")}</div>
               <ul class="dropdown-list" id="tileTribeList"></ul>
             </div>
           </div>
           <div class="setting-stack-pair">
             <div class="setting-stack">
-              <label class="setting-label">서버 레벨캡</label>
+              <label class="setting-label">${t("dino_battle.tile.serverLevelCapLabel")}</label>
               <div class="custom-dropdown" id="tileServerLevelCapDropdown">
-                <div class="selected-value" id="tileServerLevelCapSelectedValue">없음</div>
+                <div class="selected-value" id="tileServerLevelCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="tileServerLevelCapList"></ul>
               </div>
             </div>
             <div class="setting-stack">
-              <label class="setting-label">서버 별자리캡</label>
+              <label class="setting-label">${t("dino_battle.tile.constellationCapLabel")}</label>
               <div class="custom-dropdown" id="tileConstellationCapDropdown">
-                <div class="selected-value" id="tileConstellationCapSelectedValue">없음</div>
+                <div class="selected-value" id="tileConstellationCapSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="tileConstellationCapList"></ul>
               </div>
             </div>
@@ -254,53 +254,53 @@ function renderDinoBattlePage(container) {
       </div>
 
       <div class="tile-group">
-        <div class="tile-group-label">진영별 설정</div>
+        <div class="tile-group-label">${t("dino_battle.tileGroup.perSide")}</div>
         <div class="tile-side-grid">
           <div class="tile-side-col">
-            <div class="tile-side-col-label my-side-label">내 공룡</div>
+            <div class="tile-side-col-label my-side-label">${t("dino_battle.side.myDino")}</div>
             <div class="tile-side-field">
-              <label>배치</label>
+              <label>${t("dino_battle.side.arrangementLabel")}</label>
               <div class="custom-dropdown" id="myTileArrangementDropdown">
-                <div class="selected-value" id="myTileArrangementSelectedValue">한 타일</div>
+                <div class="selected-value" id="myTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
                 <ul class="dropdown-list" id="myTileArrangementList"></ul>
               </div>
             </div>
             <div class="tile-side-field">
-              <label>공격력 버프 타워</label>
+              <label>${t("dino_battle.side.atkTowerLabel")}</label>
               <div class="custom-dropdown" id="myAtkTowerDropdown">
-                <div class="selected-value" id="myAtkTowerSelectedValue">없음</div>
+                <div class="selected-value" id="myAtkTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="myAtkTowerList"></ul>
               </div>
             </div>
             <div class="tile-side-field">
-              <label>체력 버프 타워</label>
+              <label>${t("dino_battle.side.hpTowerLabel")}</label>
               <div class="custom-dropdown" id="myHpTowerDropdown">
-                <div class="selected-value" id="myHpTowerSelectedValue">없음</div>
+                <div class="selected-value" id="myHpTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="myHpTowerList"></ul>
               </div>
             </div>
           </div>
 
           <div class="tile-side-col">
-            <div class="tile-side-col-label opp-side-label">상대 공룡</div>
+            <div class="tile-side-col-label opp-side-label">${t("dino_battle.side.oppDino")}</div>
             <div class="tile-side-field">
-              <label>배치</label>
+              <label>${t("dino_battle.side.arrangementLabel")}</label>
               <div class="custom-dropdown" id="oppTileArrangementDropdown">
-                <div class="selected-value" id="oppTileArrangementSelectedValue">한 타일</div>
+                <div class="selected-value" id="oppTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
                 <ul class="dropdown-list" id="oppTileArrangementList"></ul>
               </div>
             </div>
             <div class="tile-side-field">
-              <label>공격력 버프 타워</label>
+              <label>${t("dino_battle.side.atkTowerLabel")}</label>
               <div class="custom-dropdown" id="oppAtkTowerDropdown">
-                <div class="selected-value" id="oppAtkTowerSelectedValue">없음</div>
+                <div class="selected-value" id="oppAtkTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="oppAtkTowerList"></ul>
               </div>
             </div>
             <div class="tile-side-field">
-              <label>체력 버프 타워</label>
+              <label>${t("dino_battle.side.hpTowerLabel")}</label>
               <div class="custom-dropdown" id="oppHpTowerDropdown">
-                <div class="selected-value" id="oppHpTowerSelectedValue">없음</div>
+                <div class="selected-value" id="oppHpTowerSelectedValue">${t("common.optionNone")}</div>
                 <ul class="dropdown-list" id="oppHpTowerList"></ul>
               </div>
             </div>
@@ -315,23 +315,23 @@ function renderDinoBattlePage(container) {
       </div>
 
       <div class="battle-arena-wrap">
-        <button class="battle-peek-btn my-peek" id="myPeekBtn" title="내 공룡 설정">▶</button>
+        <button class="battle-peek-btn my-peek" id="myPeekBtn" title="${t("dino_battle.myPeekTooltip")}">▶</button>
 
         <div class="card battle-main-card" id="battleMainCard">
           <div class="battle-mode-tabs mode-live" id="battleModeTabs">
             <span class="battle-mode-indicator"></span>
-            <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>빠른 계산</span></button>
-            <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>시뮬레이션</span></button>
+            <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>${t("dino_battle.tab.quick")}</span></button>
+            <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>${t("dino_battle.tab.live")}</span></button>
           </div>
 
           <div class="battle-mode-panel" id="quickModeCard" style="display:none;">
-            <p class="quickcalc-desc">대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 ${QUICK_CALC_TRIALS.toLocaleString()}번 죽을 때까지 반복합니다. 사망 횟수 비율과 평균 대미지(평타·크리티컬·스킬·죽을 준비 반격까지 전부 포함)를 계산합니다.</p>
-            <button class="btn-simulate" id="quickCalcBtn">${QUICK_CALC_TRIALS.toLocaleString()}회 계산하기</button>
+            <p class="quickcalc-desc">${t("dino_battle.quick.desc", { trials: QUICK_CALC_TRIALS.toLocaleString() })}</p>
+            <button class="btn-simulate" id="quickCalcBtn">${t("dino_battle.quick.calcBtn", { trials: QUICK_CALC_TRIALS.toLocaleString() })}</button>
             <div class="report-grid" id="quickCalcResult" style="display:none;">
-              <div class="report-tile"><div class="metric-label">전투 결과 (${QUICK_CALC_TRIALS.toLocaleString()}번 중)</div><div class="metric-value accent" id="qcRatio">-</div><div class="metric-sub" id="qcRatioNorm"></div></div>
-              <div class="report-tile"><div class="metric-label">내 공룡 평균 대미지</div><div class="metric-value" id="qcMyDmg">-</div></div>
-              <div class="report-tile"><div class="metric-label">상대 공룡의 평균 대미지</div><div class="metric-value" id="qcOppDmg">-</div></div>
-              <div class="report-tile"><div class="metric-label">상대 전멸에 필요한 공룡 수</div><div class="metric-value" id="qcNeededCount">-</div><div class="metric-sub" id="qcNeededCountBase"></div></div>
+              <div class="report-tile"><div class="metric-label">${t("dino_battle.quick.resultLabel", { trials: QUICK_CALC_TRIALS.toLocaleString() })}</div><div class="metric-value accent" id="qcRatio">-</div><div class="metric-sub" id="qcRatioNorm"></div></div>
+              <div class="report-tile"><div class="metric-label">${t("dino_battle.quick.myDmgLabel")}</div><div class="metric-value" id="qcMyDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">${t("dino_battle.quick.oppDmgLabel")}</div><div class="metric-value" id="qcOppDmg">-</div></div>
+              <div class="report-tile"><div class="metric-label">${t("dino_battle.quick.neededCountLabel")}</div><div class="metric-value" id="qcNeededCount">-</div><div class="metric-sub" id="qcNeededCountBase"></div></div>
             </div>
           </div>
 
@@ -352,44 +352,44 @@ function renderDinoBattlePage(container) {
                       <div class="battle-team-slot battle-team-slot-avatar" id="myAvatarSlot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini my-hp-fill" id="myHpFill"></div></div>
                         <div class="battle-avatar my-avatar" id="myAvatar"></div>
-                        <div class="battle-team-slot-name">내 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.myAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind1" id="myBehind1Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini my-hp-fill" id="myBehind1HpFill"></div></div>
                         <div class="battle-avatar my-avatar" id="myBehind1"></div>
-                        <div class="battle-team-slot-name">내 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.myAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind2" id="myBehind2Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini my-hp-fill" id="myBehind2HpFill"></div></div>
                         <div class="battle-avatar my-avatar" id="myBehind2"></div>
-                        <div class="battle-team-slot-name">내 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.myAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind3" id="myBehind3Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini my-hp-fill" id="myBehind3HpFill"></div></div>
                         <div class="battle-avatar my-avatar" id="myBehind3"></div>
-                        <div class="battle-team-slot-name">내 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.myAvatarLabel")}</div>
                       </div>
                     </div>
                     <div class="battle-formation-group" id="oppFormationGroup">
                       <div class="battle-team-slot battle-team-slot-avatar" id="oppAvatarSlot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini opp-hp-fill" id="oppHpFill"></div></div>
                         <div class="battle-avatar opp-avatar" id="oppAvatar"></div>
-                        <div class="battle-team-slot-name">상대 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.oppAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind1" id="oppBehind1Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini opp-hp-fill" id="oppBehind1HpFill"></div></div>
                         <div class="battle-avatar opp-avatar" id="oppBehind1"></div>
-                        <div class="battle-team-slot-name">상대 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.oppAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind2" id="oppBehind2Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini opp-hp-fill" id="oppBehind2HpFill"></div></div>
                         <div class="battle-avatar opp-avatar" id="oppBehind2"></div>
-                        <div class="battle-team-slot-name">상대 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.oppAvatarLabel")}</div>
                       </div>
                       <div class="battle-team-slot battle-team-slot-behind3" id="oppBehind3Slot">
                         <div class="battle-hp-bar-mini"><div class="battle-hp-fill-mini opp-hp-fill" id="oppBehind3HpFill"></div></div>
                         <div class="battle-avatar opp-avatar" id="oppBehind3"></div>
-                        <div class="battle-team-slot-name">상대 공룡</div>
+                        <div class="battle-team-slot-name">${t("dino_battle.oppAvatarLabel")}</div>
                       </div>
                     </div>
                 </div>
@@ -406,16 +406,16 @@ function renderDinoBattlePage(container) {
             <div class="battle-result" id="battleResult" style="display:none;"></div>
             <div class="battle-controls">
               <div class="custom-dropdown battle-speed-dropdown" id="battleSpeedDropdown">
-                <div class="selected-value" id="battleSpeedSelectedValue">보통</div>
+                <div class="selected-value" id="battleSpeedSelectedValue">${t("dino_battle.speedNormal")}</div>
                 <ul class="dropdown-list" id="battleSpeedList"></ul>
               </div>
-              <button class="btn-simulate" id="battleStartBtn">전투 시작</button>
-              <button class="battle-restart-btn" id="battleRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+              <button class="btn-simulate" id="battleStartBtn">${t("dino_battle.startBtn")}</button>
+              <button class="battle-restart-btn" id="battleRestartBtn" disabled title="${t("dino_battle.restartTooltip")}">↻</button>
             </div>
           </div>
         </div>
 
-        <button class="battle-peek-btn opp-peek" id="oppPeekBtn" title="상대 공룡 설정">◀</button>
+        <button class="battle-peek-btn opp-peek" id="oppPeekBtn" title="${t("dino_battle.oppPeekTooltip")}">◀</button>
       </div>
 
       <div class="battle-side-panel opp-side" id="oppSidePanel">
@@ -427,7 +427,7 @@ function renderDinoBattlePage(container) {
     <div class="friend-picker-overlay" id="friendPickerOverlay" style="display:none;">
       <div class="friend-picker-modal">
         <div class="friend-picker-header">
-          <span id="friendPickerTitle">친구 선택</span>
+          <span id="friendPickerTitle">${t("dino_battle.friendPicker.defaultTitle")}</span>
           <button class="close-btn" id="friendPickerClose">✕</button>
         </div>
         <div id="friendPickerList"></div>
@@ -457,8 +457,8 @@ function initDinoBattlePage() {
     idPrefix: "myB_",
     storageKey: MY_DINO_PROFILE_KEY,
     unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
-    header: { title: "내 공룡", titleId: "myPanelTitleText", closeId: "myPanelClose", onClose: closeSidePanels },
+    unsuitableLabel: t("dino_battle.unsuitableRuneLabel"),
+    header: { title: t("dino_battle.panelHeader.myDino"), titleId: "myPanelTitleText", closeId: "myPanelClose", onClose: closeSidePanels },
     onChange: (profile) => {
       resetBattleDisplay();
       if (isFriendSessionActive()) sendMyProfileUpdate(profile);
@@ -559,7 +559,7 @@ function startQuickCalc() {
   const tileSettings = getEffectiveTileSettings();
   const btn = document.getElementById("quickCalcBtn");
   btn.disabled = true;
-  btn.innerText = "계산 중...";
+  btn.innerText = t("dino_battle.quick.calcBtnBusy");
 
   // 애니메이션 없이 동기 계산이라 순식간에 끝남 - setTimeout으로 한 틱 양보해서
   // "계산 중..." 텍스트가 먼저 그려지게만 함
@@ -577,9 +577,9 @@ function startQuickCalc() {
     const myDeaths = result.oppKills;
     const oppDeaths = result.myKills;
 
-    document.getElementById("qcRatio").innerText = `사망횟수 ${myDeaths} : ${oppDeaths}`;
+    document.getElementById("qcRatio").innerText = t("dino_battle.quick.ratioText", { myDeaths, oppDeaths });
     const normRatio = formatNormalizedRatio(myDeaths, oppDeaths);
-    document.getElementById("qcRatioNorm").innerText = normRatio ? `교환비 ${normRatio}` : "";
+    document.getElementById("qcRatioNorm").innerText = normRatio ? t("dino_battle.quick.exchangeRatioText", { ratio: normRatio }) : "";
     document.getElementById("qcMyDmg").innerText = Math.round(result.avgMyDmgPerHit).toLocaleString();
     document.getElementById("qcOppDmg").innerText = Math.round(result.avgOppDmgPerHit).toLocaleString();
 
@@ -587,16 +587,16 @@ function startQuickCalc() {
     // 끝나기 쉬움 - 실제 전투 로직은 안 건드리고, 이미 나온 사망비를 근거로 산수로만 계산
     // (상대 N마리를 전멸시키는 데 내가 최소 몇 마리 필요한지)
     let neededText;
-    if (oppDeaths === 0) neededText = "상관없음(전멸 불가)";
-    else if (myDeaths === 0) neededText = "1마리";
-    else neededText = `${Math.ceil((myDeaths * oppInputs.count) / oppDeaths).toLocaleString()}마리`;
+    if (oppDeaths === 0) neededText = t("dino_battle.quick.neededImpossible");
+    else if (myDeaths === 0) neededText = t("dino_battle.quick.neededOne");
+    else neededText = t("dino_battle.quick.neededCountValue", { count: Math.ceil((myDeaths * oppInputs.count) / oppDeaths).toLocaleString() });
     document.getElementById("qcNeededCount").innerText = neededText;
-    document.getElementById("qcNeededCountBase").innerText = `상대 ${oppInputs.count}마리 기준`;
+    document.getElementById("qcNeededCountBase").innerText = t("dino_battle.quick.neededCountBase", { count: oppInputs.count });
 
     document.getElementById("quickCalcResult").style.display = "grid";
 
     btn.disabled = false;
-    btn.innerText = `${QUICK_CALC_TRIALS.toLocaleString()}회 계산하기`;
+    btn.innerText = t("dino_battle.quick.calcBtn", { trials: QUICK_CALC_TRIALS.toLocaleString() });
   }, 10);
 }
 
@@ -609,14 +609,14 @@ function initSpeedDropdown() {
   const currentMs = getBattleSpeedMs();
   const list = document.getElementById("battleSpeedList");
   const selectedValue = document.getElementById("battleSpeedSelectedValue");
-  selectedValue.textContent = BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label;
+  selectedValue.textContent = sharedOptionLabel(BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label);
 
   BATTLE_SPEED_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       localStorage.setItem(DINO_BATTLE_SPEED_KEY, String(opt.ms));
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
     };
     list.appendChild(li);
@@ -640,14 +640,14 @@ function initTileSettings() {
 
   const tribeList = document.getElementById("tileTribeList");
   const tribeSelectedValue = document.getElementById("tileTribeSelectedValue");
-  tribeSelectedValue.textContent = TRIBE_LABELS[settings.tribeControl];
+  tribeSelectedValue.textContent = t(TRIBE_LABEL_KEYS[settings.tribeControl]);
 
-  Object.keys(TRIBE_LABELS).forEach((key) => {
+  Object.keys(TRIBE_LABEL_KEYS).forEach((key) => {
     const li = document.createElement("li");
-    li.textContent = TRIBE_LABELS[key];
+    li.textContent = t(TRIBE_LABEL_KEYS[key]);
     li.onclick = () => {
       settings.tribeControl = key;
-      tribeSelectedValue.textContent = TRIBE_LABELS[key];
+      tribeSelectedValue.textContent = t(TRIBE_LABEL_KEYS[key]);
       tribeList.style.display = "none";
       saveTileSettings(settings);
       if (isFriendSessionActive()) {
@@ -664,16 +664,16 @@ function initTileSettings() {
   // 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀. 친구 세션
   // 공유값이 아니라 각자 자기 서버 기준으로 알아서 설정하는 개인 값이라 sendMyTileUpdate로
   // 전파하지 않음(자연의 포옹/부족 점령과는 다름 - 그건 "같은 타일" 개념이라 공유해야 함)
-  const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const capLabelFor = (v) => sharedOptionLabel(SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const capList = document.getElementById("tileServerLevelCapList");
   const capSelectedValue = document.getElementById("tileServerLevelCapSelectedValue");
   capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
   SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveServerLevelCap(opt.value);
-      capSelectedValue.textContent = opt.label;
+      capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
       resetBattleDisplay();
     };
@@ -682,16 +682,16 @@ function initTileSettings() {
   capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
 
   // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정(마찬가지로 친구 세션에 전파 안 함)
-  const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const constLabelFor = (v) => sharedOptionLabel(CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const constList = document.getElementById("tileConstellationCapList");
   const constSelectedValue = document.getElementById("tileConstellationCapSelectedValue");
   constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
   CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveConstellationLevelCap(opt.value);
-      constSelectedValue.textContent = opt.label;
+      constSelectedValue.textContent = sharedOptionLabel(opt.label);
       constList.style.display = "none";
       resetBattleDisplay();
     };
@@ -723,15 +723,15 @@ function initBuffTowerDropdown(sideKey, statKey, settings) {
   const idPrefix = `${sideKey}${statKey}Tower`;
   const list = document.getElementById(`${idPrefix}List`);
   const selectedValue = document.getElementById(`${idPrefix}SelectedValue`);
-  const labelFor = (v) => BUFF_TOWER_OPTIONS.find((o) => o.value === v).label;
+  const labelFor = (v) => sharedOptionLabel(BUFF_TOWER_OPTIONS.find((o) => o.value === v).label);
   selectedValue.textContent = labelFor(settings[settingsField]);
 
   BUFF_TOWER_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       settings[settingsField] = opt.value;
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
       saveTileSettings(settings);
       // 상대 쪽 버프 타워는 세션 중엔 잠겨서(applyOppTileLock) 애초에 이 li를 못 누르니, 여기선
@@ -752,15 +752,15 @@ function initArrangementDropdown(sideKey, settings) {
   const settingsField = `${sideKey}TileArrangement`;
   const list = document.getElementById(`${sideKey}TileArrangementList`);
   const selectedValue = document.getElementById(`${sideKey}TileArrangementSelectedValue`);
-  selectedValue.textContent = ARRANGEMENT_LABELS[settings[settingsField]];
+  selectedValue.textContent = t(ARRANGEMENT_LABEL_KEYS[settings[settingsField]]);
   applyTileArrangementClass(sideKey, settings[settingsField]);
 
-  Object.keys(ARRANGEMENT_LABELS).forEach((key) => {
+  Object.keys(ARRANGEMENT_LABEL_KEYS).forEach((key) => {
     const li = document.createElement("li");
-    li.textContent = ARRANGEMENT_LABELS[key];
+    li.textContent = t(ARRANGEMENT_LABEL_KEYS[key]);
     li.onclick = () => {
       settings[settingsField] = key;
-      selectedValue.textContent = ARRANGEMENT_LABELS[key];
+      selectedValue.textContent = t(ARRANGEMENT_LABEL_KEYS[key]);
       list.style.display = "none";
       saveTileSettings(settings);
       applyTileArrangementClass(sideKey, key);
@@ -893,9 +893,9 @@ function applyOppTileLock(locked) {
 function refreshOppTileDisplayFromSession() {
   const session = getActiveSession();
   if (!session || session.status !== "active") return;
-  const arrangementLabel = ARRANGEMENT_LABELS[session.friendSide.arrangement] || ARRANGEMENT_LABELS.same;
-  const atkLabel = (BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.atkTowerLevel) || BUFF_TOWER_OPTIONS[0]).label;
-  const hpLabel = (BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.hpTowerLevel) || BUFF_TOWER_OPTIONS[0]).label;
+  const arrangementLabel = t(ARRANGEMENT_LABEL_KEYS[session.friendSide.arrangement] || ARRANGEMENT_LABEL_KEYS.same);
+  const atkLabel = sharedOptionLabel((BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.atkTowerLevel) || BUFF_TOWER_OPTIONS[0]).label);
+  const hpLabel = sharedOptionLabel((BUFF_TOWER_OPTIONS.find((o) => o.value === session.friendSide.hpTowerLevel) || BUFF_TOWER_OPTIONS[0]).label);
   document.getElementById("oppTileArrangementSelectedValue").textContent = arrangementLabel;
   document.getElementById("oppAtkTowerSelectedValue").textContent = atkLabel;
   document.getElementById("oppHpTowerSelectedValue").textContent = hpLabel;
@@ -911,7 +911,7 @@ function refreshSharedTileDisplayFromSession() {
   if (natureToggle) natureToggle.checked = session.sharedTile.natureAdjacent;
   const tribeControl = computeTribeControlFromUserId(session.sharedTile.tribeControlUserId, session.myId, session.friendId);
   const tribeSelectedValue = document.getElementById("tileTribeSelectedValue");
-  if (tribeSelectedValue) tribeSelectedValue.textContent = TRIBE_LABELS[tribeControl];
+  if (tribeSelectedValue) tribeSelectedValue.textContent = t(TRIBE_LABEL_KEYS[tribeControl]);
 }
 
 // "내 공룡"/"상대 공룡" 라벨(타일 설정 카드의 좌우 라벨, 전투 카드의 좌우 파이터 이름, 좌우 설정
@@ -924,7 +924,7 @@ function updateFriendLabels() {
   const session = getActiveSession();
   const active = session && session.status === "active";
   const myLabel = active ? session.myNickname : getMyDisplayNameSync();
-  const oppLabel = active ? session.friendNickname : (friendSnapshotProfile ? friendSnapshotNickname : "상대 공룡");
+  const oppLabel = active ? session.friendNickname : (friendSnapshotProfile ? friendSnapshotNickname : t("dino_battle.defaultOppLabel"));
   const targets = [
     [".tile-side-col-label.my-side-label", myLabel],
     [".tile-side-col-label.opp-side-label", oppLabel],
@@ -947,14 +947,14 @@ function renderOppPanel() {
   const session = getActiveSession();
   // 모든 분기가 공유하는 헤더(제목/툴바/닫기 버튼) - renderMyDinoPage에 그대로 넘기거나,
   // 탭 컴포넌트를 안 쓰는 임시 카드(초대 중/불러오는 중)에는 dinoPanelHeaderHtml로 직접 붙임
-  const header = { title: "상대 공룡", titleId: "oppPanelTitleText", toolbarId: "oppPanelToolbar", closeId: "oppPanelClose", onClose: closeSidePanels };
+  const header = { title: t("dino_battle.panelHeader.oppDino"), titleId: "oppPanelTitleText", toolbarId: "oppPanelToolbar", closeId: "oppPanelClose", onClose: closeSidePanels };
 
   if (session && session.status === "inviting") {
     container.innerHTML = `
       <div class="card friend-session-waiting">
         ${dinoPanelHeaderHtml(header)}
-        <div>${session.friendNickname}님에게 초대를 보냈습니다.<br>응답을 기다리는 중...</div>
-        <button class="friend-toolbar-btn" id="cancelInviteBtn">초대 취소</button>
+        <div>${t("dino_battle.inviteSentLine", { nickname: session.friendNickname })}</div>
+        <button class="friend-toolbar-btn" id="cancelInviteBtn">${t("dino_battle.cancelInviteBtn")}</button>
       </div>
     `;
     wireDinoPanelHeader(container, header);
@@ -964,15 +964,15 @@ function renderOppPanel() {
       renderMyDinoPage(container, {
         idPrefix: "oppB_",
         unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
-        unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+        unsuitableLabel: t("dino_battle.unsuitableRuneLabel"),
         header,
-        readOnly: { profile: session.friendProfile, tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` }
+        readOnly: { profile: session.friendProfile, tagText: t("dino_battle.readonlyLiveTag", { nickname: session.friendNickname }) }
       });
     } else {
       container.innerHTML = `
         <div class="card friend-session-waiting">
           ${dinoPanelHeaderHtml(header)}
-          <div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div>
+          <div>${t("dino_battle.loadingFriendProfile", { nickname: session.friendNickname })}</div>
         </div>
       `;
       wireDinoPanelHeader(container, header);
@@ -983,11 +983,11 @@ function renderOppPanel() {
     renderMyDinoPage(container, {
       idPrefix: "oppB_",
       unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
-      unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+      unsuitableLabel: t("dino_battle.unsuitableRuneLabel"),
       header,
       readOnly: {
         profile: friendSnapshotProfile,
-        tagText: `🔒 ${friendSnapshotNickname} - 스냅샷 (편집 불가)`,
+        tagText: t("dino_battle.readonlySnapshotTag", { nickname: friendSnapshotNickname }),
         allowPresetSwitch: true,
         onPresetSwitch: () => resetBattleDisplay()
       }
@@ -997,7 +997,7 @@ function renderOppPanel() {
       idPrefix: "oppB_",
       storageKey: DINO_BATTLE_OPPONENT_KEY,
       unsuitableList: DINO_BATTLE_UNSUITABLE_RUNE_LIST,
-      unsuitableLabel: "공룡 대전에 적합하지 않은 룬입니다",
+      unsuitableLabel: t("dino_battle.unsuitableRuneLabel"),
       header,
       onChange: () => resetBattleDisplay()
     });
@@ -1012,10 +1012,10 @@ function renderOppPanelToolbar() {
   const session = getActiveSession();
 
   if (session && (session.status === "active" || session.status === "inviting")) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="leaveFriendSessionBtn">세션 나가기</button>`;
+    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="leaveFriendSessionBtn">${t("dino_battle.leaveSessionBtn")}</button>`;
     document.getElementById("leaveFriendSessionBtn").onclick = () => leaveFriendSession();
   } else if (friendSnapshotProfile) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn" id="clearSnapshotBtn">직접 설정으로 전환</button>`;
+    toolbar.innerHTML = `<button class="friend-toolbar-btn" id="clearSnapshotBtn">${t("dino_battle.switchToLocalBtn")}</button>`;
     document.getElementById("clearSnapshotBtn").onclick = () => {
       friendSnapshotProfile = null;
       friendSnapshotNickname = null;
@@ -1025,8 +1025,8 @@ function renderOppPanelToolbar() {
     };
   } else if (myUserId) {
     toolbar.innerHTML = `
-      <button class="friend-toolbar-btn" id="inviteFriendBtn">친구 초대</button>
-      <button class="friend-toolbar-btn" id="loadFriendBtn">설정 불러오기</button>
+      <button class="friend-toolbar-btn" id="inviteFriendBtn">${t("dino_battle.inviteFriendBtn")}</button>
+      <button class="friend-toolbar-btn" id="loadFriendBtn">${t("dino_battle.loadSettingsBtn")}</button>
     `;
     document.getElementById("inviteFriendBtn").onclick = () => openFriendPicker("invite");
     document.getElementById("loadFriendBtn").onclick = () => openFriendPicker("snapshot");
@@ -1039,15 +1039,15 @@ async function openFriendPicker(mode) {
   const overlay = document.getElementById("friendPickerOverlay");
   const title = document.getElementById("friendPickerTitle");
   const list = document.getElementById("friendPickerList");
-  title.textContent = mode === "invite" ? "누구를 초대할까요?" : "누구의 설정을 불러올까요?";
-  list.innerHTML = `<div class="friend-picker-empty">불러오는 중...</div>`;
+  title.textContent = mode === "invite" ? t("dino_battle.friendPicker.inviteTitle") : t("dino_battle.friendPicker.snapshotTitle");
+  list.innerHTML = `<div class="friend-picker-empty">${t("dino_battle.friendPicker.loading")}</div>`;
   overlay.style.display = "flex";
 
   const friends = await getAcceptedFriends(myUserId);
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
 
   if (friends.length === 0) {
-    list.innerHTML = `<div class="friend-picker-empty">친구가 없습니다. 먼저 친구를 추가해주세요.</div>`;
+    list.innerHTML = `<div class="friend-picker-empty">${t("dino_battle.friendPicker.empty")}</div>`;
     return;
   }
   list.innerHTML = friends
@@ -1074,7 +1074,7 @@ async function loadFriendSnapshot(friendId, friendNickname) {
   // 꺼져 있을 때만 null이 오고 켜져 있으면 항상 전체 프로필이 옴(카테고리별 설정과 무관)
   const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "battle" });
   if (error || !data) {
-    alert("설정을 불러오지 못했습니다. 친구가 스탯 공개를 꺼두었거나 친구 관계가 아닐 수 있습니다.");
+    alert(t("dino_battle.loadFailedAlert"));
     return;
   }
   friendSnapshotProfile = data;
@@ -1302,8 +1302,22 @@ function resetBattleDisplay() {
 
   const startBtn = document.getElementById("battleStartBtn");
   startBtn.disabled = false;
-  startBtn.innerText = "전투 시작";
+  startBtn.innerText = t("dino_battle.startBtn");
   startBtn.classList.remove("is-pressed");
+}
+
+// js/core/simulation-dino-battle.js가 hit/aoe label로 넘기는 문자열은 "평타"(사전 정의된 비교용
+// 상수, 화면에 안 보임) 아니면 대부분 룬 이름(RUNES_DATA 키) 그대로인데, 낙뢰/메테오 계열만 룬
+// 이름에 괄호 설명을 덧붙인 별도 문자열("낙뢰(즉사)" 등)이라 RUNES_DATA 키가 아님 - 이 셋만 따로
+// 번역 키에 매핑하고, 나머지는 ruleDisplayName()에 그대로 맡김(룬 이름이 아니면 원문 그대로 반환)
+const DINO_BATTLE_SPECIAL_LABEL_KEYS = {
+  "낙뢰(즉사)": "dino_battle.log.meteorInstant",
+  "메테오(광역)": "dino_battle.log.meteorAoe",
+  "메테오(주변 타일)": "dino_battle.log.meteorSurrounding"
+};
+function dinoBattleDisplayLabel(label) {
+  const specialKey = DINO_BATTLE_SPECIAL_LABEL_KEYS[label];
+  return specialKey ? t(specialKey) : ruleDisplayName(label);
 }
 
 // 같은 타겟에게 한 턴에 여러 팝업이 뜰 때 겹치지 않도록 인덱스 기준으로 좌우/상하로 살짝 흩어줌
@@ -1324,10 +1338,17 @@ function spawnDamagePopup(fighterElId, dmg, isCrit, label, delayMs, popupIndex =
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup" + (isSkill ? " skill" : "") + (isCrit ? " crit" : "");
     popup.style.cssText = popupOffsetStyle(popupIndex);
-    popup.innerText = (label && label !== "평타" ? `${label} ` : "") + Math.round(dmg).toLocaleString() + (isCrit ? "!" : "");
+    popup.innerText = (isSkill ? `${dinoBattleDisplayLabel(label)} ` : "") + Math.round(dmg).toLocaleString() + (isCrit ? "!" : "");
     fighter.appendChild(popup);
     popup.addEventListener("animationend", () => popup.remove());
   }, delayMs);
+}
+
+// cause는 대부분 룬 이름(흡혈/힐/희생/마지막 선물)이지만, 100회 교환 무한 교착 방지 규칙만
+// 예외적으로 룬이 아닌 고정 문구("100회 교환 - 동시 사망")를 그대로 넘김 - dinoBattleDisplayLabel과
+// 같은 패턴으로 이 하나만 따로 매핑하고 나머지는 ruleDisplayName()에 맡김
+function dinoBattleDisplayHealCause(cause) {
+  return cause === "100회 교환 - 동시 사망" ? t("dino_battle.mutualKillPopup") : ruleDisplayName(cause);
 }
 
 function spawnHealPopup(fighterElId, amount, cause, delayMs, popupIndex = 0) {
@@ -1337,7 +1358,8 @@ function spawnHealPopup(fighterElId, amount, cause, delayMs, popupIndex = 0) {
     const popup = document.createElement("div");
     popup.className = "battle-dmg-popup heal";
     popup.style.cssText = popupOffsetStyle(popupIndex);
-    popup.innerText = amount > 0 ? `+${Math.round(amount).toLocaleString()} (${cause})` : cause;
+    const causeLabel = dinoBattleDisplayHealCause(cause);
+    popup.innerText = amount > 0 ? `+${Math.round(amount).toLocaleString()} (${causeLabel})` : causeLabel;
     fighter.appendChild(popup);
     popup.addEventListener("animationend", () => popup.remove());
   }, delayMs);
@@ -1516,7 +1538,8 @@ function renderBattleEvent(ev) {
     arena.classList.add("area-flash");
     setTimeout(() => arena.classList.remove("area-flash"), 400);
     const side = ev.defenderSide;
-    spawnDamagePopup(`${side}AvatarSlot`, ev.aoe.targets.length, ev.aoe.isCrit, `${ev.aoe.label} ${ev.aoe.targets.length}마리 적중`, nextDelay[side], popupIndex[side]);
+    const aoeLabel = t("dino_battle.aoeHitLabel", { label: dinoBattleDisplayLabel(ev.aoe.label), count: ev.aoe.targets.length });
+    spawnDamagePopup(`${side}AvatarSlot`, ev.aoe.targets.length, ev.aoe.isCrit, aoeLabel, nextDelay[side], popupIndex[side]);
     popupIndex[side]++;
     nextDelay[side] += STAGGER_MS;
   }
@@ -1556,13 +1579,13 @@ function renderBattleEvent(ev) {
 function finishBattleDisplay(result) {
   const resultEl = document.getElementById("battleResult");
   resultEl.style.display = "block";
-  if (result.winner === "draw") resultEl.innerText = "무승부!";
-  else if (result.winner === "my") resultEl.innerText = "승리!";
-  else resultEl.innerText = "패배";
+  if (result.winner === "draw") resultEl.innerText = t("dino_battle.result.draw");
+  else if (result.winner === "my") resultEl.innerText = t("dino_battle.result.win");
+  else resultEl.innerText = t("dino_battle.result.lose");
 
   battlePhase = "finished";
   const startBtn = document.getElementById("battleStartBtn");
-  startBtn.innerText = "다시 시작";
+  startBtn.innerText = t("dino_battle.startBtnRestart");
   startBtn.classList.remove("is-pressed"); // 재생이 멈춘 상태라 눌린 채로 두지 않음
 }
 
@@ -1573,13 +1596,13 @@ function onBattleButtonClick() {
   const startBtn = document.getElementById("battleStartBtn");
   if (battlePhase === "playing") {
     battlePhase = "paused";
-    startBtn.innerText = "재개";
+    startBtn.innerText = t("dino_battle.startBtnResume");
     startBtn.classList.remove("is-pressed");
     return;
   }
   if (battlePhase === "paused") {
     battlePhase = "playing";
-    startBtn.innerText = "일시정지";
+    startBtn.innerText = t("dino_battle.startBtnPause");
     startBtn.classList.add("is-pressed");
     runBattleStep(battleToken);
     return;
@@ -1630,7 +1653,7 @@ function startBattle(externalSeed) {
   battlePhase = "playing";
 
   const startBtn = document.getElementById("battleStartBtn");
-  startBtn.innerText = "일시정지";
+  startBtn.innerText = t("dino_battle.startBtnPause");
   startBtn.classList.add("is-pressed");
   document.getElementById("battleResult").style.display = "none";
   updateRestartButtonState();

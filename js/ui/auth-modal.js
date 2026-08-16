@@ -6,7 +6,6 @@ let nicknameCheckTimer = null;
 
 // 한글/영문/숫자/밑줄만 허용 - 투명 문자, 전각 문자, 유사 문자(키릴 등)로 상대를 속이는 걸 원천 차단
 const NICKNAME_PATTERN = /^[가-힣a-zA-Z0-9_]{2,12}$/;
-const NICKNAME_RULE_MSG = "닉네임은 한글/영문/숫자/밑줄만 사용해 2~12자로 입력해주세요.";
 
 function buildAuthModalDom() {
   const root = document.getElementById("authModalRoot");
@@ -16,7 +15,7 @@ function buildAuthModalDom() {
     <div class="menu-overlay" id="authModalOverlay"></div>
     <div class="auth-modal" id="authModalPanel">
       <div class="auth-modal-header">
-        <span id="authModalTitle">로그인</span>
+        <span id="authModalTitle">${t("common.auth.title.login")}</span>
         <button class="close-btn" id="authModalCloseBtn">✕</button>
       </div>
 
@@ -25,56 +24,56 @@ function buildAuthModalDom() {
 
       <div id="authFieldsLogin">
         <div class="auth-field">
-          <label>닉네임</label>
+          <label>${t("common.auth.nicknameLabel")}</label>
           <input type="text" id="loginNickname" autocomplete="username">
         </div>
         <div class="auth-field">
-          <label>비밀번호</label>
+          <label>${t("common.auth.passwordLabel")}</label>
           <input type="password" id="loginPassword" autocomplete="current-password">
         </div>
-        <button class="btn-simulate auth-submit-btn" id="loginSubmitBtn">로그인</button>
+        <button class="btn-simulate auth-submit-btn" id="loginSubmitBtn">${t("common.auth.loginBtn")}</button>
         <div class="auth-modal-links">
-          <a href="#" id="goToSignup">회원가입</a>
-          <a href="#" id="goToForgot">비밀번호를 잊으셨나요?</a>
+          <a href="#" id="goToSignup">${t("common.auth.signupLink")}</a>
+          <a href="#" id="goToForgot">${t("common.auth.forgotLink")}</a>
         </div>
       </div>
 
       <div id="authFieldsSignup" style="display:none;">
         <div class="auth-field">
-          <label>닉네임</label>
+          <label>${t("common.auth.nicknameLabel")}</label>
           <input type="text" id="signupNickname" autocomplete="username">
           <div class="auth-nickname-hint" id="signupNicknameHint"></div>
         </div>
         <div class="auth-field">
-          <label>이메일 (비밀번호 재설정에 사용)</label>
+          <label>${t("common.auth.signupEmailLabel")}</label>
           <input type="email" id="signupEmail" autocomplete="email">
         </div>
         <div class="auth-field">
-          <label>비밀번호</label>
+          <label>${t("common.auth.passwordLabel")}</label>
           <input type="password" id="signupPassword" autocomplete="new-password">
         </div>
         <div class="auth-field">
-          <label>비밀번호 확인</label>
+          <label>${t("common.auth.passwordConfirmLabel")}</label>
           <input type="password" id="signupPasswordConfirm" autocomplete="new-password">
         </div>
         <label class="auth-consent-row">
           <input type="checkbox" id="signupConsent">
-          <span>[필수] 개인정보 수집 및 이용에 동의합니다. (<a href="#privacy" target="_blank" rel="noopener">전문 보기</a>)</span>
+          <span>${t("common.auth.consentLabel")}</span>
         </label>
-        <button class="btn-simulate auth-submit-btn" id="signupSubmitBtn" disabled>가입하기</button>
+        <button class="btn-simulate auth-submit-btn" id="signupSubmitBtn" disabled>${t("common.auth.signupBtn")}</button>
         <div class="auth-modal-links">
-          <a href="#" id="backToLoginFromSignup">이미 계정이 있으신가요? 로그인</a>
+          <a href="#" id="backToLoginFromSignup">${t("common.auth.alreadyHaveAccount")}</a>
         </div>
       </div>
 
       <div id="authFieldsForgot" style="display:none;">
         <div class="auth-field">
-          <label>닉네임 또는 이메일</label>
+          <label>${t("common.auth.forgotIdentifierLabel")}</label>
           <input type="text" id="forgotIdentifier">
         </div>
-        <button class="btn-simulate auth-submit-btn" id="forgotSubmitBtn">재설정 링크 보내기</button>
+        <button class="btn-simulate auth-submit-btn" id="forgotSubmitBtn">${t("common.auth.forgotSubmitBtn")}</button>
         <div class="auth-modal-links">
-          <a href="#" id="backToLoginFromForgot">로그인으로 돌아가기</a>
+          <a href="#" id="backToLoginFromForgot">${t("common.auth.backToLogin")}</a>
         </div>
       </div>
     </div>
@@ -127,11 +126,11 @@ function closeAuthModal() {
   panel.classList.remove("open");
 }
 
-const AUTH_MODE_TITLES = { login: "로그인", signup: "회원가입", forgot: "비밀번호 찾기" };
+const AUTH_MODE_TITLE_KEYS = { login: "common.auth.title.login", signup: "common.auth.title.signup", forgot: "common.auth.title.forgot" };
 
 // 폼 전환 시 필드/버튼/힌트를 전부 기본 상태로 리셋(가입완료 안내 등으로 필드를 숨겼던 상태 포함)
 function setAuthMode(mode) {
-  document.getElementById("authModalTitle").innerText = AUTH_MODE_TITLES[mode];
+  document.getElementById("authModalTitle").innerText = t(AUTH_MODE_TITLE_KEYS[mode]);
   document.getElementById("authFieldsLogin").style.display = mode === "login" ? "block" : "none";
   document.getElementById("authFieldsSignup").style.display = mode === "signup" ? "block" : "none";
   document.getElementById("authFieldsForgot").style.display = mode === "forgot" ? "block" : "none";
@@ -198,7 +197,7 @@ function scheduleNicknameCheck() {
   hint.className = "auth-nickname-hint";
   if (!nickname) return;
   if (!NICKNAME_PATTERN.test(nickname)) {
-    hint.innerText = NICKNAME_RULE_MSG;
+    hint.innerText = t("common.auth.nicknameRuleMsg");
     hint.classList.add("auth-nickname-hint-bad");
     return;
   }
@@ -210,10 +209,10 @@ function scheduleNicknameCheck() {
       .maybeSingle();
     if (error) return;
     if (data) {
-      hint.innerText = "이미 사용 중인 닉네임입니다";
+      hint.innerText = t("common.auth.nicknameTaken");
       hint.classList.add("auth-nickname-hint-bad");
     } else {
-      hint.innerText = "사용 가능한 닉네임입니다";
+      hint.innerText = t("common.auth.nicknameAvailable");
       hint.classList.add("auth-nickname-hint-good");
     }
   }, 400);
@@ -224,25 +223,25 @@ async function handleLoginSubmit() {
   const nickname = document.getElementById("loginNickname").value.trim();
   const password = document.getElementById("loginPassword").value;
   if (!nickname || !password) {
-    showAuthError("닉네임과 비밀번호를 입력해주세요.");
+    showAuthError(t("common.auth.loginMissingFields"));
     return;
   }
 
-  setSubmitBusy("loginSubmitBtn", true, "로그인 중...", "로그인");
+  setSubmitBusy("loginSubmitBtn", true, t("common.auth.loginBusy"), t("common.auth.loginBtn"));
   try {
     const { data: email, error: rpcError } = await supabaseClient.rpc("get_email_for_nickname", { p_nickname: nickname });
     if (rpcError || !email) {
-      showAuthError("닉네임 또는 비밀번호가 올바르지 않습니다.");
+      showAuthError(t("common.auth.loginWrong"));
       return;
     }
     const { error: signInError } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (signInError) {
-      showAuthError("닉네임 또는 비밀번호가 올바르지 않습니다.");
+      showAuthError(t("common.auth.loginWrong"));
       return;
     }
     closeAuthModal();
   } finally {
-    setSubmitBusy("loginSubmitBtn", false, "로그인 중...", "로그인");
+    setSubmitBusy("loginSubmitBtn", false, t("common.auth.loginBusy"), t("common.auth.loginBtn"));
   }
 }
 
@@ -254,27 +253,27 @@ async function handleSignupSubmit() {
   const passwordConfirm = document.getElementById("signupPasswordConfirm").value;
 
   if (!nickname || !email || !password || !passwordConfirm) {
-    showAuthError("모든 항목을 입력해주세요.");
+    showAuthError(t("common.auth.signupMissingFields"));
     return;
   }
   if (!document.getElementById("signupConsent").checked) {
-    showAuthError("개인정보 수집 및 이용에 동의해주세요.");
+    showAuthError(t("common.auth.signupConsentRequired"));
     return;
   }
   if (!NICKNAME_PATTERN.test(nickname)) {
-    showAuthError(NICKNAME_RULE_MSG);
+    showAuthError(t("common.auth.nicknameRuleMsg"));
     return;
   }
   if (password.length < 6) {
-    showAuthError("비밀번호는 6자 이상이어야 합니다.");
+    showAuthError(t("common.auth.passwordTooShort"));
     return;
   }
   if (password !== passwordConfirm) {
-    showAuthError("비밀번호가 일치하지 않습니다.");
+    showAuthError(t("common.auth.passwordMismatch"));
     return;
   }
 
-  setSubmitBusy("signupSubmitBtn", true, "가입 중...", "가입하기");
+  setSubmitBusy("signupSubmitBtn", true, t("common.auth.signupBusy"), t("common.auth.signupBtn"));
   try {
     const { data: existing } = await supabaseClient
       .from("profiles")
@@ -282,7 +281,7 @@ async function handleSignupSubmit() {
       .eq("nickname", nickname)
       .maybeSingle();
     if (existing) {
-      showAuthError("이미 사용 중인 닉네임입니다.");
+      showAuthError(t("common.auth.nicknameTakenPeriod"));
       return;
     }
 
@@ -298,11 +297,11 @@ async function handleSignupSubmit() {
     if (error) {
       const msg = (error.message || "").toLowerCase();
       if (msg.includes("duplicate") || msg.includes("nickname")) {
-        showAuthError("이미 사용 중인 닉네임입니다.");
+        showAuthError(t("common.auth.nicknameTakenPeriod"));
       } else if (msg.includes("already registered") || msg.includes("already exists")) {
-        showAuthError("이미 가입된 이메일입니다.");
+        showAuthError(t("common.auth.emailAlreadyRegistered"));
       } else {
-        showAuthError("회원가입 중 오류가 발생했습니다: " + error.message);
+        showAuthError(t("common.auth.signupGenericError", { error: error.message }));
       }
       return;
     }
@@ -311,10 +310,10 @@ async function handleSignupSubmit() {
       // 이메일 인증이 꺼져 있으면 가입과 동시에 로그인 세션이 생김
       closeAuthModal();
     } else {
-      showAuthSuccessAndHideFields("authFieldsSignup", "가입 확인 이메일을 보냈습니다. 이메일의 링크를 눌러 인증을 완료한 뒤 로그인해주세요.");
+      showAuthSuccessAndHideFields("authFieldsSignup", t("common.auth.signupEmailSent"));
     }
   } finally {
-    setSubmitBusy("signupSubmitBtn", false, "가입 중...", "가입하기");
+    setSubmitBusy("signupSubmitBtn", false, t("common.auth.signupBusy"), t("common.auth.signupBtn"));
   }
 }
 
@@ -322,11 +321,11 @@ async function handleForgotSubmit() {
   clearAuthError();
   const identifier = document.getElementById("forgotIdentifier").value.trim();
   if (!identifier) {
-    showAuthError("닉네임 또는 이메일을 입력해주세요.");
+    showAuthError(t("common.auth.forgotMissingFields"));
     return;
   }
 
-  setSubmitBusy("forgotSubmitBtn", true, "전송 중...", "재설정 링크 보내기");
+  setSubmitBusy("forgotSubmitBtn", true, t("common.auth.forgotBusy"), t("common.auth.forgotSubmitBtn"));
   try {
     let email = identifier.includes("@") ? identifier : null;
     if (!email) {
@@ -337,8 +336,8 @@ async function handleForgotSubmit() {
       await supabaseClient.auth.resetPasswordForEmail(email);
     }
     // 계정 존재 여부를 노출하지 않기 위해 찾았든 못 찾았든 같은 안내를 보여줌
-    showAuthSuccessAndHideFields("authFieldsForgot", "입력하신 정보와 일치하는 계정이 있다면, 이메일로 재설정 링크를 보내드렸습니다.");
+    showAuthSuccessAndHideFields("authFieldsForgot", t("common.auth.forgotSent"));
   } finally {
-    setSubmitBusy("forgotSubmitBtn", false, "전송 중...", "재설정 링크 보내기");
+    setSubmitBusy("forgotSubmitBtn", false, t("common.auth.forgotBusy"), t("common.auth.forgotSubmitBtn"));
   }
 }

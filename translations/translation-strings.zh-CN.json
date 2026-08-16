@@ -230,7 +230,17 @@
     "common.updateBanner.text": "有新版本可用",
     "common.updateBanner.refreshBtn": "刷新",
     "common.updateBanner.dismissAriaLabel": "关闭",
-    "common.friendRequestToast": "{nickname}向你发送了好友请求"
+    "common.friendRequestToast": "{nickname}向你发送了好友请求",
+    "common.languageLabel": "语言",
+    "common.optionNone": "无",
+    "common.speed.slow": "慢速",
+    "common.speed.normal": "正常",
+    "common.speed.fast": "快速",
+    "common.authRow.profileTooltip": "前往个人资料",
+    "common.time.minutesOnly": "{m}分钟",
+    "common.time.secondsOnly": "{s}秒",
+    "common.time.minutesSeconds": "{m}分{s}秒",
+    "common.inviteBanner.text": "<b>{nickname}</b>邀请你一起研究"
   },
   "my_dino": {
     "my_dino.presetDefaultName": "预设 {index}",
@@ -390,7 +400,9 @@
     "titan.log.lastGiftProc": "{index}号恐龙阵亡 → 触发“临终馈赠”，{targetIndex}号恐龙攻击力 +{amount}（持续{turns}次）",
     "titan.log.fileLine1": "[{time}] 泰坦生命值：{titanHp} | 存活：{aliveCount}",
     "titan.log.fileLine2": "  - {index}号恐龙生命值：{hp}",
-    "titan.log.fileLine3": "  * {event}"
+    "titan.log.fileLine3": "  * {event}",
+    "titan.optimize.fixedContinuousNote": "组合查找专用固定",
+    "titan.settings.distanceValue": "{count}格"
   },
   "dino_battle": {
     "dino_battle.heading": "恐龙对战",
@@ -619,7 +631,29 @@
     "building.summary.catapultLevelLabel": "敌方投石车攻击等级",
     "building.summary.catapultSpeedLabel": "敌方投石车发射速度等级",
     "building.dinoAvatarNameFallback": "我的恐龙",
-    "building.quakeDamagePopupPrefix": "地震 "
+    "building.quakeDamagePopupPrefix": "地震 ",
+    "building.type.alarmTower": "警报塔",
+    "building.type.ammoDistributor": "弹药分配器",
+    "building.type.catapultLv1": "投石机 Lv.1",
+    "building.type.catapultLv2": "投石机 Lv.2",
+    "building.type.catapultLv3": "投石机 Lv.3",
+    "building.type.catapultLv4": "投石机 Lv.4",
+    "building.type.damageBuffTower": "攻击增益塔",
+    "building.type.hpBuffTower": "生命增益塔",
+    "building.type.base": "巢穴",
+    "building.type.noticeBoard": "部落公告板",
+    "building.type.portalBlue": "战争传送门",
+    "building.type.portalGreen": "部落传送门",
+    "building.type.wallLv1": "城墙 Lv.1",
+    "building.type.wallLv2": "城墙 Lv.2",
+    "building.type.wallLv3": "城墙 Lv.3",
+    "building.type.wallLv4": "城墙 Lv.4",
+    "building.type.warehouse": "部落总部",
+    "building.type.strawWall": "稻草堆",
+    "building.summary.distanceValue": "{count}格",
+    "building.time.minutesOnly": "{m}分钟",
+    "building.time.secondsOnly": "{s}秒",
+    "building.time.minutesSeconds": "{m}分{s}秒"
   },
   "rune_data": {
     "rune_data.grade.normal": "普通",

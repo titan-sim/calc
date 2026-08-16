@@ -98,7 +98,7 @@ function arenaProfileStorageKey(sideKey) {
 function arenaDefaultFormationsData() {
   return {
     formations: Array.from({ length: ARENA_FORMATION_COUNT }, (_, i) => ({
-      name: `배치 ${i + 1}`,
+      name: t("arena.formationDefaultName", { index: i + 1 }),
       slotPresetIndices: [null, null, null, null, null]
     })),
     activeFormationIndex: 0
@@ -108,7 +108,7 @@ function arenaDefaultFormationsData() {
 function arenaSanitizeFormation(f, i) {
   const raw = Array.isArray(f && f.slotPresetIndices) && f.slotPresetIndices.length === 5 ? f.slotPresetIndices : [null, null, null, null, null];
   return {
-    name: (f && f.name) || `배치 ${i + 1}`,
+    name: (f && f.name) || t("arena.formationDefaultName", { index: i + 1 }),
     slotPresetIndices: raw.map((idx) => (Number.isInteger(idx) && idx >= 0 && idx < RUNE_PRESET_COUNT ? idx : null))
   };
 }
@@ -215,8 +215,8 @@ function arenaSyncOppFormationsFromFriend(friendProfile) {
 function arenaUpdateFriendLabels() {
   const session = getActiveSession();
   const active = session && session.status === "active";
-  const myLabel = active ? session.myNickname : "내 진영";
-  const oppLabel = active ? session.friendNickname : (arenaFriendSnapshotProfile ? arenaFriendSnapshotNickname : "상대 진영");
+  const myLabel = active ? session.myNickname : t("arena.myLabel");
+  const oppLabel = active ? session.friendNickname : (arenaFriendSnapshotProfile ? arenaFriendSnapshotNickname : t("arena.oppLabel"));
   const myEl = document.getElementById("arenaMyPanelTitleText");
   const oppEl = document.getElementById("arenaOppPanelTitleText");
   if (myEl) myEl.textContent = myLabel;
@@ -247,7 +247,7 @@ function arenaUpdateBattlefieldPowerLabels() {
     return;
   }
 
-  const myNickname = sessionActive ? session.myNickname : "내 진영";
+  const myNickname = sessionActive ? session.myNickname : t("arena.myLabel");
   const oppNickname = sessionActive ? session.friendNickname : arenaFriendSnapshotNickname;
   const myPower = arenaComputeLevel(loadMyDinoProfile(MY_DINO_PROFILE_KEY)) * 5;
   const oppPower = arenaComputeLevel(arenaGetOppProfile()) * 5;
@@ -266,19 +266,19 @@ function renderArenaOppPanel() {
   const session = getActiveSession();
   // 모든 분기가 공유하는 헤더 - renderMyDinoPage에 그대로 넘기거나, 탭 컴포넌트를 안 쓰는 임시
   // 카드(초대 중/불러오는 중)에는 dinoPanelHeaderHtml로 직접 붙임
-  const header = { title: "상대 진영", titleId: "arenaOppPanelTitleText", toolbarId: "arenaOppToolbar", closeId: "arenaOppPanelClose", onClose: arenaCloseSidePanels };
+  const header = { title: t("arena.panelHeader.oppFormation"), titleId: "arenaOppPanelTitleText", toolbarId: "arenaOppToolbar", closeId: "arenaOppPanelClose", onClose: arenaCloseSidePanels };
   // "아레나 배치" 탭 - readOnly여도 arenaMountFormationTab이 arenaIsOppRunePresetsForeign()로
   // 스스로 편집 가능 여부를 판단하므로(마운트되는 컨테이너와 무관), 편집 가능/읽기전용 두 분기 모두
   // 완전히 같은 extraTab을 넣으면 됨 - 예전엔 읽기전용 쪽에 탭 시스템 자체가 없어서 별도 카드
   // (arenaAppendStandaloneFormationWidget)를 붙이는 우회책을 썼는데, 이제 필요 없어짐
-  const formationExtraTab = { id: "arenaFormation", label: "아레나 배치", render: (panelEl) => arenaMountFormationTab("opp", panelEl) };
+  const formationExtraTab = { id: "arenaFormation", label: t("arena.formationTabLabel"), render: (panelEl) => arenaMountFormationTab("opp", panelEl) };
 
   if (session && session.status === "inviting") {
     container.innerHTML = `
       <div class="card friend-session-waiting">
         ${dinoPanelHeaderHtml(header)}
-        <div>${session.friendNickname}님에게 초대를 보냈습니다.<br>응답을 기다리는 중...</div>
-        <button class="friend-toolbar-btn" id="arenaCancelInviteBtn">초대 취소</button>
+        <div>${t("arena.inviteSentLine", { nickname: session.friendNickname })}</div>
+        <button class="friend-toolbar-btn" id="arenaCancelInviteBtn">${t("arena.cancelInviteBtn")}</button>
       </div>
     `;
     wireDinoPanelHeader(container, header);
@@ -288,17 +288,17 @@ function renderArenaOppPanel() {
       renderMyDinoPage(container, {
         idPrefix: "arenaOpp_",
         unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
-        unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+        unsuitableLabel: t("arena.unsuitableRuneLabel"),
         splitCritStat: true,
         header,
         extraTab: formationExtraTab,
-        readOnly: { profile: session.friendProfile, tagText: `🔒 ${session.friendNickname} - 실시간으로 갱신됩니다` }
+        readOnly: { profile: session.friendProfile, tagText: t("arena.readonlyLiveTag", { nickname: session.friendNickname }) }
       });
     } else {
       container.innerHTML = `
         <div class="card friend-session-waiting">
           ${dinoPanelHeaderHtml(header)}
-          <div>${session.friendNickname}님의 공룡 설정을 불러오는 중...</div>
+          <div>${t("arena.loadingFriendProfile", { nickname: session.friendNickname })}</div>
         </div>
       `;
       wireDinoPanelHeader(container, header);
@@ -307,13 +307,13 @@ function renderArenaOppPanel() {
     renderMyDinoPage(container, {
       idPrefix: "arenaOpp_",
       unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
-      unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+      unsuitableLabel: t("arena.unsuitableRuneLabel"),
       splitCritStat: true,
       header,
       extraTab: formationExtraTab,
       readOnly: {
         profile: arenaFriendSnapshotProfile,
-        tagText: `🔒 ${arenaFriendSnapshotNickname} - 스냅샷 (편집 불가)`,
+        tagText: t("arena.readonlySnapshotTag", { nickname: arenaFriendSnapshotNickname }),
         allowPresetSwitch: true,
         onPresetSwitch: () => arenaResetDisplay()
       }
@@ -323,7 +323,7 @@ function renderArenaOppPanel() {
       idPrefix: "arenaOpp_",
       storageKey: ARENA_OPPONENT_KEY,
       unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
-      unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+      unsuitableLabel: t("arena.unsuitableRuneLabel"),
       splitCritStat: true,
       header,
       extraTab: formationExtraTab,
@@ -340,10 +340,10 @@ function renderArenaOppToolbar() {
   const session = getActiveSession();
 
   if (session && (session.status === "active" || session.status === "inviting")) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="arenaLeaveSessionBtn">세션 나가기</button>`;
+    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="arenaLeaveSessionBtn">${t("arena.leaveSessionBtn")}</button>`;
     document.getElementById("arenaLeaveSessionBtn").onclick = () => leaveFriendSession();
   } else if (arenaFriendSnapshotProfile) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn" id="arenaClearSnapshotBtn">직접 설정으로 전환</button>`;
+    toolbar.innerHTML = `<button class="friend-toolbar-btn" id="arenaClearSnapshotBtn">${t("arena.switchToLocalBtn")}</button>`;
     document.getElementById("arenaClearSnapshotBtn").onclick = () => {
       arenaFriendSnapshotProfile = null;
       arenaFriendSnapshotNickname = null;
@@ -354,8 +354,8 @@ function renderArenaOppToolbar() {
     };
   } else if (arenaMyUserId) {
     toolbar.innerHTML = `
-      <button class="friend-toolbar-btn" id="arenaInviteFriendBtn">친구 초대</button>
-      <button class="friend-toolbar-btn" id="arenaLoadFriendBtn">설정 불러오기</button>
+      <button class="friend-toolbar-btn" id="arenaInviteFriendBtn">${t("arena.inviteFriendBtn")}</button>
+      <button class="friend-toolbar-btn" id="arenaLoadFriendBtn">${t("arena.loadSettingsBtn")}</button>
     `;
     document.getElementById("arenaInviteFriendBtn").onclick = () => arenaOpenFriendPicker("invite");
     document.getElementById("arenaLoadFriendBtn").onclick = () => arenaOpenFriendPicker("snapshot");
@@ -368,15 +368,15 @@ async function arenaOpenFriendPicker(mode) {
   const overlay = document.getElementById("arenaFriendPickerOverlay");
   const title = document.getElementById("arenaFriendPickerTitle");
   const list = document.getElementById("arenaFriendPickerList");
-  title.textContent = mode === "invite" ? "누구를 초대할까요?" : "누구의 설정을 불러올까요?";
-  list.innerHTML = `<div class="friend-picker-empty">불러오는 중...</div>`;
+  title.textContent = mode === "invite" ? t("arena.friendPicker.inviteTitle") : t("arena.friendPicker.snapshotTitle");
+  list.innerHTML = `<div class="friend-picker-empty">${t("arena.friendPicker.loading")}</div>`;
   overlay.style.display = "flex";
 
   const friends = await getAcceptedFriends(arenaMyUserId);
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
 
   if (friends.length === 0) {
-    list.innerHTML = `<div class="friend-picker-empty">친구가 없습니다. 먼저 친구를 추가해주세요.</div>`;
+    list.innerHTML = `<div class="friend-picker-empty">${t("arena.friendPicker.empty")}</div>`;
     return;
   }
   list.innerHTML = friends
@@ -403,7 +403,7 @@ async function arenaLoadFriendSnapshot(friendId, friendNickname) {
   // 꺼져 있을 때만 null이 오고 켜져 있으면 항상 전체 프로필이 옴(카테고리별 설정과 무관)
   const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "battle" });
   if (error || !data) {
-    alert("설정을 불러오지 못했습니다. 친구가 스탯 공개를 꺼두었거나 친구 관계가 아닐 수 있습니다.");
+    alert(t("arena.loadFailedAlert"));
     return;
   }
   arenaFriendSnapshotProfile = data;
@@ -493,28 +493,28 @@ function arenaBattlefieldMarkup() {
 
 function renderArenaPage(container) {
   container.innerHTML = `
-    <h2 class="sr-only">아레나</h2>
+    <h2 class="sr-only">${t("arena.heading")}</h2>
     <div class="battle-layout" id="arenaLayout">
       <div class="battle-side-panel my-side" id="arenaMySidePanel">
         <div id="arenaMyDinoSection"></div>
       </div>
 
       <div class="battle-arena-wrap">
-        <button class="battle-peek-btn my-peek" id="arenaMyPeekBtn" title="내 진영 설정">▶</button>
+        <button class="battle-peek-btn my-peek" id="arenaMyPeekBtn" title="${t("arena.myPeekTooltip")}">▶</button>
 
         <div class="card battle-main-card" id="arenaMainCard">
           <div class="battle-mode-tabs mode-live" id="arenaModeTabs">
             <span class="battle-mode-indicator"></span>
-            <button class="battle-mode-tab" data-mode="quick" id="arenaModeTabQuick"><span>빠른 계산</span></button>
-            <button class="battle-mode-tab active" data-mode="live" id="arenaModeTabLive"><span>시뮬레이션</span></button>
+            <button class="battle-mode-tab" data-mode="quick" id="arenaModeTabQuick"><span>${t("arena.tab.quick")}</span></button>
+            <button class="battle-mode-tab active" data-mode="live" id="arenaModeTabLive"><span>${t("arena.tab.live")}</span></button>
           </div>
 
           <div class="battle-mode-panel" id="arenaQuickModeCard" style="display:none;">
-            <p class="quickcalc-desc">현재 배치로 독립된 5:5 전투를 ${ARENA_QUICK_CALC_TRIALS.toLocaleString()}번 반복해서 평균 승률과, 어느 진영의 앞열이 보통 먼저 전멸하는지 계산합니다.</p>
-            <button class="btn-simulate" id="arenaQuickCalcBtn">${ARENA_QUICK_CALC_TRIALS.toLocaleString()}회 계산하기</button>
+            <p class="quickcalc-desc">${t("arena.quick.desc", { trials: ARENA_QUICK_CALC_TRIALS.toLocaleString() })}</p>
+            <button class="btn-simulate" id="arenaQuickCalcBtn">${t("arena.quick.calcBtn", { trials: ARENA_QUICK_CALC_TRIALS.toLocaleString() })}</button>
             <div class="report-grid" id="arenaQcResult" style="display:none;">
-              <div class="report-tile"><div class="metric-label">승리 횟수 (${ARENA_QUICK_CALC_TRIALS.toLocaleString()}번 중)</div><div class="metric-value accent" id="arenaQcWinCount">-</div><div class="metric-sub" id="arenaQcWinNorm"></div></div>
-              <div class="report-tile"><div class="metric-label">앞열이 먼저 전멸하는 진영</div><div class="metric-value" id="arenaQcFrontSide">-</div><div class="metric-sub" id="arenaQcFrontPct"></div></div>
+              <div class="report-tile"><div class="metric-label">${t("arena.quick.winCountLabel", { trials: ARENA_QUICK_CALC_TRIALS.toLocaleString() })}</div><div class="metric-value accent" id="arenaQcWinCount">-</div><div class="metric-sub" id="arenaQcWinNorm"></div></div>
+              <div class="report-tile"><div class="metric-label">${t("arena.quick.frontFirstLabel")}</div><div class="metric-value" id="arenaQcFrontSide">-</div><div class="metric-sub" id="arenaQcFrontPct"></div></div>
             </div>
           </div>
 
@@ -526,16 +526,16 @@ function renderArenaPage(container) {
             <div class="battle-result" id="arenaBattleResult" style="display:none;"></div>
             <div class="battle-controls">
               <div class="custom-dropdown battle-speed-dropdown" id="arenaSpeedDropdown">
-                <div class="selected-value" id="arenaSpeedSelectedValue">보통</div>
+                <div class="selected-value" id="arenaSpeedSelectedValue">${t("arena.speedNormal")}</div>
                 <ul class="dropdown-list" id="arenaSpeedList"></ul>
               </div>
-              <button class="btn-simulate" id="arenaStartBtn">전투 시작</button>
-              <button class="battle-restart-btn" id="arenaRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+              <button class="btn-simulate" id="arenaStartBtn">${t("arena.startBtn")}</button>
+              <button class="battle-restart-btn" id="arenaRestartBtn" disabled title="${t("arena.restartTooltip")}">↻</button>
             </div>
           </div>
         </div>
 
-        <button class="battle-peek-btn opp-peek" id="arenaOppPeekBtn" title="상대 진영 설정">◀</button>
+        <button class="battle-peek-btn opp-peek" id="arenaOppPeekBtn" title="${t("arena.oppPeekTooltip")}">◀</button>
       </div>
 
       <div class="battle-side-panel opp-side" id="arenaOppSidePanel">
@@ -547,7 +547,7 @@ function renderArenaPage(container) {
     <div class="friend-picker-overlay" id="arenaFriendPickerOverlay" style="display:none;">
       <div class="friend-picker-modal">
         <div class="friend-picker-header">
-          <span id="arenaFriendPickerTitle">친구 선택</span>
+          <span id="arenaFriendPickerTitle">${t("arena.friendPicker.defaultTitle")}</span>
           <button class="close-btn" id="arenaFriendPickerClose">✕</button>
         </div>
         <div id="arenaFriendPickerList"></div>
@@ -558,8 +558,8 @@ function renderArenaPage(container) {
       <div class="friend-picker-modal arena-slot-edit-modal">
         <div class="friend-picker-header">
           <span>
-            <span id="arenaSlotEditTitle">슬롯</span>
-            <span class="arena-slot-edit-hint" id="arenaSlotEditHint">더블클릭하여 확정</span>
+            <span id="arenaSlotEditTitle">${t("arena.slotEdit.defaultTitle")}</span>
+            <span class="arena-slot-edit-hint" id="arenaSlotEditHint">${t("arena.slotEdit.confirmHint")}</span>
           </span>
           <button class="close-btn" id="arenaSlotEditClose">✕</button>
         </div>
@@ -583,8 +583,8 @@ function renderArenaPage(container) {
               <div class="desc-box" id="arenaSlotEdit_detailDesc"></div>
             </div>
             <div class="btn-apply-row">
-              <button class="btn-apply" id="arenaSlotEdit_applyBtn">슬롯에 장착</button>
-              <button class="btn-apply" id="arenaSlotEdit_removeBtn" style="border-color:var(--border-color); color:var(--text-sub);">장착 해제</button>
+              <button class="btn-apply" id="arenaSlotEdit_applyBtn">${t("arena.rune.applyBtn")}</button>
+              <button class="btn-apply" id="arenaSlotEdit_removeBtn" style="border-color:var(--border-color); color:var(--text-sub);">${t("arena.rune.removeBtn")}</button>
             </div>
           </div>
         </div>
@@ -615,10 +615,10 @@ function initArenaPage() {
     idPrefix: "arenaMy_",
     storageKey: MY_DINO_PROFILE_KEY,
     unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+    unsuitableLabel: t("arena.unsuitableRuneLabel"),
     splitCritStat: true,
-    header: { title: "내 진영", titleId: "arenaMyPanelTitleText", closeId: "arenaMyPanelClose", onClose: arenaCloseSidePanels },
-    extraTab: { id: "arenaFormation", label: "아레나 배치", render: (panelEl) => arenaMountFormationTab("my", panelEl) },
+    header: { title: t("arena.panelHeader.myFormation"), titleId: "arenaMyPanelTitleText", closeId: "arenaMyPanelClose", onClose: arenaCloseSidePanels },
+    extraTab: { id: "arenaFormation", label: t("arena.formationTabLabel"), render: (panelEl) => arenaMountFormationTab("my", panelEl) },
     onChange: (profile) => {
       arenaResetDisplay();
       arenaUpdateBattlefieldPowerLabels(); // 기본 스탯을 바꾸면 내 전투력 숫자도 즉시 갱신
@@ -702,17 +702,17 @@ function arenaInitModeTabs() {
 // 공룡 대전 quick-calc의 "적게 죽은(강한) 쪽을 1로 고정" 관례를 승률에도 그대로 적용 - 여기선
 // "적게 이긴(약한) 쪽"이 1이 되고, 어느 쪽이 1인지는 별도 라벨로 명시해서 헷갈리지 않게 함
 function arenaFormatWinRatio(myWins, oppWins) {
-  const weaker = myWins <= oppWins ? { label: "내 진영", count: myWins } : { label: "상대 진영", count: oppWins };
-  const stronger = myWins <= oppWins ? { label: "상대 진영", count: oppWins } : { label: "내 진영", count: myWins };
-  if (weaker.count === 0) return `${stronger.label} 압도적 우세 (전승)`;
+  const weaker = myWins <= oppWins ? { label: t("arena.myLabel"), count: myWins } : { label: t("arena.oppLabel"), count: oppWins };
+  const stronger = myWins <= oppWins ? { label: t("arena.oppLabel"), count: oppWins } : { label: t("arena.myLabel"), count: myWins };
+  if (weaker.count === 0) return t("arena.quick.dominantWin", { label: stronger.label });
   const ratio = Math.round((stronger.count / weaker.count) * 100) / 100;
-  return `${weaker.label} 1 : ${stronger.label} ${ratio}`;
+  return t("arena.quick.winRatio", { weakerLabel: weaker.label, strongerLabel: stronger.label, ratio });
 }
 
 function arenaStartQuickCalc() {
   const btn = document.getElementById("arenaQuickCalcBtn");
   btn.disabled = true;
-  btn.innerText = "계산 중...";
+  btn.innerText = t("arena.quick.calcBtnBusy");
 
   // 동기 계산이 몇 초 걸릴 수 있어서(전투 하나하나를 처음부터 새로 여는 구조) setTimeout으로 한 틱
   // 양보해서 "계산 중..." 텍스트가 먼저 그려지게 함(공룡 대전 빠른 계산과 동일한 패턴)
@@ -727,24 +727,26 @@ function arenaStartQuickCalc() {
       trials: ARENA_QUICK_CALC_TRIALS
     });
 
-    document.getElementById("arenaQcWinCount").innerText = `내 ${result.myWins} : 상대 ${result.oppWins}`;
+    document.getElementById("arenaQcWinCount").innerText = t("arena.quick.winCountValue", { myWins: result.myWins, oppWins: result.oppWins });
     document.getElementById("arenaQcWinNorm").innerText = arenaFormatWinRatio(result.myWins, result.oppWins);
 
     const frontTotal = result.myFrontFirst + result.oppFrontFirst;
     if (frontTotal === 0) {
-      document.getElementById("arenaQcFrontSide").innerText = "판정 불가";
+      document.getElementById("arenaQcFrontSide").innerText = t("arena.quick.frontUndetermined");
       document.getElementById("arenaQcFrontPct").innerText = "";
     } else {
       const oppMoreOften = result.oppFrontFirst >= result.myFrontFirst;
-      const winnerLabel = oppMoreOften ? "상대 진영" : "내 진영";
+      const winnerLabel = oppMoreOften ? t("arena.oppLabel") : t("arena.myLabel");
       const winnerCount = oppMoreOften ? result.oppFrontFirst : result.myFrontFirst;
       document.getElementById("arenaQcFrontSide").innerText = winnerLabel;
-      document.getElementById("arenaQcFrontPct").innerText = `${winnerCount.toLocaleString()}/${frontTotal.toLocaleString()}회 (${((winnerCount / frontTotal) * 100).toFixed(1)}%)`;
+      document.getElementById("arenaQcFrontPct").innerText = t("arena.quick.frontResultValue", {
+        count: winnerCount.toLocaleString(), total: frontTotal.toLocaleString(), percent: ((winnerCount / frontTotal) * 100).toFixed(1)
+      });
     }
 
     document.getElementById("arenaQcResult").style.display = "grid";
     btn.disabled = false;
-    btn.innerText = `${ARENA_QUICK_CALC_TRIALS.toLocaleString()}회 계산하기`;
+    btn.innerText = t("arena.quick.calcBtn", { trials: ARENA_QUICK_CALC_TRIALS.toLocaleString() });
   }, 10);
 }
 
@@ -757,14 +759,14 @@ function arenaInitSpeedDropdown() {
   const currentMs = arenaGetBattleSpeedMs();
   const list = document.getElementById("arenaSpeedList");
   const selectedValue = document.getElementById("arenaSpeedSelectedValue");
-  selectedValue.textContent = BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label;
+  selectedValue.textContent = sharedOptionLabel(BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label);
 
   BATTLE_SPEED_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       localStorage.setItem(ARENA_SPEED_KEY, String(opt.ms));
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
     };
     list.appendChild(li);
@@ -844,7 +846,7 @@ function arenaMountFormationTab(sideKey, containerEl) {
       btn.className = "arena-preset-btn" + (isActive ? " active" : "");
       btn.innerHTML = `
         <span class="arena-preset-btn-name" data-idx="${idx}">${formation.name}</span>
-        ${isActive && !foreign ? '<button type="button" class="arena-preset-edit-btn" title="이름 수정">✏️</button>' : ""}
+        ${isActive && !foreign ? `<button type="button" class="arena-preset-edit-btn" title="${t("arena.presetEditTooltip")}">✏️</button>` : ""}
       `;
       btn.onclick = (e) => {
         if (e.target.closest(".arena-preset-edit-btn")) return;
@@ -901,7 +903,7 @@ function arenaMountSlotEditModal() {
   arenaSlotEditRuneUI = createRuneUI({
     idPrefix: "arenaSlotEdit_",
     unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "아레나에 적합하지 않은 룬입니다",
+    unsuitableLabel: t("arena.unsuitableRuneLabel"),
     onChange: (runes) => {
       // 상대 진영이 친구 실시간 세션/스냅샷 중이면 남의 프리셋이라 룬 구성을 고치면 안 됨(선택만
       // 가능) - 조용히 무시. arenaOpenSlotEditor에서 애초에 안 열리게 막아도 되지만, 혹시 열려
@@ -930,12 +932,12 @@ function arenaOpenSlotEditor(sideKey, slotIndex) {
   const assignedIdx = formation.slotPresetIndices[slotIndex];
   arenaSlotEditPresetIndex = assignedIdx !== null ? assignedIdx : 0;
 
-  document.getElementById("arenaSlotEditTitle").textContent = `${slotIndex + 1}번 슬롯`;
+  document.getElementById("arenaSlotEditTitle").textContent = t("arena.slotEdit.numberedTitle", { index: slotIndex + 1 });
   // 친구의 진영(실시간 세션/스냅샷)을 보는 중이면 "더블클릭하여 확정"이라는 편집 문구 자체가
   // 오해를 줌(사용자 지적 - 남의 프리셋을 내가 바꿀 수 있는 것처럼 보임) - 남의 데이터를 보는
   // 중임을 명확히 하고 실제로도 배정 자체가 안 되게 막음(아래 arenaRenderSlotEditPresetRow)
   const foreign = sideKey === "opp" && arenaIsOppRunePresetsForeign();
-  document.getElementById("arenaSlotEditHint").textContent = foreign ? "읽기 전용(친구의 조합)" : "더블클릭하여 확정";
+  document.getElementById("arenaSlotEditHint").textContent = foreign ? t("arena.slotEdit.readonlyHint") : t("arena.slotEdit.confirmHint");
   arenaLoadSlotEditPresetIntoRuneUI();
   arenaRenderSlotEditPresetRow();
   document.getElementById("arenaSlotEditOverlay").style.display = "flex";
@@ -959,7 +961,7 @@ function arenaRenderSlotEditPresetRow() {
     btn.className = "arena-preset-btn" + (isActive ? " active" : "");
     btn.innerHTML = `
       <span class="arena-preset-btn-name" data-idx="${idx}">${preset.name}</span>
-      ${isActive && !foreign ? '<button type="button" class="arena-preset-edit-btn" title="이름 수정">✏️</button>' : ""}
+      ${isActive && !foreign ? `<button type="button" class="arena-preset-edit-btn" title="${t("arena.presetEditTooltip")}">✏️</button>` : ""}
     `;
     // 한 번 클릭 = 미리보기만(룬 슬롯 갱신 + 선택 표시), 두 번 클릭(더블클릭) = 이 슬롯에 실제로
     // 배정 + 창 닫기. 예전엔 클릭 한 번에 바로 장착돼버려서 어떤 룬 구성인지 확인할 새도 없이
@@ -1046,7 +1048,7 @@ function arenaResetDisplay() {
 
   const startBtn = document.getElementById("arenaStartBtn");
   startBtn.disabled = false;
-  startBtn.innerText = "전투 시작";
+  startBtn.innerText = t("arena.startBtn");
   startBtn.classList.remove("is-pressed");
 }
 
@@ -1149,7 +1151,7 @@ function arenaRenderBattleEvent(ev) {
     const k = slotKey(hit.targetSide, hit.targetSlot);
     const isSkill = !!hit.label && hit.label !== "평타";
     const cls = `${isSkill ? "skill " : ""}${hit.isCrit ? "crit" : ""}`.trim();
-    const text = (isSkill ? `${hit.label} ` : "") + Math.round(hit.dmg).toLocaleString() + (hit.isCrit ? "!" : "");
+    const text = (isSkill ? `${dinoBattleDisplayLabel(hit.label)} ` : "") + Math.round(hit.dmg).toLocaleString() + (hit.isCrit ? "!" : "");
     arenaSpawnPopup(hit.targetSide, hit.targetSlot, text, cls, nextDelay[k], popupIndex[k]);
     arenaSpawnHitEffect(hit.targetSide, hit.targetSlot);
     popupIndex[k]++;
@@ -1159,7 +1161,8 @@ function arenaRenderBattleEvent(ev) {
   ev.heals.forEach((heal) => {
     bump(heal.side, heal.slot);
     const k = slotKey(heal.side, heal.slot);
-    const text = heal.amount > 0 ? `+${Math.round(heal.amount).toLocaleString()} (${heal.cause})` : heal.cause;
+    const healCauseLabel = dinoBattleDisplayHealCause(heal.cause);
+    const text = heal.amount > 0 ? `+${Math.round(heal.amount).toLocaleString()} (${healCauseLabel})` : healCauseLabel;
     arenaSpawnPopup(heal.side, heal.slot, text, "heal", nextDelay[k], popupIndex[k]);
     popupIndex[k]++;
     nextDelay[k] += STAGGER_MS;
@@ -1198,13 +1201,13 @@ function arenaRenderBattleEvent(ev) {
 function arenaFinishBattleDisplay(result) {
   const resultEl = document.getElementById("arenaBattleResult");
   resultEl.style.display = "block";
-  if (result.winner === "draw") resultEl.innerText = "무승부!";
-  else if (result.winner === "my") resultEl.innerText = "승리!";
-  else resultEl.innerText = "패배";
+  if (result.winner === "draw") resultEl.innerText = t("arena.result.draw");
+  else if (result.winner === "my") resultEl.innerText = t("arena.result.win");
+  else resultEl.innerText = t("arena.result.lose");
 
   arenaBattlePhase = "finished";
   const startBtn = document.getElementById("arenaStartBtn");
-  startBtn.innerText = "다시 시작";
+  startBtn.innerText = t("arena.startBtnRestart");
   startBtn.classList.remove("is-pressed");
 }
 
@@ -1212,13 +1215,13 @@ function arenaOnBattleButtonClick() {
   const startBtn = document.getElementById("arenaStartBtn");
   if (arenaBattlePhase === "playing") {
     arenaBattlePhase = "paused";
-    startBtn.innerText = "재개";
+    startBtn.innerText = t("arena.startBtnResume");
     startBtn.classList.remove("is-pressed");
     return;
   }
   if (arenaBattlePhase === "paused") {
     arenaBattlePhase = "playing";
-    startBtn.innerText = "일시정지";
+    startBtn.innerText = t("arena.startBtnPause");
     startBtn.classList.add("is-pressed");
     arenaRunBattleStep(arenaBattleToken);
     return;
@@ -1255,7 +1258,7 @@ function arenaStartBattle() {
   arenaBattlePhase = "playing";
 
   const startBtn = document.getElementById("arenaStartBtn");
-  startBtn.innerText = "일시정지";
+  startBtn.innerText = t("arena.startBtnPause");
   startBtn.classList.add("is-pressed");
   document.getElementById("arenaBattleResult").style.display = "none";
   arenaUpdateRestartButtonState();

@@ -101,41 +101,41 @@ window.addEventListener("hashchange", () => {
 
 function renderDummyPage(container) {
   container.innerHTML = `
-    <h2 class="sr-only">허수아비</h2>
-    <div class="warning">※ 본 시뮬레이터는 참고용이며, 실제 연산 방식과 차이가 있을 수 있습니다.</div>
+    <h2 class="sr-only">${t("dummy.heading")}</h2>
+    <div class="warning">${t("dummy.warning")}</div>
 
     <div id="dummyMyDinoSection"></div>
 
     <div class="card">
-      <h2>타일 설정</h2>
+      <h2>${t("dummy.tileCard.title")}</h2>
       <div class="setting-list">
         <div class="setting-row">
-          <div class="setting-label">자연 구조물과 인접 (자연의 포옹)</div>
+          <div class="setting-label">${t("dummy.tile.natureLabel")}</div>
           <label class="switch"><input type="checkbox" id="dummyNatureToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-row">
-          <div class="setting-label" title="허수아비는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다">부족 점령 상태 (부족의 축복)</div>
-          <label class="switch" title="허수아비는 부족이 점령한 타일에만 설치할 수 있어서 항상 켜져 있습니다"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
+          <div class="setting-label" title="${t("dummy.tile.tribeTooltip")}">${t("dummy.tile.tribeLabel")}</div>
+          <label class="switch" title="${t("dummy.tile.tribeTooltip")}"><input type="checkbox" id="dummyTribeToggle"><span class="slider round"></span></label>
         </div>
         <div class="setting-stack">
-          <label class="setting-label">공격력 버프 타워</label>
+          <label class="setting-label">${t("dummy.tile.atkTowerLabel")}</label>
           <div class="custom-dropdown" id="dummyAtkTowerDropdown">
-            <div class="selected-value" id="dummyAtkTowerSelectedValue">없음</div>
+            <div class="selected-value" id="dummyAtkTowerSelectedValue">${t("common.optionNone")}</div>
             <ul class="dropdown-list" id="dummyAtkTowerList"></ul>
           </div>
         </div>
         <div class="setting-stack-pair">
           <div class="setting-stack">
-            <label class="setting-label">서버 레벨캡</label>
+            <label class="setting-label">${t("dummy.tile.serverLevelCapLabel")}</label>
             <div class="custom-dropdown" id="dummyServerLevelCapDropdown">
-              <div class="selected-value" id="dummyServerLevelCapSelectedValue">없음</div>
+              <div class="selected-value" id="dummyServerLevelCapSelectedValue">${t("common.optionNone")}</div>
               <ul class="dropdown-list" id="dummyServerLevelCapList"></ul>
             </div>
           </div>
           <div class="setting-stack">
-            <label class="setting-label">서버 별자리캡</label>
+            <label class="setting-label">${t("dummy.tile.constellationCapLabel")}</label>
             <div class="custom-dropdown" id="dummyConstellationCapDropdown">
-              <div class="selected-value" id="dummyConstellationCapSelectedValue">없음</div>
+              <div class="selected-value" id="dummyConstellationCapSelectedValue">${t("common.optionNone")}</div>
               <ul class="dropdown-list" id="dummyConstellationCapList"></ul>
             </div>
           </div>
@@ -146,28 +146,28 @@ function renderDummyPage(container) {
     <div class="card battle-main-card dummy-field-card" id="dummyMainCard">
       <div class="battle-mode-tabs mode-live dummy-mode-tabs-3" id="dummyModeTabs">
         <span class="battle-mode-indicator"></span>
-        <button class="battle-mode-tab" data-mode="quick" id="dummyModeTabQuick"><span>빠른 계산</span></button>
-        <button class="battle-mode-tab active" data-mode="live" id="dummyModeTabLive"><span>시뮬레이션</span></button>
-        <button class="battle-mode-tab" data-mode="optimize" id="dummyModeTabOptimize"><span>조합 찾기</span></button>
+        <button class="battle-mode-tab" data-mode="quick" id="dummyModeTabQuick"><span>${t("dummy.tab.quick")}</span></button>
+        <button class="battle-mode-tab active" data-mode="live" id="dummyModeTabLive"><span>${t("dummy.tab.live")}</span></button>
+        <button class="battle-mode-tab" data-mode="optimize" id="dummyModeTabOptimize"><span>${t("dummy.tab.optimize")}</span></button>
       </div>
 
       <div class="battle-mode-panel" id="dummyQuickModeCard" style="display:none;">
-        <p class="quickcalc-desc">현재 설정의 크리티컬 확률·피해까지 반영한 1초당 평균 대미지(기댓값)와, 그 페이스로 10분간 공격했을 때의 예상 총 대미지를 바로 계산합니다.</p>
-        <button class="btn-simulate" id="dummyQcBtn">계산하기</button>
+        <p class="quickcalc-desc">${t("dummy.quick.desc")}</p>
+        <button class="btn-simulate" id="dummyQcBtn">${t("dummy.quick.calcBtn")}</button>
         <div class="report-grid" id="dummyQcResult" style="display:none;">
-          <div class="report-tile"><div class="metric-label">10분간 예상 총 대미지</div><div class="metric-value accent" id="dummyQcTenMin">-</div></div>
-          <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value" id="dummyQcDps">-</div></div>
-          <div class="report-tile"><div class="metric-label">치명타 확률</div><div class="metric-value" id="dummyQcCRate">-</div></div>
-          <div class="report-tile"><div class="metric-label">치명타 피해</div><div class="metric-value" id="dummyQcCDmg">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.quick.tenMinLabel")}</div><div class="metric-value accent" id="dummyQcTenMin">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.quick.dpsLabel")}</div><div class="metric-value" id="dummyQcDps">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.quick.critRateLabel")}</div><div class="metric-value" id="dummyQcCRate">-</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.quick.critDmgLabel")}</div><div class="metric-value" id="dummyQcCDmg">-</div></div>
         </div>
       </div>
 
       <div class="battle-mode-panel" id="dummyOptimizeModeCard" style="display:none;">
         <div class="dummy-optimizer">
-          <h3 class="dummy-optimizer-title">내 룬 레벨로 최적 조합 찾기</h3>
-          <p class="quickcalc-desc">적합 룬 14종 중 보유한 룬의 레벨을 입력하세요(0 = 미보유). 지금 스탯·별자리·타일 설정 기준으로 가장 대미지가 높은 5개 조합을 찾아줍니다.</p>
+          <h3 class="dummy-optimizer-title">${t("dummy.optimize.title")}</h3>
+          <p class="quickcalc-desc">${t("dummy.optimize.desc")}</p>
           <div class="dummy-owned-rune-grid" id="dummyOwnedRuneGrid"></div>
-          <button class="btn-simulate" id="dummyOptimizeBtn">최적 조합 찾기</button>
+          <button class="btn-simulate" id="dummyOptimizeBtn">${t("dummy.optimize.btn")}</button>
           <div id="dummyOptimizeResult"></div>
         </div>
       </div>
@@ -182,25 +182,25 @@ function renderDummyPage(container) {
                canvas를 붙임 -->
           <div class="dummy-hexagon" id="dummyHexagonMount">
             <div class="dummy-target-layer" id="dummyTarget">
-              <img src="./assets/tribe/Scarecrow_1.png" class="dummy-scarecrow" id="dummyScarecrowImg" alt="허수아비">
+              <img src="./assets/tribe/Scarecrow_1.png" class="dummy-scarecrow" id="dummyScarecrowImg" alt="${t("dummy.scarecrowAlt")}">
             </div>
           </div>
           <div class="dummy-popup-layer" id="dummyPopupLayer"></div>
         </div>
 
         <div class="report-grid">
-          <div class="report-tile"><div class="metric-label">총 대미지</div><div class="metric-value accent" id="dummyTotalDmgEl">0</div></div>
-          <div class="report-tile"><div class="metric-label">경과 시간</div><div class="metric-value" id="dummyElapsedEl">0초</div></div>
-          <div class="report-tile"><div class="metric-label">평균 초당 대미지</div><div class="metric-value" id="dummyDpsEl">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.stats.totalDmgLabel")}</div><div class="metric-value accent" id="dummyTotalDmgEl">0</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.stats.elapsedLabel")}</div><div class="metric-value" id="dummyElapsedEl">${t("dummy.stats.elapsedValue", { sec: 0 })}</div></div>
+          <div class="report-tile"><div class="metric-label">${t("dummy.stats.dpsLabel")}</div><div class="metric-value" id="dummyDpsEl">0</div></div>
         </div>
 
         <div class="battle-controls">
           <div class="custom-dropdown battle-speed-dropdown" id="dummySpeedDropdown">
-            <div class="selected-value" id="dummySpeedSelectedValue">보통</div>
+            <div class="selected-value" id="dummySpeedSelectedValue">${t("common.speed.normal")}</div>
             <ul class="dropdown-list" id="dummySpeedList"></ul>
           </div>
-          <button class="btn-simulate" id="dummyStartBtn">공격 시작</button>
-          <button class="battle-restart-btn" id="dummyRestartBtn" disabled title="처음부터 다시 시작">↻</button>
+          <button class="btn-simulate" id="dummyStartBtn">${t("dummy.startBtnIdle")}</button>
+          <button class="battle-restart-btn" id="dummyRestartBtn" disabled title="${t("dummy.restartBtnTooltip")}">↻</button>
         </div>
       </div>
     </div>
@@ -209,7 +209,7 @@ function renderDummyPage(container) {
   renderMyDinoPage(document.getElementById("dummyMyDinoSection"), {
     idPrefix: "dummyMy_",
     unsuitableList: DUMMY_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: "허수아비에 적합하지 않은 룬입니다",
+    unsuitableLabel: t("dummy.unsuitableRuneLabel"),
     onChange: () => {
       dummyResetDisplay();
       dummyResetQuickCalc();
@@ -286,15 +286,15 @@ function dummyInitTileSettings() {
 
   const list = document.getElementById("dummyAtkTowerList");
   const selectedValue = document.getElementById("dummyAtkTowerSelectedValue");
-  const labelFor = (v) => BUFF_TOWER_OPTIONS.find((o) => o.value === v).label;
+  const labelFor = (v) => sharedOptionLabel(BUFF_TOWER_OPTIONS.find((o) => o.value === v).label);
   selectedValue.textContent = labelFor(settings.atkTowerLevel);
 
   BUFF_TOWER_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       settings.atkTowerLevel = opt.value;
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
       saveDummyTileSettings(settings);
       dummyResetDisplay();
@@ -306,16 +306,16 @@ function dummyInitTileSettings() {
 
   // 서버 레벨캡 - 4개 페이지가 공유하는 전역 설정이라 dummyTileSettings가 아니라 별도
   // localStorage 키(loadServerLevelCap/saveServerLevelCap, my-dino-page.js)를 직접 읽고 씀
-  const capLabelFor = (v) => SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const capLabelFor = (v) => sharedOptionLabel(SERVER_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const capList = document.getElementById("dummyServerLevelCapList");
   const capSelectedValue = document.getElementById("dummyServerLevelCapSelectedValue");
   capSelectedValue.textContent = capLabelFor(loadServerLevelCap());
   SERVER_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveServerLevelCap(opt.value);
-      capSelectedValue.textContent = opt.label;
+      capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
       dummyResetDisplay();
       dummyResetQuickCalc();
@@ -325,16 +325,16 @@ function dummyInitTileSettings() {
   capSelectedValue.onclick = () => toggleDropdownList(capSelectedValue, capList);
 
   // 별자리 레벨캡 - 서버 레벨캡과 마찬가지로 전역 공유 설정
-  const constLabelFor = (v) => CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label;
+  const constLabelFor = (v) => sharedOptionLabel(CONSTELLATION_LEVEL_CAP_OPTIONS.find((o) => o.value === v).label);
   const constList = document.getElementById("dummyConstellationCapList");
   const constSelectedValue = document.getElementById("dummyConstellationCapSelectedValue");
   constSelectedValue.textContent = constLabelFor(loadConstellationLevelCap());
   CONSTELLATION_LEVEL_CAP_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       saveConstellationLevelCap(opt.value);
-      constSelectedValue.textContent = opt.label;
+      constSelectedValue.textContent = sharedOptionLabel(opt.label);
       constList.style.display = "none";
       dummyResetDisplay();
       dummyResetQuickCalc();
@@ -401,7 +401,7 @@ function dummyInitOwnedRuneGrid() {
   // 속성으로만 식별하고, DOM 조회도 data-rune 기준 attribute selector로 함
   grid.innerHTML = dummySuitableRuneNames().map((name) => `
     <div class="dummy-owned-rune-row">
-      <span class="dummy-owned-rune-name">${name}</span>
+      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
       <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
     </div>
   `).join("");
@@ -446,7 +446,7 @@ function dummyRunOptimizer() {
   const resultEl = document.getElementById("dummyOptimizeResult");
 
   if (owned.length === 0) {
-    resultEl.innerHTML = `<p class="quickcalc-desc">보유한 룬 레벨을 먼저 입력해주세요.</p>`;
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dummy.optimize.needLevelsMsg")}</p>`;
     return;
   }
 
@@ -463,20 +463,20 @@ function dummyRunOptimizer() {
   scored.sort((a, b) => b.dps - a.dps);
 
   const top = scored.slice(0, 3);
-  const bestLine = top[0].names.map((n) => `${n} Lv.${levels[n]}`).join(" · ");
+  const bestLine = top[0].names.map((n) => `${ruleDisplayName(n)} Lv.${levels[n]}`).join(" · ");
 
   resultEl.innerHTML = `
-    ${slotCount < 5 ? `<p class="quickcalc-desc">보유한 적합 룬이 ${owned.length}개뿐이라 ${slotCount}개짜리 조합까지만 계산했습니다.</p>` : ""}
+    ${slotCount < 5 ? `<p class="quickcalc-desc">${t("dummy.optimize.limitedSlotMsg", { count: owned.length, slotCount })}</p>` : ""}
     <div class="report-grid">
       <div class="report-tile dummy-optimize-best-tile">
-        <div class="metric-label">최적 조합</div>
+        <div class="metric-label">${t("dummy.optimize.bestComboLabel")}</div>
         <div class="dummy-optimize-best-combo">${bestLine}</div>
       </div>
-      <div class="report-tile"><div class="metric-label">예상 평균 초당 대미지</div><div class="metric-value accent">${Math.round(top[0].dps).toLocaleString()}</div></div>
+      <div class="report-tile"><div class="metric-label">${t("dummy.quick.dpsLabel")}</div><div class="metric-value accent">${Math.round(top[0].dps).toLocaleString()}</div></div>
     </div>
     ${top.length > 1 ? `
       <div class="dummy-optimize-runner-ups">
-        ${top.slice(1).map((r, i) => `<div class="dummy-optimize-runner-up">${i + 2}위 · ${r.names.join(", ")} (${Math.round(r.dps).toLocaleString()})</div>`).join("")}
+        ${top.slice(1).map((r, i) => `<div class="dummy-optimize-runner-up">${t("dummy.optimize.runnerUpLine", { rank: i + 2, names: r.names.map(ruleDisplayName).join(", "), dps: Math.round(r.dps).toLocaleString() })}</div>`).join("")}
       </div>
     ` : ""}
   `;
@@ -486,14 +486,14 @@ function dummyInitSpeedDropdown() {
   const currentMs = dummyGetSpeedMs();
   const list = document.getElementById("dummySpeedList");
   const selectedValue = document.getElementById("dummySpeedSelectedValue");
-  selectedValue.textContent = BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label;
+  selectedValue.textContent = sharedOptionLabel(BATTLE_SPEED_OPTIONS.find((o) => o.ms === currentMs).label);
 
   BATTLE_SPEED_OPTIONS.forEach((opt) => {
     const li = document.createElement("li");
-    li.textContent = opt.label;
+    li.textContent = sharedOptionLabel(opt.label);
     li.onclick = () => {
       localStorage.setItem(DUMMY_SPEED_KEY, String(opt.ms));
-      selectedValue.textContent = opt.label;
+      selectedValue.textContent = sharedOptionLabel(opt.label);
       list.style.display = "none";
       // 재생 중이었으면 새 간격으로 다시 걸어줌(멈췄다 다시 시작할 필요 없이 바로 반영)
       if (dummyRunning) {
@@ -523,7 +523,7 @@ function dummyOnStartButtonClick() {
 
 function dummyStartAttack() {
   dummyRunning = true;
-  document.getElementById("dummyStartBtn").textContent = "일시정지";
+  document.getElementById("dummyStartBtn").textContent = t("dummy.startBtnRunning");
   document.getElementById("dummyRestartBtn").disabled = false;
 
   // 이 시뮬레이터는 인게임과 달리 선택한 스탯/룬을 공룡 수만큼 전부 똑같이 쓰고, 재생 도중엔
@@ -541,7 +541,7 @@ function dummyStartAttack() {
 function dummyPauseAttack() {
   dummyRunning = false;
   clearInterval(dummyAttackTimer);
-  document.getElementById("dummyStartBtn").textContent = "재개";
+  document.getElementById("dummyStartBtn").textContent = t("dummy.startBtnPaused");
 }
 
 function dummyResetDisplay() {
@@ -549,7 +549,7 @@ function dummyResetDisplay() {
   clearInterval(dummyAttackTimer);
   dummyElapsedSec = 0;
   dummyTotalDmg = 0;
-  document.getElementById("dummyStartBtn").textContent = "공격 시작";
+  document.getElementById("dummyStartBtn").textContent = t("dummy.startBtnIdle");
   document.getElementById("dummyRestartBtn").disabled = true;
   const target = document.getElementById("dummyTarget");
   if (target) target.querySelectorAll(".dummy-hit-effect").forEach((el) => el.remove());
@@ -613,7 +613,7 @@ function dummySpawnDamagePopup(dmg, isCrit) {
 
 function dummyUpdateStatsDisplay() {
   document.getElementById("dummyTotalDmgEl").innerText = Math.round(dummyTotalDmg).toLocaleString();
-  document.getElementById("dummyElapsedEl").innerText = `${dummyElapsedSec}초`;
+  document.getElementById("dummyElapsedEl").innerText = t("dummy.stats.elapsedValue", { sec: dummyElapsedSec });
   const dps = dummyElapsedSec > 0 ? dummyTotalDmg / dummyElapsedSec : 0;
   document.getElementById("dummyDpsEl").innerText = Math.round(dps).toLocaleString();
 }

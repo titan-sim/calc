@@ -86,7 +86,7 @@ function initFriendNotifications(myId, myNickname) {
       hideInviteWaitingIfFrom(payload.fromId);
     } else if (payload.type === "friend-request") {
       // 지금 친구 페이지를 보고 있으면 목록을 바로 다시 불러오고, 어디에 있든 토스트로 알림
-      showToast(`${payload.fromNickname}님이 친구 요청을 보냈습니다`, "#friends");
+      showToast(t("common.friendRequestToast", { nickname: payload.fromNickname }), "#friends");
       notifyFriendRequestListeners(payload);
     }
   });
@@ -136,10 +136,10 @@ function showInviteBanner(myId, myNickname, fromId, fromNickname) {
   const banner = document.getElementById("friendInviteBanner");
   if (!banner) return;
   banner.innerHTML = `
-    <span class="friend-invite-text"><b>${fromNickname}</b>님이 같이 연구하자고 요청했습니다</span>
+    <span class="friend-invite-text">${t("common.inviteBanner.text", { nickname: fromNickname })}</span>
     <div class="friend-invite-actions">
-      <button class="friend-invite-accept">수락</button>
-      <button class="friend-invite-decline">거절</button>
+      <button class="friend-invite-accept">${t("friends.action.accept")}</button>
+      <button class="friend-invite-decline">${t("friends.action.decline")}</button>
     </div>
   `;
   banner.style.display = "flex";

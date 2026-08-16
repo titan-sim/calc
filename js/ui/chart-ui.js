@@ -20,10 +20,10 @@ function getChartThemeColors() {
 // 분 단위 대신 초 단위로 보여줌
 function formatChartTime(totalSec, limitSec) {
   totalSec = Math.round(totalSec);
-  if (limitSec < 120) return `${totalSec}초`;
+  if (limitSec < 120) return t("common.time.secondsOnly", { s: totalSec });
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+  return s > 0 ? t("common.time.minutesSeconds", { m, s }) : t("common.time.minutesOnly", { m });
 }
 
 function getHpChartLayout(w, h) {
@@ -72,8 +72,8 @@ function paintHpChart(ctx, w, h, data, limitSec, hoverIdx) {
     { label: formatChartTime(0, limitSec), pos: 0 },
     { label: formatChartTime(limitSec / 2, limitSec), pos: 0.5 },
     { label: formatChartTime(limitSec, limitSec), pos: 1 }
-  ].forEach((t) => {
-    ctx.fillText(t.label, padL + t.pos * chartW, padT + chartH + 6);
+  ].forEach((tick) => {
+    ctx.fillText(tick.label, padL + tick.pos * chartW, padT + chartH + 6);
   });
 
   const stepX = chartW / (data.length - 1);

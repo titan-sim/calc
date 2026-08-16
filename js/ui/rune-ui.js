@@ -20,15 +20,10 @@ for (const [color, keys] of Object.entries(RUNE_STYLE_CONFIG)) {
 }
 const RUNE_TAG_REGEX = /\{(\w+)\}/g;
 
-// desc는 보통 고정 문자열이지만, 특정 레벨부터만 추가되는 설명(예: 즉사, 범위 피해)이 있는 룬은
-// 레벨을 인자로 받는 함수로 정의돼 있음 -> 여기서 둘 다 처리
-function resolveDesc(rune, level) {
-  return typeof rune.desc === "function" ? rune.desc(level) : rune.desc;
-}
-
-function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [], unsuitableLabel = "적합하지 않은 룬입니다" } = {}) {
+function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [], unsuitableLabel } = {}) {
   const id = (name) => idPrefix + name;
   const $ = (name) => document.getElementById(id(name));
+  const resolvedUnsuitableLabel = unsuitableLabel || t("common.rune.defaultUnsuitableLabel");
 
   let selectedRunes = [null, null, null, null, null];
   let activeSlotIdx = null;
@@ -78,7 +73,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     unsuitableGrid.innerHTML = "";
     const hasUnsuitable = unsuitableList.length > 0;
     if (divider) {
-      divider.textContent = `── ${unsuitableLabel} ──`;
+      divider.textContent = t("common.rune.unsuitableDividerLabel", { label: resolvedUnsuitableLabel });
       divider.style.display = hasUnsuitable ? "block" : "none";
     }
     if (unsuitableGrid) unsuitableGrid.style.display = hasUnsuitable ? "" : "none";
@@ -87,7 +82,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
       const isUn = hasUnsuitable && unsuitableList.includes(name);
       const item = document.createElement("div");
       item.className = "rune-item" + (isUn ? " rune-item-dim" : "");
-      item.innerHTML = `<div class="rune-img-container" style="border-color:var(--${r.grade})"><img src="${getImgUrl(r.imgId)}"></div><div class="rune-label">${name}</div>`;
+      item.innerHTML = `<div class="rune-img-container" style="border-color:var(--${r.grade})"><img src="${getImgUrl(r.imgId)}"></div><div class="rune-label">${ruleDisplayName(name)}</div>`;
       item.onclick = () => showDetail(name);
       if (isUn) unsuitableGrid.appendChild(item);
       else mainGrid.appendChild(item);
@@ -153,8 +148,8 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     const r = RUNES_DATA[name];
     const detailView = $("runeDetail");
     detailView.style.display = "block";
-    $("detailName").innerText = name;
-    $("detailGrade").innerText = r.grade;
+    $("detailName").innerText = ruleDisplayName(name);
+    $("detailGrade").innerText = gradeDisplayName(r.grade);
     $("detailGrade").style.color = `var(--${r.grade})`;
     updateDetail(name, currentLevel);
     detailView.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -163,7 +158,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
   function updateDetail(name, lv) {
     const r = RUNES_DATA[name];
     const s = r.levels[lv];
-    let d = resolveDesc(r, lv) || "";
+    let d = ruleDisplayDesc(name, lv) || "";
     if (s) {
       d = d.replace(RUNE_TAG_REGEX, (match, key) => {
         const value = s[key];
@@ -186,7 +181,7 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
       const targetToRemove = conflictPair.find((n) => n !== tempName);
       const hasOpposite = selectedRunes.some((r, idx) => idx !== activeSlotIdx && r && r.name === targetToRemove);
       if (hasOpposite) {
-        warnEl.innerText = `⚠️ '${targetToRemove}'과 동시에 장착할 수 없습니다.`;
+        warnEl.innerText = t("common.rune.mutualExclusionWarning", { runeName: ruleDisplayName(targetToRemove) });
         warnEl.style.display = "block";
         warnEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
         return;

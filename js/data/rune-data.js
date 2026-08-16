@@ -726,35 +726,38 @@ const BUILDING_UNSUITABLE_RUNE_LIST = [
 // UI 아이콘(작음)과 실제 에셋(큼)이 섞여있어서 건물마다 2배/1.7배 배율을 따로 줬었는데, 지금은
 // assets/tribe/ 전체를 실제 에셋으로 통일해서(UIIcon 파일 전부 교체됨) 배율 없이 전부 같은
 // 기준(.building-sprite의 clamp)으로 그려도 됨
+// labelKey: i18n.js의 t()로 표시할 때 쓰는 번역 키(js/core/i18n.js가 main.js의 DOMContentLoaded에서
+// initI18n()으로 로드되기 전에 이 파일이 먼저 파싱되므로, 여기서 t()를 직접 호출해 label을 채우면
+// 안 됨 - label 자체는 항상 한국어 원문 그대로 두고, 화면에 보여줄 때만 labelKey로 번역함)
 const BUILDING_TYPES = [
-  { id: "alarm_tower", label: "알람 타워", img: "AlarmTower.png", hp: 1500000, anchorX: 37.57, anchorY: 78.25 },
-  { id: "ammo_distributor", label: "탄 분배기", img: "AmmoDistributor.png", hp: 3000000, anchorX: 45.28, anchorY: 77.02 },
+  { id: "alarm_tower", label: "알람 타워", labelKey: "building.type.alarmTower", img: "AlarmTower.png", hp: 1500000, anchorX: 37.57, anchorY: 78.25 },
+  { id: "ammo_distributor", label: "탄 분배기", labelKey: "building.type.ammoDistributor", img: "AmmoDistributor.png", hp: 3000000, anchorX: 45.28, anchorY: 77.02 },
   // 캐터펄트(사용자 확정 - 체력값 4종). 원본 PNG 4장이 다른 건물 에셋들과 달리 실제 그림 주위에
   // 여백이 많이 남아있어서(사용자 지적 - "다른 이미지들은... 크게 보이는데 캐터필드는... 작게
   // 보여") 처음엔 여기서 자동으로 알파 bbox 기준 크롭 + 좌표 재계산을 했었는데, 이후 사용자가
   // 직접 "최대한 여백 없이" 다시 잘라 에셋 파일 자체를 교체하고 그 새 크롭 기준으로 4장 각각
   // 실측한 좌표를 줬음 - 그 값을 그대로 반영(자동 계산값 폐기, 4장 전부 서로 다름)
-  { id: "catapult_wood", label: "투석기 Lv.1", img: "Catapult_Wood.png", hp: 1500000, anchorX: 60.66, anchorY: 66.05 },
-  { id: "catapult_stone", label: "투석기 Lv.2", img: "Catapult_Stone.png", hp: 2000000, anchorX: 59.47, anchorY: 67.59 },
-  { id: "catapult_metal", label: "투석기 Lv.3", img: "Catapult_Metal.png", hp: 3000000, anchorX: 60.19, anchorY: 67.45 },
-  { id: "catapult_realmetal", label: "투석기 Lv.4", img: "Catapult_RealMetal.png", hp: 4500000, anchorX: 60.19, anchorY: 67.45 },
+  { id: "catapult_wood", label: "투석기 Lv.1", labelKey: "building.type.catapultLv1", img: "Catapult_Wood.png", hp: 1500000, anchorX: 60.66, anchorY: 66.05 },
+  { id: "catapult_stone", label: "투석기 Lv.2", labelKey: "building.type.catapultLv2", img: "Catapult_Stone.png", hp: 2000000, anchorX: 59.47, anchorY: 67.59 },
+  { id: "catapult_metal", label: "투석기 Lv.3", labelKey: "building.type.catapultLv3", img: "Catapult_Metal.png", hp: 3000000, anchorX: 60.19, anchorY: 67.45 },
+  { id: "catapult_realmetal", label: "투석기 Lv.4", labelKey: "building.type.catapultLv4", img: "Catapult_RealMetal.png", hp: 4500000, anchorX: 60.19, anchorY: 67.45 },
   // 공격력/체력 버프 타워 - 적 부족이 이미 세워둔 걸 우리가 부술 수도 있는 상황이라 잠금 해제
   // (사용자 확정 - 체력값도 이미 둘 다 확정해서 줬었음)
-  { id: "damage_buff_tower", label: "공격력 버프 타워", img: "DamageBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
-  { id: "hp_buff_tower", label: "체력 버프 타워", img: "HpBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
-  { id: "base", label: "둥지", img: "Tribe_Base_Icon.png", hp: 50000, anchorX: 50.00, anchorY: 67.19 },
-  { id: "notice_board", label: "부족 게시판", img: "Noticeboard.png", hp: 1500000, anchorX: 39.58, anchorY: 98.01 },
-  { id: "portal_blue", label: "전쟁 포탈", img: "Tribe_Tribeportal_Blue.png", hp: 5, anchorX: 49.02, anchorY: 82.23 },
-  { id: "portal_green", label: "부족 포탈", img: "Tribe_Tribeportal_Green.png", hp: 3000000, anchorX: 49.02, anchorY: 82.23 },
-  { id: "lv1", label: "벽 Lv.1", img: "Tribe_Wall_Lv1.png", hp: 7000000, anchorX: 36.57, anchorY: 94.41 },
-  { id: "lv2", label: "벽 Lv.2", img: "Tribe_Wall_Lv2.png", hp: 12000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "damage_buff_tower", label: "공격력 버프 타워", labelKey: "building.type.damageBuffTower", img: "DamageBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
+  { id: "hp_buff_tower", label: "체력 버프 타워", labelKey: "building.type.hpBuffTower", img: "HpBuffTower.png", hp: 3000000, anchorX: 33.14, anchorY: 90.14 },
+  { id: "base", label: "둥지", labelKey: "building.type.base", img: "Tribe_Base_Icon.png", hp: 50000, anchorX: 50.00, anchorY: 67.19 },
+  { id: "notice_board", label: "부족 게시판", labelKey: "building.type.noticeBoard", img: "Noticeboard.png", hp: 1500000, anchorX: 39.58, anchorY: 98.01 },
+  { id: "portal_blue", label: "전쟁 포탈", labelKey: "building.type.portalBlue", img: "Tribe_Tribeportal_Blue.png", hp: 5, anchorX: 49.02, anchorY: 82.23 },
+  { id: "portal_green", label: "부족 포탈", labelKey: "building.type.portalGreen", img: "Tribe_Tribeportal_Green.png", hp: 3000000, anchorX: 49.02, anchorY: 82.23 },
+  { id: "lv1", label: "벽 Lv.1", labelKey: "building.type.wallLv1", img: "Tribe_Wall_Lv1.png", hp: 7000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "lv2", label: "벽 Lv.2", labelKey: "building.type.wallLv2", img: "Tribe_Wall_Lv2.png", hp: 12000000, anchorX: 36.57, anchorY: 94.41 },
   // Lv3/Lv4는 게임 업데이트로 새로 풀림(사용자 확정, 체력 2000만/3000만) - anchorX/Y는 아직
   // 실측 좌표를 안 주셔서 같은 벽 시리즈인 Lv1/Lv2 값을 임시로 재사용함(모양이 비슷할 가능성이
   // 높아서) - 실제로 안 맞으면 정확한 좌표로 교체 필요
-  { id: "lv3", label: "벽 Lv.3", img: "Tribe_Wall_Lv3.png", hp: 20000000, anchorX: 36.57, anchorY: 94.41 },
-  { id: "lv4", label: "벽 Lv.4", img: "Tribe_Wall_Lv4.png", hp: 30000000, anchorX: 36.57, anchorY: 94.41 },
-  { id: "warehouse", label: "부족 본부", img: "Tribe_WareHouse.png", hp: 300000, anchorX: 47.43, anchorY: 80.90 },
-  { id: "straw_wall", label: "짚더미", img: "StrawWall.png", hp: 3000000, anchorX: 42.19, anchorY: 69.34 }
+  { id: "lv3", label: "벽 Lv.3", labelKey: "building.type.wallLv3", img: "Tribe_Wall_Lv3.png", hp: 20000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "lv4", label: "벽 Lv.4", labelKey: "building.type.wallLv4", img: "Tribe_Wall_Lv4.png", hp: 30000000, anchorX: 36.57, anchorY: 94.41 },
+  { id: "warehouse", label: "부족 본부", labelKey: "building.type.warehouse", img: "Tribe_WareHouse.png", hp: 300000, anchorX: 47.43, anchorY: 80.90 },
+  { id: "straw_wall", label: "짚더미", labelKey: "building.type.strawWall", img: "StrawWall.png", hp: 3000000, anchorX: 42.19, anchorY: 69.34 }
 ];
 
 // 흡혈량 계산 시 공격력 보너스에서 제외되는 룬 목록 (오버밸런스 방지용)
