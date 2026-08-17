@@ -409,7 +409,7 @@ function initTitanPage() {
     profile.runePresets.forEach((preset, idx) => {
       const btn = document.createElement("div");
       btn.className = "arena-preset-btn" + (idx === applyPresetSelectedIdx ? " active" : "");
-      btn.textContent = preset.name;
+      btn.textContent = runePresetDisplayName(preset, idx);
       btn.onclick = () => {
         applyPresetSelectedIdx = idx;
         titanRenderApplyPresetList();
@@ -434,7 +434,7 @@ function initTitanPage() {
     profile.activePresetIndex = idx;
     profile.runes = runes.map((r) => ({ ...r }));
     saveMyDinoProfile(profile);
-    const presetName = profile.runePresets[idx].name;
+    const presetName = runePresetDisplayName(profile.runePresets[idx], idx);
     titanCloseApplyPresetModal();
     titanRenderMyDinoSection();
     refreshMetricsCard();

@@ -76,6 +76,11 @@ async function setLang(lang) {
   i18nActiveFlatMap = lang === "ko" ? i18nKoFlatMap : await i18nLoadLang(lang);
   applyStaticI18n();
   if (typeof renderRoute === "function") renderRoute();
+  // 사이드 메뉴 맨 위 "친구"/"로그아웃"(또는 "로그인") 영역(js/ui/auth-ui.js)은 라우터가 다시
+  // 그리는 #app 밖에 있고 data-i18n-key 정적 텍스트도 아니라(로그인 상태에 따라 매번 다른 마크업을
+  // innerHTML로 새로 그림), 원래 Supabase 인증 상태가 바뀔 때만 다시 그려졌음 - 언어를 바꿔도
+  // 새로고침 전까지 이전 언어로 남아있던 버그(사용자 지적)라 여기서도 명시적으로 다시 그림
+  if (typeof renderAuthRow === "function") renderAuthRow();
 }
 
 // key가 없으면(로딩 전이거나 실수로 빠뜨린 키) 한국어 원문으로, 그것도 없으면 key 자체를 돌려줘서
@@ -145,6 +150,24 @@ function ruleDisplayDesc(koreanName, level) {
     return base + extra;
   }
   return t(`rune_data.rune.${koreanName}.desc`);
+}
+
+// ===== 프리셋/배치 기본 이름 마이그레이션 =====
+// my_dino.presetDefaultName("프리셋 {index}" 등)/arena.formationDefaultName("배치 {index}" 등)은
+// 예전엔 프리셋을 처음 만드는 순간 t()로 그때 활성 언어 문자열을 통째로 name 필드에 구워 넣었음 -
+// 그래서 언어를 바꿔도 이미 저장된(그리고 한 번도 직접 이름을 바꾼 적 없는) 프리셋 이름은 계속
+// 예전 언어로 남아있는 버그가 있었음(사용자 지적 - "프리셋도 각 언어별로 바뀌어?"). 지금은 커스텀
+// 안 한 프리셋의 name을 null로 저장해두고 표시할 때마다 t()로 즉석에서 계산해서 항상 지금 언어를
+// 따라가게 고침 - 이 맵은 "이미 저장된 name이 5개 언어 중 하나로 구워진 예전 기본값과 정확히
+// 일치하는지"를 판별해서(마이그레이션) null로 되돌리는 데 씀. 지금 활성 언어의 t()만으로는 예전에
+// 다른 언어로 만들어졌을 수 있는 이름까지 못 잡아내서 5개 언어 값을 전부 하드코딩해둠
+const I18N_DEFAULT_NAME_PATTERNS = {
+  "my_dino.presetDefaultName": ["프리셋 {index}", "Preset {index}", "プリセット {index}", "预设 {index}"],
+  "arena.formationDefaultName": ["배치 {index}", "Formation {index}", "編成 {index}", "Đội Hình {index}", "阵容 {index}"]
+};
+function i18nIsDefaultName(key, index, name) {
+  if (!name) return true;
+  return I18N_DEFAULT_NAME_PATTERNS[key].some((pattern) => pattern.replace("{index}", index) === name);
 }
 
 // ===== 공유 옵션 배열(BATTLE_SPEED_OPTIONS/BUFF_TOWER_OPTIONS/SERVER_LEVEL_CAP_OPTIONS/

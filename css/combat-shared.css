@@ -30,7 +30,10 @@
   gap: 8px;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
-  margin-bottom: 14px;
+  /* margin-bottom을 따로 안 둠 - 바로 아래 오는 .dino-summary-bar가 자기 몫의 위쪽 padding을
+     이미 갖고 있어서(css/my-dino.css), 여기서도 margin을 더하면 "헤더 밑줄 -> 스탯 숫자" 간격이
+     "스탯 숫자 -> 요약바 밑줄" 간격보다 눈에 띄게 커짐(사용자 지적 - 공룡 대전 사이드 패널처럼
+     이 헤더가 붙는 곳에서만 위쪽 여백이 유독 커 보였던 원인) */
   font-weight: bold;
 }
 

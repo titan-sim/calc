@@ -77,7 +77,10 @@
 }
 
 .dino-summary-bar {
-  padding: 18px var(--p-base);
+  /* 위아래 패딩을 최대한 줄임(사용자 확정) - 이 컴포넌트는 내 공룡 페이지(폭이 넓어 눈에 덜
+     띔)뿐 아니라 공룡대전/아레나 좌우 사이드 패널(폭이 좁아 같은 위아래 여백이 훨씬 크게
+     보임)에도 그대로 임베드되므로 공용으로 줄임 */
+  padding: 8px var(--p-base);
   border-bottom: 1px solid var(--border-color);
   border-radius: 16px 16px 0 0;
 }
@@ -113,9 +116,10 @@
 }
 
 /* 치확/치피를 한 칸 안에 "라벨 위, 값 아래" 쌍 두 개로 세로로 쌓음(사용자 확정 - "치확/치피 한
-   칸에 아래위로 나눠서") - stat-readout-label/value를 그대로 재사용해서 다른 칸의 라벨/값과 완전히
-   같은 스타일을 씀(값 문자열 안에 라벨 텍스트를 통짜로 섞어 넣었던 이전 방식은 라벨까지 값처럼
-   굵게 나와서 스타일이 안 맞았음 - 사용자 지적) */
+   칸에 아래위로 나눠서") - stat-readout-label/value를 그대로 재사용해서 다른 칸의 라벨/값과 같은
+   스타일(색/굵기)을 쓰되, 폰트 크기만 아래에서 살짝 더 작게 오버라이드함(사용자 확정 - 한 칸에
+   두 쌍이 들어가다 보니 다른 칸보다 조금 작아도 자연스럽고, 오히려 옆 칸들과 시각적 위계가
+   또렷해짐) */
 .stat-readout-crit-stack {
   display: flex;
   flex-direction: column;
@@ -127,6 +131,15 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
+}
+
+/* 치확/치피만 라벨·값 둘 다 옆 칸(레벨/공격력/체력 등)보다 살짝 작게(사용자 확정) */
+.stat-readout-crit-pair .stat-readout-label {
+  font-size: 9px;
+}
+
+.stat-readout-crit-pair .stat-readout-value {
+  font-size: clamp(9.5px, 2.8cqw, 13px);
 }
 
 /* 설정을 바꿔서 요약바 숫자가 달라지면(js/ui/stat-roll-ui.js) 값이 커졌으면 초록, 작아졌으면

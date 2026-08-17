@@ -217,97 +217,6 @@ function saveTileSettings(settings) {
 function renderDinoBattlePage(container) {
   container.innerHTML = `
     <h2 class="sr-only">${t("dino_battle.heading")}</h2>
-    <div class="card battle-tile-card">
-      <h2 class="battle-tile-heading">${t("dino_battle.tileCard.title")}</h2>
-
-      <div class="tile-group">
-        <div class="tile-group-label">${t("dino_battle.tileGroup.environment")}</div>
-        <div class="setting-list">
-          <div class="setting-row">
-            <div class="setting-label">${t("dino_battle.tile.natureLabel")}</div>
-            <label class="switch"><input type="checkbox" id="tileNatureToggle"><span class="slider round"></span></label>
-          </div>
-          <div class="setting-row">
-            <div class="setting-label">${t("dino_battle.tile.tribeLabel")}</div>
-            <div class="custom-dropdown setting-control" id="tileTribeDropdown">
-              <div class="selected-value" id="tileTribeSelectedValue">${t("dino_battle.tribe.none")}</div>
-              <ul class="dropdown-list" id="tileTribeList"></ul>
-            </div>
-          </div>
-          <div class="setting-stack-pair">
-            <div class="setting-stack">
-              <label class="setting-label">${t("dino_battle.tile.serverLevelCapLabel")}</label>
-              <div class="custom-dropdown" id="tileServerLevelCapDropdown">
-                <div class="selected-value" id="tileServerLevelCapSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="tileServerLevelCapList"></ul>
-              </div>
-            </div>
-            <div class="setting-stack">
-              <label class="setting-label">${t("dino_battle.tile.constellationCapLabel")}</label>
-              <div class="custom-dropdown" id="tileConstellationCapDropdown">
-                <div class="selected-value" id="tileConstellationCapSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="tileConstellationCapList"></ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tile-group">
-        <div class="tile-group-label">${t("dino_battle.tileGroup.perSide")}</div>
-        <div class="tile-side-grid">
-          <div class="tile-side-col">
-            <div class="tile-side-col-label my-side-label">${t("dino_battle.side.myDino")}</div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.arrangementLabel")}</label>
-              <div class="custom-dropdown" id="myTileArrangementDropdown">
-                <div class="selected-value" id="myTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
-                <ul class="dropdown-list" id="myTileArrangementList"></ul>
-              </div>
-            </div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.atkTowerLabel")}</label>
-              <div class="custom-dropdown" id="myAtkTowerDropdown">
-                <div class="selected-value" id="myAtkTowerSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="myAtkTowerList"></ul>
-              </div>
-            </div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.hpTowerLabel")}</label>
-              <div class="custom-dropdown" id="myHpTowerDropdown">
-                <div class="selected-value" id="myHpTowerSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="myHpTowerList"></ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="tile-side-col">
-            <div class="tile-side-col-label opp-side-label">${t("dino_battle.side.oppDino")}</div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.arrangementLabel")}</label>
-              <div class="custom-dropdown" id="oppTileArrangementDropdown">
-                <div class="selected-value" id="oppTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
-                <ul class="dropdown-list" id="oppTileArrangementList"></ul>
-              </div>
-            </div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.atkTowerLabel")}</label>
-              <div class="custom-dropdown" id="oppAtkTowerDropdown">
-                <div class="selected-value" id="oppAtkTowerSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="oppAtkTowerList"></ul>
-              </div>
-            </div>
-            <div class="tile-side-field">
-              <label>${t("dino_battle.side.hpTowerLabel")}</label>
-              <div class="custom-dropdown" id="oppHpTowerDropdown">
-                <div class="selected-value" id="oppHpTowerSelectedValue">${t("common.optionNone")}</div>
-                <ul class="dropdown-list" id="oppHpTowerList"></ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="battle-layout" id="battleLayout">
       <div class="battle-side-panel my-side" id="mySidePanel">
@@ -318,10 +227,101 @@ function renderDinoBattlePage(container) {
         <button class="battle-peek-btn my-peek" id="myPeekBtn" title="${t("dino_battle.myPeekTooltip")}">▶</button>
 
         <div class="card battle-main-card" id="battleMainCard">
-          <div class="battle-mode-tabs mode-live" id="battleModeTabs">
+          <div class="battle-mode-tabs mode-live dino-mode-tabs-3" id="battleModeTabs">
             <span class="battle-mode-indicator"></span>
+            <button class="battle-mode-tab" data-mode="settings" id="modeTabSettings"><span>${t("dino_battle.tab.settings")}</span></button>
             <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>${t("dino_battle.tab.quick")}</span></button>
             <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>${t("dino_battle.tab.live")}</span></button>
+          </div>
+
+          <div class="battle-mode-panel battle-tile-card" id="settingsModeCard" style="display:none;">
+            <div class="tile-group">
+              <div class="tile-group-label">${t("dino_battle.tileGroup.environment")}</div>
+              <div class="setting-list">
+                <div class="setting-row">
+                  <div class="setting-label">${t("dino_battle.tile.natureLabel")}</div>
+                  <label class="switch"><input type="checkbox" id="tileNatureToggle"><span class="slider round"></span></label>
+                </div>
+                <div class="setting-row">
+                  <div class="setting-label">${t("dino_battle.tile.tribeLabel")}</div>
+                  <div class="custom-dropdown setting-control" id="tileTribeDropdown">
+                    <div class="selected-value" id="tileTribeSelectedValue">${t("dino_battle.tribe.none")}</div>
+                    <ul class="dropdown-list" id="tileTribeList"></ul>
+                  </div>
+                </div>
+                <div class="setting-stack-pair">
+                  <div class="setting-stack">
+                    <label class="setting-label">${t("dino_battle.tile.serverLevelCapLabel")}</label>
+                    <div class="custom-dropdown" id="tileServerLevelCapDropdown">
+                      <div class="selected-value" id="tileServerLevelCapSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="tileServerLevelCapList"></ul>
+                    </div>
+                  </div>
+                  <div class="setting-stack">
+                    <label class="setting-label">${t("dino_battle.tile.constellationCapLabel")}</label>
+                    <div class="custom-dropdown" id="tileConstellationCapDropdown">
+                      <div class="selected-value" id="tileConstellationCapSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="tileConstellationCapList"></ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tile-group">
+              <div class="tile-group-label">${t("dino_battle.tileGroup.perSide")}</div>
+              <div class="tile-side-grid">
+                <div class="tile-side-col">
+                  <div class="tile-side-col-label my-side-label">${t("dino_battle.side.myDino")}</div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.arrangementLabel")}</label>
+                    <div class="custom-dropdown" id="myTileArrangementDropdown">
+                      <div class="selected-value" id="myTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
+                      <ul class="dropdown-list" id="myTileArrangementList"></ul>
+                    </div>
+                  </div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.atkTowerLabel")}</label>
+                    <div class="custom-dropdown" id="myAtkTowerDropdown">
+                      <div class="selected-value" id="myAtkTowerSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="myAtkTowerList"></ul>
+                    </div>
+                  </div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.hpTowerLabel")}</label>
+                    <div class="custom-dropdown" id="myHpTowerDropdown">
+                      <div class="selected-value" id="myHpTowerSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="myHpTowerList"></ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tile-side-col">
+                  <div class="tile-side-col-label opp-side-label">${t("dino_battle.side.oppDino")}</div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.arrangementLabel")}</label>
+                    <div class="custom-dropdown" id="oppTileArrangementDropdown">
+                      <div class="selected-value" id="oppTileArrangementSelectedValue">${t("dino_battle.arrangement.same")}</div>
+                      <ul class="dropdown-list" id="oppTileArrangementList"></ul>
+                    </div>
+                  </div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.atkTowerLabel")}</label>
+                    <div class="custom-dropdown" id="oppAtkTowerDropdown">
+                      <div class="selected-value" id="oppAtkTowerSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="oppAtkTowerList"></ul>
+                    </div>
+                  </div>
+                  <div class="tile-side-field">
+                    <label>${t("dino_battle.side.hpTowerLabel")}</label>
+                    <div class="custom-dropdown" id="oppHpTowerDropdown">
+                      <div class="selected-value" id="oppHpTowerSelectedValue">${t("common.optionNone")}</div>
+                      <ul class="dropdown-list" id="oppHpTowerList"></ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="battle-mode-panel" id="quickModeCard" style="display:none;">
@@ -519,29 +519,26 @@ function initDinoBattlePage() {
   resetBattleDisplay();
 }
 
+// 전투 설정/빠른 계산/시뮬레이션 3개 탭 전환 - 허수아비 페이지(dummyInitModeTabs)와 같은
+// 배열 기반 공용 패턴(js/pages/dummy-page.js 참고)
+const DINO_BATTLE_MODES = [
+  { mode: "settings", tabId: "modeTabSettings", cardId: "settingsModeCard" },
+  { mode: "quick", tabId: "modeTabQuick", cardId: "quickModeCard" },
+  { mode: "live", tabId: "modeTabLive", cardId: "liveModeCard" }
+];
+
 function initModeTabs() {
   const tabsEl = document.getElementById("battleModeTabs");
-  const quickTab = document.getElementById("modeTabQuick");
-  const liveTab = document.getElementById("modeTabLive");
-  const quickCard = document.getElementById("quickModeCard");
-  const liveCard = document.getElementById("liveModeCard");
 
-  quickTab.onclick = () => {
-    quickTab.classList.add("active");
-    liveTab.classList.remove("active");
-    quickCard.style.display = "block";
-    liveCard.style.display = "none";
-    tabsEl.classList.remove("mode-live");
-    tabsEl.classList.add("mode-quick");
-  };
-  liveTab.onclick = () => {
-    liveTab.classList.add("active");
-    quickTab.classList.remove("active");
-    liveCard.style.display = "block";
-    quickCard.style.display = "none";
-    tabsEl.classList.remove("mode-quick");
-    tabsEl.classList.add("mode-live");
-  };
+  DINO_BATTLE_MODES.forEach((m) => {
+    document.getElementById(m.tabId).onclick = () => {
+      DINO_BATTLE_MODES.forEach((other) => {
+        document.getElementById(other.tabId).classList.toggle("active", other.mode === m.mode);
+        document.getElementById(other.cardId).style.display = other.mode === m.mode ? "block" : "none";
+        tabsEl.classList.toggle(`mode-${other.mode}`, other.mode === m.mode);
+      });
+    };
+  });
 }
 
 // 죽음(약한 쪽)이 아니라 생존(강한 쪽)이 1이 되도록, "적게 죽은 쪽"을 1로 고정하고 "많이 죽은

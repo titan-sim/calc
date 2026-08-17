@@ -7,10 +7,17 @@ const MY_DINO_PROFILE_KEY = "dino_my_profile";
 const RUNE_PRESET_COUNT = 9;
 
 function defaultRunePresets() {
-  return Array.from({ length: RUNE_PRESET_COUNT }, (_, i) => ({
-    name: t("my_dino.presetDefaultName", { index: i + 1 }),
+  return Array.from({ length: RUNE_PRESET_COUNT }, () => ({
+    name: null,
     runes: [null, null, null, null, null]
   }));
+}
+
+// name이 null(한 번도 직접 이름을 바꾼 적 없음)이면 그 자리에서 지금 활성 언어로 "프리셋 N"을
+// 계산해서 보여줌 - name을 아예 저장 안 해두는 이유는 언어를 바꿔도 항상 최신 언어를 따라가게
+// 하기 위함([[i18n.js]]의 i18nIsDefaultName 마이그레이션과 짝을 이룸)
+function runePresetDisplayName(preset, idx) {
+  return (preset && preset.name) || t("my_dino.presetDefaultName", { index: idx + 1 });
 }
 
 function defaultMyDinoProfile() {
@@ -53,7 +60,13 @@ function normalizeDinoProfile(saved) {
   }
   // 압축된 힘/매머드의 힘처럼 동시 장착이 불가능한 룬 쌍이 저장 데이터에 섞여 있으면 정리
   // (수동 localStorage 편집, 예전 버전 저장분 등으로 꼬였을 가능성 방어)
-  saved.runePresets.forEach((preset) => { preset.runes = sanitizeRuneConflicts(preset.runes); });
+  saved.runePresets.forEach((preset, i) => {
+    preset.runes = sanitizeRuneConflicts(preset.runes);
+    // 예전엔 이름을 한 번도 안 바꾼 프리셋도 name에 그때 언어로 번역된 문자열이 그대로 저장돼
+    // 있었음 - 5개 언어 중 하나로 구워진 "자동 기본 이름"과 정확히 일치하면 다시 null로 되돌려서
+    // runePresetDisplayName()이 항상 지금 언어로 계산해 보여주게 함(사용자 지적으로 발견한 버그)
+    if (i18nIsDefaultName("my_dino.presetDefaultName", i + 1, preset.name)) preset.name = null;
+  });
   // top-level runes가 아예 없는 데이터(친구 세션/스냅샷이 넘기는 원본은 runePresets만 있고 runes가
   // 없을 수 있음)는 활성 프리셋에서 유도
   saved.runes = sanitizeRuneConflicts(
@@ -752,17 +765,18 @@ function initMyDinoPage(profile, options = {}, container) {
   function startRenamePreset(idx) {
     const nameEl = root.querySelector(`.preset-btn-name[data-idx="${idx}"]`);
     if (!nameEl) return;
-    const current = profile.runePresets[idx].name;
     const input = document.createElement("input");
     input.type = "text";
     input.className = "preset-name-input";
-    input.value = current;
+    input.value = runePresetDisplayName(profile.runePresets[idx], idx);
     input.maxLength = 6;
     nameEl.replaceWith(input);
     input.focus();
     input.select();
     const commit = () => {
-      profile.runePresets[idx].name = input.value.trim() || current;
+      // 비워서 확정하면 null로 되돌려서(특정 문자열을 저장하는 게 아니라) 다시 "자동, 언어 따라감"
+      // 상태로 리셋됨 - 지금 언어로 보인 기본 문구를 그대로 구워 넣지 않기 위함
+      profile.runePresets[idx].name = input.value.trim() || null;
       persistAndRefresh();
       renderPresetRow();
     };
@@ -779,7 +793,7 @@ function initMyDinoPage(profile, options = {}, container) {
       btn.className = "preset-btn" + (isActive ? " active" : "");
       btn.style.backgroundImage = `url("${getPresetBtnImg(idx, isActive)}")`;
       btn.innerHTML = `
-        <span class="preset-btn-name" data-idx="${idx}">${preset.name}</span>
+        <span class="preset-btn-name" data-idx="${idx}">${runePresetDisplayName(preset, idx)}</span>
         ${isActive && !readOnly ? `<button type="button" class="preset-edit-btn" title="${t("my_dino.preset.editTooltip")}">✏️</button>` : ""}
       `;
       // selectPreset() 자기 자신이 readOnly/allowPresetSwitch 가드를 갖고 있으므로 여기서는 그냥

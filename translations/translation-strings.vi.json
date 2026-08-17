@@ -406,7 +406,6 @@
   },
   "dino_battle": {
     "dino_battle.heading": "Đại Chiến Khủng Long",
-    "dino_battle.tileCard.title": "Thiết Lập Ô",
     "dino_battle.tileGroup.environment": "Môi Trường",
     "dino_battle.tile.natureLabel": "Kề Cận Công Trình Tự Nhiên (Vòng Tay Thiên Nhiên)",
     "dino_battle.tile.tribeLabel": "Trạng Thái Chiếm Đóng Bộ Lạc (Phước Lành Bộ Lạc)",
@@ -423,6 +422,7 @@
     "dino_battle.tribe.opponent": "Bộ Lạc Đối Phương",
     "dino_battle.arrangement.same": "Cùng Ô",
     "dino_battle.arrangement.separate": "Ô Khác Nhau",
+    "dino_battle.tab.settings": "Thiết Lập Chiến Đấu",
     "dino_battle.tab.quick": "Tính Nhanh",
     "dino_battle.tab.live": "Mô Phỏng",
     "dino_battle.quick.desc": "Không có khủng long dự bị, cho từng con khủng long đối đầu 1-1, khi chết sẽ hồi sinh ngay tại chỗ, lặp lại cho đến khi đạt {trials} lần chết. Tính tỷ lệ số lần chết và sát thương trung bình (bao gồm cả đánh thường, chí mạng, kỹ năng, phản đòn Sẵn Sàng Chết).",

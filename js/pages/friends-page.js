@@ -310,7 +310,7 @@ function renderFriendStatBreakdown(container, profile) {
   if (profile.runePresets !== undefined) {
     const presets = profile.runePresets || [];
     presetBlockHtml = presets.length
-      ? `<div class="friend-preset-list" id="friendPresetList">${presets.map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${p.name}</div>`).join("")}</div>`
+      ? `<div class="friend-preset-list" id="friendPresetList">${presets.map((p, i) => `<div class="friend-preset-item${i === profile.activePresetIndex ? " active" : ""}" data-idx="${i}">${i === profile.activePresetIndex ? "★ " : ""}${runePresetDisplayName(p, i)}</div>`).join("")}</div>`
       : `<span class="friend-stat-hidden-text">${t("friends.rune.noPresets")}</span>`;
   } else {
     presetBlockHtml = `<div class="friend-stat-hidden-text">${t("friends.stat.hiddenLabel")}</div>`;
@@ -382,7 +382,7 @@ function friendArenaFormationDetailHtml(formation, runePresets) {
   const slotPresetIndices = (formation && formation.slotPresetIndices) || [null, null, null, null, null];
   return slotPresetIndices.map((idx, i) => {
     const preset = idx !== null ? runePresets[idx] : null;
-    const presetName = preset ? `· ${preset.name}` : t("friends.arena.unassigned");
+    const presetName = preset ? `· ${runePresetDisplayName(preset, idx)}` : t("friends.arena.unassigned");
     return `
       <div class="friend-arena-slot-row">
         <div class="friend-arena-slot-label">${t("friends.arena.slotLabel", { index: i + 1, presetName })}</div>
@@ -403,7 +403,7 @@ function mountFriendArenaFormationViewer(container, profile) {
   function render() {
     const formations = arenaFormations.formations || [];
     listEl.innerHTML = formations.length
-      ? formations.map((f, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === activeFormationIndex ? "★ " : ""}${f.name}</div>`).join("")
+      ? formations.map((f, i) => `<div class="friend-preset-item${i === selectedIdx ? " active" : ""}" data-idx="${i}">${i === activeFormationIndex ? "★ " : ""}${arenaFormationDisplayName(f, i)}</div>`).join("")
       : `<span class="friend-stat-hidden-text">${t("friends.arena.noFormations")}</span>`;
     listEl.querySelectorAll(".friend-preset-item").forEach((el) => {
       el.onclick = () => {

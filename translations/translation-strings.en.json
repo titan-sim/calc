@@ -406,7 +406,6 @@
   },
   "dino_battle": {
     "dino_battle.heading": "Dino Battle",
-    "dino_battle.tileCard.title": "Tile Settings",
     "dino_battle.tileGroup.environment": "Environment",
     "dino_battle.tile.natureLabel": "Adjacent to Nature Structure (Nature's Embrace)",
     "dino_battle.tile.tribeLabel": "Tribe Control Status (Tribe's Blessing)",
@@ -423,6 +422,7 @@
     "dino_battle.tribe.opponent": "Opponent's Tribe",
     "dino_battle.arrangement.same": "Same Tile",
     "dino_battle.arrangement.separate": "Separate Tiles",
+    "dino_battle.tab.settings": "Battle Settings",
     "dino_battle.tab.quick": "Quick Calc",
     "dino_battle.tab.live": "Simulation",
     "dino_battle.quick.desc": "Pits your dinos against the opponent's one at a time with no reserves, instantly reviving whichever dies until {trials} deaths occur. Calculates the death ratio and average damage (including basic attacks, criticals, skills, and Ready to Die counterattacks).",

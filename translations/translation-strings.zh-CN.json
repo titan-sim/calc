@@ -406,7 +406,6 @@
   },
   "dino_battle": {
     "dino_battle.heading": "恐龙对战",
-    "dino_battle.tileCard.title": "地块设置",
     "dino_battle.tileGroup.environment": "环境",
     "dino_battle.tile.natureLabel": "与自然结构相邻（自然的拥抱）",
     "dino_battle.tile.tribeLabel": "部落占领状态（部落的祝福）",
@@ -423,6 +422,7 @@
     "dino_battle.tribe.opponent": "对方部落",
     "dino_battle.arrangement.same": "同一地块",
     "dino_battle.arrangement.separate": "不同地块",
+    "dino_battle.tab.settings": "战斗设置",
     "dino_battle.tab.quick": "快速计算",
     "dino_battle.tab.live": "模拟",
     "dino_battle.quick.desc": "不设待机恐龙，双方恐龙一对一交战，阵亡后立即在原地复活，重复至阵亡{trials}次为止。计算阵亡次数比例和平均伤害（含普通攻击、暴击、技能、赴死觉悟反击等全部内容）。",

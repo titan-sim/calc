@@ -406,7 +406,6 @@
   },
   "dino_battle": {
     "dino_battle.heading": "공룡 대전",
-    "dino_battle.tileCard.title": "타일 설정",
     "dino_battle.tileGroup.environment": "환경",
     "dino_battle.tile.natureLabel": "자연 구조물과 인접 (자연의 포옹)",
     "dino_battle.tile.tribeLabel": "부족 점령 상태 (부족의 축복)",
@@ -423,6 +422,7 @@
     "dino_battle.tribe.opponent": "상대 부족",
     "dino_battle.arrangement.same": "한 타일",
     "dino_battle.arrangement.separate": "다른 타일",
+    "dino_battle.tab.settings": "전투 설정",
     "dino_battle.tab.quick": "빠른 계산",
     "dino_battle.tab.live": "시뮬레이션",
     "dino_battle.quick.desc": "대기 공룡 없이 공룡 1마리씩 맞붙어서, 죽으면 그 자리에서 즉시 부활시키며 {trials}번 죽을 때까지 반복합니다. 사망 횟수 비율과 평균 대미지(평타·크리티컬·스킬·죽을 준비 반격까지 전부 포함)를 계산합니다.",

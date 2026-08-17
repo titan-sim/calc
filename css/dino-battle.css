@@ -7,17 +7,85 @@
    좌우 가장자리의 탭(peek 버튼)을 누르면 슬라이드 패널로 들어옴.
    데스크톱(1100px 이상): 컨테이너 폭을 넓혀서 좌-내공룡 / 중앙-전투 / 우-상대공룡 3단 그리드로 항상 다 보이게 함. */
 
-/* 타일 설정 카드: 제목을 위에 두고, 그 아래 항목들은 라벨+컨트롤이 붙은 작은 덩어리(chip)로
-   만들어서 폭이 남으면 한 줄에 여러 개, 좁으면 자동 줄바꿈되게 함(항목이 4개로 늘어나도 안정적) */
-.battle-tile-card {
-  padding: 12px 16px;
+/* 아레나(css/arena.css)와 같은 이유로 넓은 PC 화면(1440~1920px대 모니터)에서 1240px 고정 폭이
+   화면 양옆에 큰 여백을 남겨 작아 보이는 문제(사용자 지적) - 뷰포트에 비례해서 채우되 상한만 둠.
+   비율은 아레나(0.82:1.7:0.82, 전투 화면 비중을 훨씬 크게 둠)만큼 극단적으로 가운데를 키우지는
+   않음 - 이 페이지의 가운데 카드는 전투 설정/빠른 계산 탭도 같이 쓰는 자리라 아레나의 "거의
+   전투 화면 전용" 가운데 열과 달리 양옆 공룡 설정도 확실히 같이 커져야 함(사용자 확정 - "중간
+   카드를 키우고 나서 양 옆 공룡 설정도 크기를 키우고") - 그래도 "먼저 중간을" 요청대로 가운데
+   비중을 원래(1:1.15:1)보다 더 키움. 전투 육각형(.battle-hex-stage)은 max-width:900px라 가운데
+   카드가 그보다 커져도 그 이상은 안 늘어나고 여백만 넉넉해짐(의도된 동작, 위 주석 참고) */
+@media (min-width: 1400px) {
+  body[data-page="dino-battle"] .container {
+    width: min(96vw, 1760px);
+  }
+  body[data-page="dino-battle"] .battle-layout {
+    grid-template-columns: 1fr 1.4fr 1fr;
+  }
 }
 
-.battle-tile-heading {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-sub);
-  margin: 0 0 10px;
+/* 1100~1399px 구간(사용자 지적) - PC 모니터에서 가로를 줄이다가 1400px 밑으로 내려가는 순간
+   위 넓은 화면 규칙이 꺼지고 공용 3단 규칙(combat-shared.css, 컨테이너 min(100%,1240px) +
+   1:1.15:1 비율)으로 돌아가는데, 두 규칙의 공식이 이 경계에서 서로 안 이어져서 가운데 전투
+   카드가 그 지점에서 훅 작아져 보였음(실측: 1399px에서 423px였다가 1400px 미만으로는 423px에서
+   더 줄어드는 게 아니라 그 밑 1100~1399 전체가 원래도 423px 부근에 고정 - 즉 1400px를 기준으로
+   위/아래 폭 공식이 서로 다른 값에서 만나 "계단"처럼 뚝 떨어짐). 아레나(css/arena.css)가 이미
+   쓰는 해법을 그대로 적용 - 이 구간만 3단을 욱여넣는 대신 전투 카드는 위에 풀 폭으로, 좌우 설정
+   패널은 그 아래 2열로 내림. 아레나와 달리 이 페이지는 1100px 미만에서도 딱히 붐비지 않아서
+   (실측 확인 - 로그인 상태의 "친구 초대/설정 불러오기" 버튼이 있어도 헤더가 줄바꿈 안 됨) 아래쪽
+   경계는 아레나의 700px이 아니라 기존 모바일 오프캔버스 경계(1100px)를 그대로 씀(그 밑은 공용
+   모바일 규칙이 계속 담당) */
+@media (min-width: 1100px) and (max-width: 1399px) {
+  body[data-page="dino-battle"] .battle-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "battle battle"
+      "my opp";
+  }
+  body[data-page="dino-battle"] .battle-arena-wrap {
+    grid-area: battle;
+  }
+  body[data-page="dino-battle"] .battle-side-panel.my-side { grid-area: my; }
+  body[data-page="dino-battle"] .battle-side-panel.opp-side { grid-area: opp; }
+}
+
+/* 전투 설정/빠른 계산/시뮬레이션 3탭 - 공용 .battle-mode-indicator는 2탭 폭(50%)으로 짜여있어서
+   3탭 폭(33.333%)만 여기서 따로 덮어씀(dummy-mode-tabs-3와 같은 패턴, combat-shared.css 참고).
+   이 페이지는 순서가 설정(0번, 기본 위치라 별도 규칙 불필요)/빠른 계산(1번)/시뮬레이션(2번)이라,
+   공용 .mode-live 규칙(1번 자리 이동)을 그대로 못 쓰고 이 스코프 안에서 mode-quick=1번,
+   mode-live=2번으로 다시 정의함 - combat-shared.css보다 이 파일이 늦게 로드되므로(index.html
+   링크 순서) 명시도(specificity)가 같아도 나중에 온 이 규칙이 이김 */
+.dino-mode-tabs-3 .battle-mode-indicator {
+  width: calc(33.333% - 5.333px);
+}
+
+.dino-mode-tabs-3.mode-quick .battle-mode-indicator {
+  transform: translateX(calc(100% + 4px));
+}
+
+.dino-mode-tabs-3.mode-live .battle-mode-indicator {
+  transform: translateX(calc(200% + 8px));
+}
+
+/* 전투 설정 탭만 파란색으로 표시(사용자 확정 - "전투 설정은 파란색이어야 해, 타이탄 전투 설정
+   색깔" - 타이탄/건물의 #3cb4be를 그대로 씀). data-active-idx가 아니라 이 페이지 고유의
+   mode-settings 클래스로 스코프(위 mode-quick/mode-live와 같은 방식) */
+.dino-mode-tabs-3.mode-settings .battle-mode-indicator {
+  background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
+  box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
+}
+
+.dino-mode-tabs-3.mode-settings #modeTabSettings.active {
+  color: #eef4ff;
+}
+
+/* 타일 설정: 라벨+컨트롤이 붙은 작은 덩어리(chip)로 만들어서 폭이 남으면 한 줄에 여러 개, 좁으면
+   자동 줄바꿈되게 함(항목이 4개로 늘어나도 안정적). "전투 설정" 탭(battle-mode-panel)으로 옮기기
+   전에는 독립된 .card였어서 자체 padding이 있었는데, 이제는 .battle-main-card(.card)의
+   --p-base 패딩을 그대로 물려받으므로(.battle-mode-panel 자체는 패딩 없음, combat-shared.css)
+   .battle-tile-card는 클래스명만 유지하고(아래 자식 선택자들의 스코프용) padding은 없앰 */
+.battle-tile-card {
+  padding: 0;
 }
 
 /* "환경"(자연 구조물과 인접/부족 점령 상태/서버 레벨캡/서버 별자리캡)만 이 .setting-list를 씀

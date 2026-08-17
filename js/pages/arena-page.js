@@ -97,18 +97,29 @@ function arenaProfileStorageKey(sideKey) {
 
 function arenaDefaultFormationsData() {
   return {
-    formations: Array.from({ length: ARENA_FORMATION_COUNT }, (_, i) => ({
-      name: t("arena.formationDefaultName", { index: i + 1 }),
+    formations: Array.from({ length: ARENA_FORMATION_COUNT }, () => ({
+      name: null,
       slotPresetIndices: [null, null, null, null, null]
     })),
     activeFormationIndex: 0
   };
 }
 
+// name이 null(한 번도 직접 이름을 바꾼 적 없음)이면 그 자리에서 지금 활성 언어로 "배치 N"을
+// 계산해서 보여줌 - [[my-dino-page.js]]의 runePresetDisplayName()과 같은 패턴(언어를 바꿔도
+// 항상 최신 언어를 따라가게 하기 위해 name 자체는 저장 안 함)
+function arenaFormationDisplayName(formation, idx) {
+  return (formation && formation.name) || t("arena.formationDefaultName", { index: idx + 1 });
+}
+
 function arenaSanitizeFormation(f, i) {
   const raw = Array.isArray(f && f.slotPresetIndices) && f.slotPresetIndices.length === 5 ? f.slotPresetIndices : [null, null, null, null, null];
+  // 예전엔 이름을 한 번도 안 바꾼 배치도 name에 그때 언어로 번역된 문자열이 그대로 저장돼 있었음 -
+  // 5개 언어 중 하나로 구워진 "자동 기본 이름"과 정확히 일치하면 다시 null로 되돌려서
+  // arenaFormationDisplayName()이 항상 지금 언어로 계산해 보여주게 함(사용자 지적으로 발견한 버그)
+  const name = i18nIsDefaultName("arena.formationDefaultName", i + 1, f && f.name) ? null : f.name;
   return {
-    name: (f && f.name) || t("arena.formationDefaultName", { index: i + 1 }),
+    name,
     slotPresetIndices: raw.map((idx) => (Number.isInteger(idx) && idx >= 0 && idx < RUNE_PRESET_COUNT ? idx : null))
   };
 }
@@ -821,7 +832,7 @@ function arenaMountFormationTab(sideKey, containerEl) {
     const squaresHtml = columns
       .map((colSlots, colIdx) => colSlots.map((slotIndex, posInCol) => {
         const presetIdx = formation.slotPresetIndices[slotIndex];
-        const presetName = presetIdx !== null && runePresets[presetIdx] ? runePresets[presetIdx].name : null;
+        const presetName = presetIdx !== null && runePresets[presetIdx] ? runePresetDisplayName(runePresets[presetIdx], presetIdx) : null;
         return arenaFmtSquareHtml(sideKey, slotIndex, formation, colIdx, posInCol, colSlots.length, presetName);
       }).join(""))
       .join("");
@@ -845,7 +856,7 @@ function arenaMountFormationTab(sideKey, containerEl) {
       const btn = document.createElement("div");
       btn.className = "arena-preset-btn" + (isActive ? " active" : "");
       btn.innerHTML = `
-        <span class="arena-preset-btn-name" data-idx="${idx}">${formation.name}</span>
+        <span class="arena-preset-btn-name" data-idx="${idx}">${arenaFormationDisplayName(formation, idx)}</span>
         ${isActive && !foreign ? `<button type="button" class="arena-preset-edit-btn" title="${t("arena.presetEditTooltip")}">✏️</button>` : ""}
       `;
       btn.onclick = (e) => {
@@ -860,7 +871,7 @@ function arenaMountFormationTab(sideKey, containerEl) {
       const editBtn = btn.querySelector(".arena-preset-edit-btn");
       if (editBtn) editBtn.onclick = (e) => {
         e.stopPropagation();
-        arenaStartRenamePreset(btn, formation.name, (newName) => {
+        arenaStartRenamePreset(btn, arenaFormationDisplayName(formation, idx), (newName) => {
           data.formations[idx].name = newName;
           arenaSaveFormationsData(sideKey, data);
           renderFormationRow();
@@ -890,7 +901,9 @@ function arenaStartRenamePreset(btnEl, currentName, onCommit) {
   nameEl.replaceWith(input);
   input.focus();
   input.select();
-  const commit = () => onCommit(input.value.trim() || currentName);
+  // 비워서 확정하면 null로 되돌려서(currentName 문자열을 그대로 재저장하는 게 아니라) 다시
+  // "자동, 언어 따라감" 상태로 리셋됨 - 지금 언어로 보인 기본 문구를 그대로 구워 넣지 않기 위함
+  const commit = () => onCommit(input.value.trim() || null);
   input.onblur = commit;
   input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
 }
@@ -960,7 +973,7 @@ function arenaRenderSlotEditPresetRow() {
     const btn = document.createElement("div");
     btn.className = "arena-preset-btn" + (isActive ? " active" : "");
     btn.innerHTML = `
-      <span class="arena-preset-btn-name" data-idx="${idx}">${preset.name}</span>
+      <span class="arena-preset-btn-name" data-idx="${idx}">${runePresetDisplayName(preset, idx)}</span>
       ${isActive && !foreign ? `<button type="button" class="arena-preset-edit-btn" title="${t("arena.presetEditTooltip")}">✏️</button>` : ""}
     `;
     // 한 번 클릭 = 미리보기만(룬 슬롯 갱신 + 선택 표시), 두 번 클릭(더블클릭) = 이 슬롯에 실제로
@@ -979,7 +992,7 @@ function arenaRenderSlotEditPresetRow() {
     const editBtn = btn.querySelector(".arena-preset-edit-btn");
     if (editBtn) editBtn.onclick = (e) => {
       e.stopPropagation();
-      arenaStartRenamePreset(btn, preset.name, (newName) => {
+      arenaStartRenamePreset(btn, runePresetDisplayName(preset, idx), (newName) => {
         const p = loadMyDinoProfile(storageKey);
         p.runePresets[idx].name = newName;
         saveMyDinoProfile(p, storageKey);
