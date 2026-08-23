@@ -145,6 +145,19 @@
   <script src="js/core/data-sync.js"></script>
   <script src="js/core/friend-session.js"></script>
   <script src="js/core/update-check.js"></script>
+  <!-- 검색엔진 크롤러(구글봇 등)가 이 루트 페이지를 렌더링할 때 저장된 dino_lang이 없으면
+       navigator.language(크롤러 쪽은 보통 영어)를 그대로 따라가버려서, 실제로는 한국어가 기본인
+       이 URL(hreflang상 ko/x-default)이 통째로 영어로 렌더링되어 그대로 색인된 문제(사용자가
+       구글 검색결과 스크린샷으로 발견 - 제목/설명이 전부 영어로 나옴, URL은 정상인데도). en.html이
+       처음 방문자를 영어로 강제하는 것과 정반대로, 여기서는 크롤러만 한국어로 강제함(실제 사람
+       방문자는 이 분기를 안 타므로 js/core/i18n.js의 브라우저 언어 자동감지가 그대로 유지됨).
+       알려진 주요 크롤러 UA 토큰만 잡는 방식이라 완벽하진 않음 - 나중에 또 다른 크롤러가 이 문제를
+       일으키면 여기 정규식에 추가할 것 -->
+  <script>
+    if (!localStorage.getItem("dino_lang") && /bot|crawl|spider|yeti|slurp|bingpreview|duckduckbot|baiduspider|yandex/i.test(navigator.userAgent)) {
+      localStorage.setItem("dino_lang", "ko");
+    }
+  </script>
   <script src="js/core/i18n.js"></script>
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
