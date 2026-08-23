@@ -1,40 +1,49 @@
-<!DOCTYPE html>
+// 공용 HTML 셸(뼈대) - index.html/en.html(그리고 앞으로 추가할 도구별 SEO 랜딩 페이지)이 전부
+// 여기서 찍혀 나옴. 페이지마다 다른 부분(제목/설명/canonical/히어로 문구 등)만
+// dev/pages.config.js가 config로 넘기고, 나머지(사이드 메뉴/헤더/스타일시트 목록/스크립트 목록)는
+// 이 파일 한 곳에서만 관리함 - CSS 파일을 추가하거나 메뉴 항목이 바뀌어도 여기 한 번만 고치면 됨.
+//
+// 빌드 도구가 아님 - "node dev/generate-pages.js"를 손으로 실행할 때만 쓰이는 개발용 스크립트고,
+// 그 결과물(index.html 등)을 그대로 커밋해서 배포함. 사이트 자체(JS/CSS)는 여전히 런타임 빌드
+// 단계 없이 순수 정적 파일 그대로 서빙됨 - 여기서 찍어내는 건 반복되는 HTML 셸뿐임.
+function renderPage(cfg) {
+  const hreflangHtml = cfg.hreflang.map((h) => `  <link rel="alternate" hreflang="${h.hreflang}" href="${h.href}">`).join("\n");
+
+  return `<!DOCTYPE html>
 <!-- 이 파일은 dev/generate-pages.js가 dev/pages.config.js + dev/site-template.js로부터 자동
      생성함 - 직접 고치지 말 것(다음 생성 때 덮어써서 사라짐). 고칠 내용에 따라:
      - 이 페이지만의 값(제목/설명/히어로 문구 등) -> dev/pages.config.js
      - 모든 페이지가 공유하는 부분(메뉴/헤더/스타일시트·스크립트 목록) -> dev/site-template.js
      고친 뒤 저장소 루트에서 "node dev/generate-pages.js"를 다시 실행할 것 -->
-<html lang="en">
+<html lang="${cfg.lang}">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dino Mutant Simulator - Stat Calculator</title>
-  <meta name="description" content="Predict Dino Mutant's Titan, Dino Battle, and Arena results in advance.">
+  <title>${cfg.title}</title>
+  <meta name="description" content="${cfg.description}">
   <meta name="google-site-verification" content="L98MFUbflpT6ium7ciRsL5ztwsoQ40egIudAwjXgR7c" />
   <meta name="naver-site-verification" content="b2ec2a63ccaf10094af28e7c90b0e1df6aa39e43" />
 
   <!-- 이 URL과 짝을 이루는 다른 언어 버전이 있다고 구글에 알려주는 태그 - 각자 자기 자신을
        canonical로 가리킴(서로를 가리키면 구글이 한쪽을 무시하고 다른 쪽으로 합쳐버림) -->
-  <link rel="canonical" href="https://dinomutant-sim.com/en">
-  <link rel="alternate" hreflang="ko" href="https://dinomutant-sim.com/">
-  <link rel="alternate" hreflang="en" href="https://dinomutant-sim.com/en">
-  <link rel="alternate" hreflang="x-default" href="https://dinomutant-sim.com/">
+  <link rel="canonical" href="${cfg.canonical}">
+${hreflangHtml}
 
   <link rel="icon" type="image/png" href="assets/sprites/Constellation_Icon.png">
   <link rel="apple-touch-icon" href="assets/sprites/Constellation_Icon.png">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Dino Mutant Simulator - Stat Calculator">
-  <meta property="og:description" content="Predict Dino Mutant's Titan, Dino Battle, and Arena results in advance.">
+  <meta property="og:title" content="${cfg.title}">
+  <meta property="og:description" content="${cfg.description}">
   <meta property="og:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:url" content="https://dinomutant-sim.com/en">
+  <meta property="og:url" content="${cfg.canonical}">
 
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Dino Mutant Simulator - Stat Calculator">
-  <meta name="twitter:description" content="Predict Dino Mutant's Titan, Dino Battle, and Arena results in advance.">
+  <meta name="twitter:title" content="${cfg.title}">
+  <meta name="twitter:description" content="${cfg.description}">
   <meta name="twitter:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
 
   <!-- css/style.css(단일 4600여 줄 파일)를 여러 파일로 분리한 것 - 순서가 원본 cascade 순서와
@@ -135,11 +144,7 @@
          이 안을 통째로 innerHTML로 덮어써서 즉시(거의 같은 프레임에) 대체되므로 실사용자에게는
          시각적 차이가 없음 -->
     <div id="app">
-      <button type="button" class="home-hero" id="homeHeroBtn">
-        <div class="home-hero-glow"></div>
-        <h1 class="home-hero-title">DINO MUTANT<span>Simulator</span></h1>
-        <p class="home-hero-sub">From rune combinations to battle outcomes — calculate in advance and plan your strategy.</p>
-      </button>
+${cfg.appHtml}
     </div>
   </div>
 
@@ -148,12 +153,7 @@
   <script src="js/core/data-sync.js"></script>
   <script src="js/core/friend-session.js"></script>
   <script src="js/core/update-check.js"></script>
-  <!-- 이 진입점(/en)으로 처음 들어온 방문자(dino_lang이 아직 저장 안 돼있음)만 영어로 시작하게
-       강제함 - 이미 언어를 골라본 적 있는 재방문자는 그 선택을 그대로 존중함(아무것도 안 건드림) -->
-  <script>
-    if (!localStorage.getItem("dino_lang")) localStorage.setItem("dino_lang", "en");
-  </script>
-  <script src="js/core/i18n.js"></script>
+${cfg.preI18nBlock || ""}  <script src="js/core/i18n.js"></script>
   <script src="js/data/rune-data.js"></script>
   <script src="js/data/titan-data.js"></script>
   <script src="js/data/constellation-data.js"></script>
@@ -196,3 +196,7 @@
 </body>
 
 </html>
+`;
+}
+
+module.exports = { renderPage };
