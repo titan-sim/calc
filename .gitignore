@@ -1,0 +1,7 @@
+# 로컬 wrangler dev 캐시/상태 - 배포에도 안 쓰이고(.assetsignore에서 별도로 제외) 커밋할 이유가
+# 없는 로컬 전용 파일인데, 예전엔 .gitignore가 아예 없어서 매번 git status에 걸리적거리고
+# 실수로 커밋될 위험이 있었음
+.wrangler/
+
+node_modules/
+.DS_Store

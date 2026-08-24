@@ -30,13 +30,13 @@ function renderPage(cfg) {
   <link rel="canonical" href="${cfg.canonical}">
 ${hreflangHtml}
 
-  <link rel="icon" type="image/png" href="assets/sprites/Constellation_Icon.png">
-  <link rel="apple-touch-icon" href="assets/sprites/Constellation_Icon.png">
+  <link rel="icon" type="image/png" href="assets/branding/Constellation_Icon.png">
+  <link rel="apple-touch-icon" href="assets/branding/Constellation_Icon.png">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="${cfg.title}">
   <meta property="og:description" content="${cfg.description}">
-  <meta property="og:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
+  <meta property="og:image" content="https://dinomutant-sim.com/assets/branding/OG_Banner.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:url" content="${cfg.canonical}">
@@ -44,7 +44,7 @@ ${hreflangHtml}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${cfg.title}">
   <meta name="twitter:description" content="${cfg.description}">
-  <meta name="twitter:image" content="https://dinomutant-sim.com/assets/sprites/OG_Banner.png">
+  <meta name="twitter:image" content="https://dinomutant-sim.com/assets/branding/OG_Banner.png">
 
   <!-- css/style.css(단일 4600여 줄 파일)를 여러 파일로 분리한 것 - 순서가 원본 cascade 순서와
        같아야 하므로(뒤에 오는 파일이 앞의 것을 덮어쓸 수 있음) 이 순서를 함부로 바꾸지 말 것 -->
