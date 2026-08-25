@@ -87,6 +87,13 @@ body::-webkit-scrollbar {
   /* Chrome, Safari, Opera */
 }
 
+/* 모바일(주로 Chrome/Safari)에서 버튼·링크·탭 등을 터치할 때 기본으로 뜨는 회색/파란색 반투명
+   하이라이트 박스 제거 - 이 사이트는 버튼마다 이미 자체 active/hover 스타일이 있어서 브라우저
+   기본 하이라이트가 그 위에 뜨면 색만 어긋나 보임(사용자 지적) */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: "Pretendard", sans-serif;
   background: var(--bg-color);
@@ -102,6 +109,7 @@ body {
   transition: background 0.5s, color 0.5s;
   overflow-x: hidden;
   /* 가로 스크롤 방지 */
+  -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;  /* Safari */
   -moz-user-select: none;     /* Firefox */
   -ms-user-select: none;      /* IE/Edge */
@@ -652,6 +660,15 @@ input:focus, select:focus {
   */
   overflow-x: hidden;
   padding-top: 10px;
+  -ms-overflow-style: none;
+  /* IE, Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.menu-content::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
 }
 
 .menu-bottom {
@@ -798,7 +815,7 @@ input:checked + .slider:before {
   /* Firefox */
 }
 
-b .dropdown-list::-webkit-scrollbar {
+.dropdown-list::-webkit-scrollbar {
   display: none;
 }
 

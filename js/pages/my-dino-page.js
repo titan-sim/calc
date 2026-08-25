@@ -548,19 +548,23 @@ function initMyDinoPage(profile, options = {}, container) {
     };
   });
   moveIndicator(root.querySelector(".dino-tab.active"));
-  // 폰트 로딩이 늦게 끝나거나 화면 폭이 바뀌면(카드 크기에 비례해서 탭 너비도 변함) 처음 잰 위치가 어긋나므로 다시 맞춤
+  // 폰트 로딩이 늦게 끝나면 처음 잰 위치가 어긋나므로 다시 맞춤(글자 폭만 바뀌고 탭 박스 크기
+  // 자체는 그대로인 경우 대비 - flex:1이라 보통은 안 바뀌지만 혹시 몰라 유지)
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => moveIndicator(root.querySelector(".dino-tab.active")));
   }
-  // window에 붙는 리스너라 root가 화면에서 사라져도(페이지 재방문, 다른 패널로 교체 등) 스스로 안
-  // 지워지면 renderMyDinoPage() 호출마다 계속 쌓임(사이트 전체 점검에서 발견) - 여러 인스턴스가
-  // 동시에 뜰 수 있어서(위 enableDragScroll과 같은 이유) root가 더 이상 문서에 붙어있지 않으면
-  // 핸들러가 스스로 자신을 지우게 함
-  function onResizeMoveIndicator() {
-    if (!root.isConnected) { window.removeEventListener("resize", onResizeMoveIndicator); return; }
+  // 예전엔 window resize 이벤트만 듣고 있어서, 창 크기는 그대로인데 탭 줄 자체의 폭만 바뀌는
+  // 경우(예: 이 컴포넌트가 임베드되는 공룡대전/아레나/타이탄 사이드 패널에서 옆의 3D 캔버스가
+  // 마운트 후 비동기로 크기를 잡으며 레이아웃을 흔드는 경우, 사이트 전체 점검에서 발견)엔 인디케이터
+  // 폭이 갱신되지 않아 "기본 스탯" 탭 밑줄이 실제 탭 너비와 어긋나 보였음(노란색 가로바 가로크기
+  // 오류) - window resize 대신 탭 줄 자체를 ResizeObserver로 직접 지켜봐서 원인 불문하고 크기가
+  // 바뀔 때마다 항상 다시 맞추게 함
+  const tabsRow = root.querySelector(".dino-tabs");
+  const tabIndicatorObserver = new ResizeObserver(() => {
+    if (!root.isConnected) { tabIndicatorObserver.disconnect(); return; }
     moveIndicator(root.querySelector(".dino-tab.active"));
-  }
-  window.addEventListener("resize", onResizeMoveIndicator);
+  });
+  tabIndicatorObserver.observe(tabsRow);
 
   // 기본 스탯
   const fBaseAtk = $("fBaseAtk");
