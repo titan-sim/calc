@@ -11,9 +11,17 @@
 let notifyChannel = null;
 let notifyMyId = null;
 let notifyMyNickname = null;
-let currentSession = null; // { channel, myId, myNickname, friendId, friendNickname, status, friendProfile, sharedTile, friendSide }
+let currentSession = null; // { channel, myId, myNickname, friendId, friendNickname, status, friendProfile, sharedTile, friendSide, myReady, friendReady }
 const sessionListeners = new Set();
 const friendRequestListeners = new Set();
+
+// "결과 통째 전송" 방식(친구 기능 4단계) - 계산 담당 쪽이 runDinoBattleSimulation/runArenaSimulation의
+// 결과(이벤트 로그)를 JSON으로 통째로 브로드캐스트함. Supabase Realtime broadcast는 메시지당 payload
+// 한도가 있어서(무료 티어 256KB - 실측 결과 13:13 방어 특화 조합은 이벤트 로그가 1.2MB까지도 나옴)
+// 청크로 쪼개 보내고 받는 쪽에서 이어붙임. 수신 버퍼는 세션 하나당 최대 1개 배틀만 동시에 진행되므로
+// currentSession이 아니라 이 모듈 전역 변수 하나로 충분함.
+let resultChunkBuffer = null; // { battleType, total, chunks: [] }
+const BATTLE_RESULT_CHUNK_SIZE = 150 * 1024; // 문자 기준 150KB - 256KB 한도 대비 여유(메시지 envelope 오버헤드 감안)
 
 // 브라우저 절전/장시간 백그라운드 등으로 Realtime 소켓이 조용히 끊긴 채로 남아있으면(새로고침 전엔
 // 초대 알림이 하나도 안 오는 문제) 탭이 다시 보이거나 네트워크가 돌아올 때 알림 채널을 강제로 다시
@@ -193,8 +201,11 @@ function joinFriendRoom(myId, myNickname, friendId, friendNickname, status = "ac
     channel, myId, myNickname, friendId, friendNickname, status,
     friendProfile: null,
     sharedTile: defaultSharedTile(),
-    friendSide: defaultFriendSide()
+    friendSide: defaultFriendSide(),
+    myReady: false,
+    friendReady: false
   };
+  resultChunkBuffer = null;
 
   channel.on("broadcast", { event: "msg" }, ({ payload }) => handleRoomMessage(payload));
   channel.subscribe((subStatus) => {
@@ -235,7 +246,30 @@ function handleRoomMessage(payload) {
     notifyListeners({ type: "friend-tile" });
   } else if (payload.type === "battle-start") {
     notifyListeners({ type: "battle-start", seed: payload.seed });
+  } else if (payload.type === "ready-request") {
+    currentSession.friendReady = true;
+    notifyListeners({ type: "friend-ready", battleType: payload.battleType });
+  } else if (payload.type === "ready-cancel") {
+    currentSession.friendReady = false;
+    resultChunkBuffer = null;
+    notifyListeners({ type: "friend-ready-cancelled" });
+  } else if (payload.type === "battle-result-start") {
+    resultChunkBuffer = { battleType: payload.battleType, total: payload.total, chunks: new Array(payload.total) };
+  } else if (payload.type === "battle-result-chunk") {
+    if (resultChunkBuffer) resultChunkBuffer.chunks[payload.index] = payload.data;
+  } else if (payload.type === "battle-result-end") {
+    if (resultChunkBuffer) {
+      const { battleType, chunks } = resultChunkBuffer;
+      resultChunkBuffer = null;
+      try {
+        const result = JSON.parse(chunks.join(""));
+        notifyListeners({ type: "battle-result", battleType, result });
+      } catch (e) {
+        console.error("friend-session: battle-result 파싱 오류:", e);
+      }
+    }
   } else if (payload.type === "leave") {
+    resultChunkBuffer = null;
     notifyListeners({ type: "friend-left" });
     leaveFriendSession();
   }
@@ -258,6 +292,42 @@ function sendBattleStart(seed) {
   broadcastToRoom({ type: "battle-start", seed });
 }
 
+// "준비 완료" - 내 상태를 브로드캐스트하고 로컬에도 즉시 반영(둘 다 준비됐는지 판정은 호출부가
+// currentSession.myReady/friendReady를 직접 봄 - 서버 조율 없이 각자 로컬에서 판정 가능)
+function sendReadyRequest(battleType) {
+  if (currentSession) currentSession.myReady = true;
+  broadcastToRoom({ type: "ready-request", battleType });
+}
+
+function sendReadyCancel() {
+  if (currentSession) currentSession.myReady = false;
+  resultChunkBuffer = null;
+  broadcastToRoom({ type: "ready-cancel" });
+}
+
+// 계산 담당이 결과를 보냈거나(sender) 상대가 보낸 결과를 재생하기 시작할 때(receiver) 양쪽 다
+// 다음 전투를 위해 로컬 준비 상태를 초기화 - 브로드캐스트 없음(양쪽 다 같은 타이밍에 각자 호출함)
+function resetBattleReady() {
+  if (currentSession) {
+    currentSession.myReady = false;
+    currentSession.friendReady = false;
+  }
+}
+
+// 계산 담당 쪽이 전투 결과(이벤트 로그) 전체를 청크로 쪼개 상대에게 전송함. 순서 보장은 같은
+// 채널의 broadcast가 순서대로 도착한다는 기존 가정(join -> profile 핸드셰이크에서도 이미 의존)에
+// 기댐 - 별도 재정렬 로직 불필요.
+function sendBattleResult(battleType, result) {
+  const json = JSON.stringify(result);
+  const total = Math.max(1, Math.ceil(json.length / BATTLE_RESULT_CHUNK_SIZE));
+  broadcastToRoom({ type: "battle-result-start", battleType, total });
+  for (let i = 0; i < total; i++) {
+    const data = json.slice(i * BATTLE_RESULT_CHUNK_SIZE, (i + 1) * BATTLE_RESULT_CHUNK_SIZE);
+    broadcastToRoom({ type: "battle-result-chunk", index: i, data });
+  }
+  broadcastToRoom({ type: "battle-result-end" });
+}
+
 function leaveFriendSession() {
   if (!currentSession) return;
   if (currentSession.status === "active") {
@@ -265,6 +335,7 @@ function leaveFriendSession() {
   }
   supabaseClient.removeChannel(currentSession.channel);
   currentSession = null;
+  resultChunkBuffer = null;
   notifyListeners({ type: "left" });
 }
 

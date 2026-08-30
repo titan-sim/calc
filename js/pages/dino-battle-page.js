@@ -1584,7 +1584,12 @@ function renderOppPanelToolbar() {
   const session = getActiveSession();
 
   if (session && (session.status === "active" || session.status === "inviting")) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="leaveFriendSessionBtn">${t("dino_battle.leaveSessionBtn")}</button>`;
+    // 친구 기능 4단계: 상대의 준비 상태를 항상 보여줌(내가 지금 설정 탭에 있든 다른 탭에 있든
+    // 무관하게 - 이게 예전에 없던 "상대가 언제 시작하려는지 전혀 모름" 문제의 해결책)
+    const readyIndicator = session.status === "active"
+      ? `<span class="battle-ready-indicator${session.friendReady ? " is-ready" : ""}" id="friendReadyIndicator">${session.friendReady ? t("dino_battle.friendReadyLabel") : t("dino_battle.friendWaitingLabel")}</span>`
+      : "";
+    toolbar.innerHTML = `${readyIndicator}<button class="friend-toolbar-btn friend-leave-btn" id="leaveFriendSessionBtn">${t("dino_battle.leaveSessionBtn")}</button>`;
     document.getElementById("leaveFriendSessionBtn").onclick = () => leaveFriendSession();
   } else if (friendSnapshotProfile) {
     toolbar.innerHTML = `<button class="friend-toolbar-btn" id="clearSnapshotBtn">${t("dino_battle.switchToLocalBtn")}</button>`;
@@ -1689,8 +1694,16 @@ function handleFriendSessionEvent(event) {
     refreshSharedTileDisplayFromSession();
     refreshOppTileDisplayFromSession();
     resetBattleDisplay();
-  } else if (event.type === "battle-start") {
-    if (battlePhase === "idle" || battlePhase === "finished") startBattle(event.seed);
+  } else if (event.type === "friend-ready") {
+    // 친구 기능 4단계 - "battle-start"(시드 공유) 방식은 더 이상 안 씀. 상대가 준비 완료를 누른
+    // 시점 - 나도 이미 준비 완료 상태였다면 지금 both-ready가 되어 계산이 바로 시작됨
+    renderOppPanelToolbar();
+    maybeStartServerlessBattle();
+  } else if (event.type === "friend-ready-cancelled") {
+    renderOppPanelToolbar();
+    updateReadyButtonUI();
+  } else if (event.type === "battle-result") {
+    if (event.battleType === "dino_battle") handleReceivedBattleResult(event.result);
   } else if (event.type === "friend-left" || event.type === "left" || event.type === "declined") {
     renderOppPanel();
     updateFriendLabels();
@@ -1850,6 +1863,15 @@ function applyCenterTileColor(tribeControl) {
 }
 
 function resetBattleDisplay() {
+  clearResultWaitTimeout();
+  // 친구 기능 4단계: 준비 완료 핸드셰이크 대기 중(둘 다 준비되기 전)에 설정이 바뀌면(내 편집이든
+  // 상대가 보낸 profile/tile 갱신이든, 이 함수가 두 경로 모두에서 호출됨) 이미 한 내 준비를
+  // 자동으로 취소함 - "이 설정으로 붙자"는 약속이 방금 무효화된 것이므로. 계산이 이미 끝나
+  // 재생 중(playing/paused)이면 그 결과는 계산 시점에 이미 확정된 스냅샷이라 여기서 손댈 필요 없음.
+  const readySession = getActiveSession();
+  if (readySession && readySession.myReady && battlePhase !== "playing" && battlePhase !== "paused") {
+    sendReadyCancel();
+  }
   // 진행 중이던 재생 체인이 있다면 무력화(룬/스탯 변경으로 리셋됐는데 예전 타이머가 계속 그림을
   // 덮어쓰는 재진입 버그 방지)
   battleToken++;
@@ -1893,6 +1915,9 @@ function resetBattleDisplay() {
   startBtn.disabled = false;
   startBtn.innerText = t("dino_battle.startBtn");
   startBtn.classList.remove("is-pressed");
+  // 친구 세션 중이면 위에서 방금 넣은 기본 라벨을 "준비 완료"류 라벨로 덮어씀(세션 아니면 무해)
+  updateReadyButtonUI();
+  renderOppPanelToolbar();
 
   // 이 함수는 my/opp 프로필이나 세션 상태가 바뀔 수 있는 모든 경로(로컬 편집/세션 참가·이탈/
   // 스냅샷 로드)에서 이미 공통으로 호출되고 있어서, 모드 B 잠금 상태를 다시 확인하기에 가장
@@ -2210,8 +2235,150 @@ function onBattleButtonClick() {
     runBattleStep(battleToken);
     return;
   }
-  // idle 또는 finished -> 새 전투 시작
+  // idle 또는 finished. 친구 세션 중이면 곧바로 계산하지 않고 "준비 완료" 핸드셰이크부터 거침
+  // (친구 기능 4단계 - 둘 다 준비되기 전까진 아무도 계산하지 않음)
+  if (isFriendSessionActive()) {
+    handleReadyButtonClick();
+    return;
+  }
   startBattle();
+}
+
+// ===== 친구 기능 4단계: 준비 완료 핸드셰이크 + "한쪽 계산, 결과 통째 전송" =====
+// 각자 로컬에서 같은 시드로 독립 재계산하던 기존 방식은 (a) 서로 계산이 미묘하게 어긋날 위험이
+// 있고 (b) 상대가 지금 뭘 보고 있는지 전혀 모른 채로 시작/설정변경이 뒤섞이는 문제가 있었음.
+// 대신: 방 채널명(roomChannelName)과 같은 규칙(사전순 uid)으로 "계산 담당"을 결정론적으로 정해서
+// 그 한쪽만 실제로 시뮬레이션을 돌리고, 완성된 이벤트 로그 전체를 상대에게 그대로 전송함(청크
+// 분할은 friend-session.js의 sendBattleResult가 처리) - 두 번째 계산 자체가 없으니 "어긋난다"는
+// 문제가 구조적으로 사라지고, 계산이 동기적으로 그 자리에서 끝나 바로 전송되므로 그 이후 설정이
+// 바뀌어도 이미 보낸 결과엔 영향이 없음(스냅샷 고정이 설계로 자동 성립).
+
+let resultWaitTimeoutId = null;
+
+function clearResultWaitTimeout() {
+  if (resultWaitTimeoutId) {
+    clearTimeout(resultWaitTimeoutId);
+    resultWaitTimeoutId = null;
+  }
+}
+
+// roomChannelName과 동일한 정렬 규칙 - 사전순으로 앞선 uid 쪽이 계산 담당. 별도 조율 메시지 없이
+// 양쪽이 각자 로컬에서 똑같은 결론에 도달함
+function amICalculator(session) {
+  return [session.myId, session.friendId].sort()[0] === session.myId;
+}
+
+function updateReadyButtonUI() {
+  if (!isFriendSessionActive() || battlePhase === "playing" || battlePhase === "paused") return;
+  const session = getActiveSession();
+  const startBtn = document.getElementById("battleStartBtn");
+  if (!session || !startBtn) return;
+  startBtn.disabled = false;
+  startBtn.classList.remove("is-pressed");
+  startBtn.innerText = session.myReady ? t("dino_battle.readyWaitingBtn") : t("dino_battle.readyBtn");
+}
+
+function handleReadyButtonClick() {
+  const session = getActiveSession();
+  if (!session) return;
+  if (session.myReady) {
+    sendReadyCancel();
+    updateReadyButtonUI();
+    renderOppPanelToolbar();
+    return;
+  }
+  // 상대/내 공룡 기본 스탯·별자리 입력칸은 onblur에만 저장됨 - 방금 입력하고 포커스가 그 칸에
+  // 남은 채로 바로 "준비 완료"를 눌렀다면 blur를 강제로 먼저 발생시켜 저장을 커밋해야 함
+  document.activeElement.blur();
+  sendReadyRequest("dino_battle");
+  updateReadyButtonUI();
+  renderOppPanelToolbar();
+  maybeStartServerlessBattle();
+}
+
+// 둘 다 준비됐는지는 로컬에서 바로 판정 가능(서버 조율 불필요) - 내가 방금 준비 완료를 눌렀을 때,
+// 또는 상대의 "friend-ready" 이벤트를 받았을 때 둘 다 여기를 거침
+function maybeStartServerlessBattle() {
+  const session = getActiveSession();
+  if (!session || !session.myReady || !session.friendReady) return;
+  if (amICalculator(session)) {
+    computeAndBroadcastBattleResult();
+    return;
+  }
+  // 계산 담당이 아니면 결과가 브로드캐스트로 도착하길 기다림 - 계산 자체는 동기라 순식간이지만,
+  // 청크 전송/네트워크 왕복 시간을 감안해 타임아웃을 걸어둠(계산 담당 탭이 그새 닫히는 등 결과가
+  // 영영 안 오는 경우 화면이 무한정 멈춰 보이지 않도록)
+  clearResultWaitTimeout();
+  const startBtn = document.getElementById("battleStartBtn");
+  startBtn.innerText = t("dino_battle.resolvingLabel");
+  startBtn.disabled = true;
+  resultWaitTimeoutId = setTimeout(() => {
+    resultWaitTimeoutId = null;
+    sendReadyCancel();
+    updateReadyButtonUI();
+    alert(t("dino_battle.resolveTimeoutAlert"));
+  }, 10000);
+}
+
+function computeAndBroadcastBattleResult() {
+  resetBattleReady();
+  resetBattleDisplay();
+  const result = runDinoBattleSimulation({
+    my: getSideInputs(MY_DINO_PROFILE_KEY),
+    opp: getOppBattleInputs(),
+    tileSettings: getEffectiveTileSettings(),
+    collectLog: true
+  });
+  sendBattleResult("dino_battle", result);
+  beginBattlePlayback(result);
+}
+
+function handleReceivedBattleResult(result) {
+  clearResultWaitTimeout();
+  resetBattleReady();
+  resetBattleDisplay();
+  beginBattlePlayback(remapBattleResultPerspective(result));
+}
+
+// 계산 담당이 "my"/"opp"로 태깅한 이벤트 로그를, 계산 담당이 아닌 쪽 입장에서 뒤집음(계산 담당의
+// "my"는 곧 이쪽 입장에선 "opp") - amICalculator()가 거짓인 쪽(=결과를 받기만 하는 쪽)에서만 호출됨
+function remapBattleResultPerspective(result) {
+  const swap = (s) => (s === "my" ? "opp" : s === "opp" ? "my" : s);
+  const swapEvent = (ev) => ({
+    ...ev,
+    attackerSide: swap(ev.attackerSide),
+    defenderSide: swap(ev.defenderSide),
+    hits: ev.hits.map((h) => ({ ...h, targetSide: swap(h.targetSide) })),
+    heals: ev.heals.map((h) => ({ ...h, side: swap(h.side) })),
+    deaths: ev.deaths.map((d) => ({ ...d, side: swap(d.side) })),
+    spawn: ev.spawn ? { ...ev.spawn, side: swap(ev.spawn.side) } : null,
+    myDinos: ev.oppDinos, oppDinos: ev.myDinos,
+    myAliveCount: ev.oppAliveCount, oppAliveCount: ev.myAliveCount,
+    myFrontHp: ev.oppFrontHp, myFrontMaxHp: ev.oppFrontMaxHp,
+    oppFrontHp: ev.myFrontHp, oppFrontMaxHp: ev.myFrontMaxHp
+  });
+  return {
+    ...result,
+    winner: swap(result.winner),
+    myFinalCount: result.oppFinalCount,
+    oppFinalCount: result.myFinalCount,
+    events: result.events.map(swapEvent)
+  };
+}
+
+function beginBattlePlayback(result) {
+  battleToken++;
+  const token = battleToken;
+  currentBattleResult = result;
+  currentBattleIndex = 0;
+  battlePhase = "playing";
+  const startBtn = document.getElementById("battleStartBtn");
+  startBtn.disabled = false;
+  startBtn.innerText = t("dino_battle.startBtnPause");
+  startBtn.classList.add("is-pressed");
+  document.getElementById("battleResult").style.display = "none";
+  updateRestartButtonState();
+  runBattleStep(token);
 }
 
 function runBattleStep(token) {
@@ -2227,45 +2394,25 @@ function runBattleStep(token) {
   setTimeout(() => runBattleStep(token), getBattleSpeedMs());
 }
 
-// externalSeed가 주어지면(친구 세션에서 상대가 "전투 시작"을 눌러 전파된 시드) 그 시드로 로컬
-// 재생만 함 - 새 시드를 만들어 다시 보내지 않음(그러면 무한루프). 내가 직접 누른 거면 새 시드를
-// 만들어서 세션 중일 때만 상대에게도 전파함(로컬 "실전 대전"은 지금까지처럼 매번 다른 결과)
-function startBattle(externalSeed) {
+// 솔로 플레이(친구 세션 없음) 전용 - 세션 중엔 계산 담당/결과 수신 흐름(handleReadyButtonClick 등)
+// 으로만 진행되고 이 함수는 절대 호출되지 않음(onBattleButtonClick의 분기 참고)
+function startBattle() {
+  if (isFriendSessionActive()) return;
   // 상대/내 공룡 기본 스탯·별자리 입력칸은 onblur에만 저장됨(my-dino-page.js) - 방금 입력하고
   // 포커스가 그 칸에 남은 채로 바로 "전투 시작"을 눌렀다면 blur를 강제로 먼저 발생시켜 저장을
-  // 커밋한 뒤에 읽어야 함(사용자 제보 버그). 친구 세션이 전파한 battle-start로 호출된 경우엔
-  // 포커스된 입력칸이 없을 테니 안전하게 아무 효과 없음.
+  // 커밋한 뒤에 읽어야 함(사용자 제보 버그)
   document.activeElement.blur();
   // 직전 전투가 전멸로 끝났다면 죽은 쪽 avatar에 .front-defeated(축소+투명화, playDeathFlash)가
   // 영구히 남아있는 채임 - resetBattleDisplay()가 이 클래스 제거를 포함해 전체 시각 상태를 처음
   // 상태로 되돌려주므로, battleToken을 새로 발급하기 전에 먼저 호출해서 깨끗한 상태에서 시작함
   resetBattleDisplay();
-  battleToken++;
-  const token = battleToken;
-
-  let seed = externalSeed;
-  if (seed === undefined && isFriendSessionActive()) {
-    seed = Math.floor(Math.random() * 2 ** 31);
-    sendBattleStart(seed);
-  }
-
-  const tileSettings = getEffectiveTileSettings();
-  currentBattleResult = runDinoBattleSimulation({
+  const result = runDinoBattleSimulation({
     my: getSideInputs(MY_DINO_PROFILE_KEY),
     opp: getOppBattleInputs(),
-    tileSettings,
-    seed
+    tileSettings: getEffectiveTileSettings(),
+    collectLog: true
   });
-  currentBattleIndex = 0;
-  battlePhase = "playing";
-
-  const startBtn = document.getElementById("battleStartBtn");
-  startBtn.innerText = t("dino_battle.startBtnPause");
-  startBtn.classList.add("is-pressed");
-  document.getElementById("battleResult").style.display = "none";
-  updateRestartButtonState();
-
-  runBattleStep(token);
+  beginBattlePlayback(result);
 }
 
 function updateRestartButtonState() {

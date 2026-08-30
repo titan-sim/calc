@@ -351,7 +351,11 @@ function renderArenaOppToolbar() {
   const session = getActiveSession();
 
   if (session && (session.status === "active" || session.status === "inviting")) {
-    toolbar.innerHTML = `<button class="friend-toolbar-btn friend-leave-btn" id="arenaLeaveSessionBtn">${t("arena.leaveSessionBtn")}</button>`;
+    // 친구 기능 4단계: 상대의 준비 상태를 항상 보여줌(공룡 대전과 동일한 패턴)
+    const readyIndicator = session.status === "active"
+      ? `<span class="battle-ready-indicator${session.friendReady ? " is-ready" : ""}" id="arenaFriendReadyIndicator">${session.friendReady ? t("arena.friendReadyLabel") : t("arena.friendWaitingLabel")}</span>`
+      : "";
+    toolbar.innerHTML = `${readyIndicator}<button class="friend-toolbar-btn friend-leave-btn" id="arenaLeaveSessionBtn">${t("arena.leaveSessionBtn")}</button>`;
     document.getElementById("arenaLeaveSessionBtn").onclick = () => leaveFriendSession();
   } else if (arenaFriendSnapshotProfile) {
     toolbar.innerHTML = `<button class="friend-toolbar-btn" id="arenaClearSnapshotBtn">${t("arena.switchToLocalBtn")}</button>`;
@@ -427,8 +431,8 @@ async function arenaLoadFriendSnapshot(friendId, friendNickname) {
 
 // friend-session.js의 onFriendSessionChange 구독 콜백. 페이지를 벗어난 뒤(다른 탭 이동)에도
 // friend-session.js 쪽 구독 자체는 계속 살아있을 수 있어서, 이 페이지의 DOM이 이미 사라졌으면
-// 조용히 무시함. 아레나는 전투 시작을 서로 동기화하지 않으므로(친구가 dino-battle에서 시작한
-// battle-start와 뒤섞이면 안 됨) 그 이벤트 타입은 아예 다루지 않음 - 프로필 공유만 반영함.
+// 조용히 무시함. 친구 기능 4단계부터는 공룡 대전과 동일한 준비 완료 핸드셰이크 + 결과 통째 전송
+// 방식으로 아레나 전투도 동기화됨(event.battleType으로 "dino_battle"과 구분해서 서로 안 섞임).
 function arenaHandleFriendSessionEvent(event) {
   if (!document.getElementById("arenaMainCard")) return;
 
@@ -456,6 +460,14 @@ function arenaHandleFriendSessionEvent(event) {
     renderArenaOppPanel();
     arenaUpdateFriendLabels();
     arenaResetDisplay();
+  } else if (event.type === "friend-ready") {
+    renderArenaOppToolbar();
+    arenaMaybeStartServerlessBattle();
+  } else if (event.type === "friend-ready-cancelled") {
+    renderArenaOppToolbar();
+    arenaUpdateReadyButtonUI();
+  } else if (event.type === "battle-result") {
+    if (event.battleType === "arena") arenaHandleReceivedBattleResult(event.result);
   }
 }
 
@@ -1037,6 +1049,14 @@ function arenaUpdateSlotHp(sideKey, slotIndex, hp, maxHp) {
 }
 
 function arenaResetDisplay() {
+  arenaClearResultWaitTimeout();
+  // 친구 기능 4단계: 준비 완료 핸드셰이크 대기 중(둘 다 준비되기 전)에 설정이 바뀌면 이미 한 내
+  // 준비를 자동으로 취소함(dino-battle-page.js의 resetBattleDisplay와 동일한 원칙) - 계산이 이미
+  // 끝나 재생 중(playing/paused)이면 그 결과는 계산 시점에 확정된 스냅샷이라 손댈 필요 없음
+  const readySession = getActiveSession();
+  if (readySession && readySession.myReady && arenaBattlePhase !== "playing" && arenaBattlePhase !== "paused") {
+    sendReadyCancel();
+  }
   arenaBattleToken++;
   arenaBattlePhase = "idle";
   arenaCurrentBattleResult = null;
@@ -1063,6 +1083,9 @@ function arenaResetDisplay() {
   startBtn.disabled = false;
   startBtn.innerText = t("arena.startBtn");
   startBtn.classList.remove("is-pressed");
+  // 친구 세션 중이면 위에서 넣은 기본 라벨을 "준비 완료"류 라벨로 덮어씀(세션 아니면 무해)
+  arenaUpdateReadyButtonUI();
+  renderArenaOppToolbar();
 }
 
 // 10마리가 한 화면에 있으면 어떤 슬롯이 공격하고 어떤 슬롯이 맞는지 순간적으로 알아보기 어렵다는
@@ -1239,7 +1262,132 @@ function arenaOnBattleButtonClick() {
     arenaRunBattleStep(arenaBattleToken);
     return;
   }
+  // idle 또는 finished. 친구 세션 중이면 "준비 완료" 핸드셰이크부터 거침(dino-battle-page.js와
+  // 동일한 친구 기능 4단계 - 둘 다 준비되기 전엔 아무도 계산하지 않음)
+  if (arenaIsFriendSessionActive()) {
+    arenaHandleReadyButtonClick();
+    return;
+  }
   arenaStartBattle();
+}
+
+// ===== 친구 기능 4단계: 준비 완료 핸드셰이크 + "한쪽 계산, 결과 통째 전송" (dino-battle-page.js와 대칭) =====
+
+let arenaResultWaitTimeoutId = null;
+
+function arenaClearResultWaitTimeout() {
+  if (arenaResultWaitTimeoutId) {
+    clearTimeout(arenaResultWaitTimeoutId);
+    arenaResultWaitTimeoutId = null;
+  }
+}
+
+function arenaAmICalculator(session) {
+  return [session.myId, session.friendId].sort()[0] === session.myId;
+}
+
+function arenaUpdateReadyButtonUI() {
+  if (!arenaIsFriendSessionActive() || arenaBattlePhase === "playing" || arenaBattlePhase === "paused") return;
+  const session = getActiveSession();
+  const startBtn = document.getElementById("arenaStartBtn");
+  if (!session || !startBtn) return;
+  startBtn.disabled = false;
+  startBtn.classList.remove("is-pressed");
+  startBtn.innerText = session.myReady ? t("arena.readyWaitingBtn") : t("arena.readyBtn");
+}
+
+function arenaHandleReadyButtonClick() {
+  const session = getActiveSession();
+  if (!session) return;
+  if (session.myReady) {
+    sendReadyCancel();
+    arenaUpdateReadyButtonUI();
+    renderArenaOppToolbar();
+    return;
+  }
+  sendReadyRequest("arena");
+  arenaUpdateReadyButtonUI();
+  renderArenaOppToolbar();
+  arenaMaybeStartServerlessBattle();
+}
+
+function arenaMaybeStartServerlessBattle() {
+  const session = getActiveSession();
+  if (!session || !session.myReady || !session.friendReady) return;
+  if (arenaAmICalculator(session)) {
+    arenaComputeAndBroadcastBattleResult();
+    return;
+  }
+  arenaClearResultWaitTimeout();
+  const startBtn = document.getElementById("arenaStartBtn");
+  startBtn.innerText = t("arena.resolvingLabel");
+  startBtn.disabled = true;
+  arenaResultWaitTimeoutId = setTimeout(() => {
+    arenaResultWaitTimeoutId = null;
+    sendReadyCancel();
+    arenaUpdateReadyButtonUI();
+    alert(t("arena.resolveTimeoutAlert"));
+  }, 10000);
+}
+
+function arenaComputeAndBroadcastBattleResult() {
+  resetBattleReady();
+  arenaResetDisplay();
+  const myProfile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
+  const oppProfile = arenaGetOppProfile();
+  const result = runArenaSimulation({
+    myProfile, oppProfile,
+    mySlotRunes: arenaGetActiveSlotRunes("my"),
+    oppSlotRunes: arenaGetActiveSlotRunes("opp"),
+    tileSettings: ARENA_TILE_CFG
+  });
+  sendBattleResult("arena", result);
+  arenaBeginBattlePlayback(result);
+}
+
+function arenaHandleReceivedBattleResult(result) {
+  arenaClearResultWaitTimeout();
+  resetBattleReady();
+  arenaResetDisplay();
+  arenaBeginBattlePlayback(arenaRemapBattleResultPerspective(result));
+}
+
+// 계산 담당이 "my"/"opp"로 태깅한 이벤트 로그를 계산 담당이 아닌 쪽 입장으로 뒤집음
+// (dino-battle-page.js의 remapBattleResultPerspective와 동일한 원리, 아레나 필드 구조에 맞춤)
+function arenaRemapBattleResultPerspective(result) {
+  const swap = (s) => (s === "my" ? "opp" : s === "opp" ? "my" : s);
+  const swapEvent = (ev) => ({
+    ...ev,
+    attackerSide: swap(ev.attackerSide),
+    defenderSide: swap(ev.defenderSide),
+    hits: ev.hits.map((h) => ({ ...h, targetSide: swap(h.targetSide) })),
+    heals: ev.heals.map((h) => ({ ...h, side: swap(h.side) })),
+    deaths: ev.deaths.map((d) => ({ ...d, side: swap(d.side) })),
+    mySlots: ev.oppSlots, oppSlots: ev.mySlots,
+    myAliveCount: ev.oppAliveCount, oppAliveCount: ev.myAliveCount
+  });
+  return {
+    ...result,
+    winner: swap(result.winner),
+    myFinalCount: result.oppFinalCount,
+    oppFinalCount: result.myFinalCount,
+    events: result.events.map(swapEvent)
+  };
+}
+
+function arenaBeginBattlePlayback(result) {
+  arenaBattleToken++;
+  const token = arenaBattleToken;
+  arenaCurrentBattleResult = result;
+  arenaCurrentBattleIndex = 0;
+  arenaBattlePhase = "playing";
+  const startBtn = document.getElementById("arenaStartBtn");
+  startBtn.disabled = false;
+  startBtn.innerText = t("arena.startBtnPause");
+  startBtn.classList.add("is-pressed");
+  document.getElementById("arenaBattleResult").style.display = "none";
+  arenaUpdateRestartButtonState();
+  arenaRunBattleStep(token);
 }
 
 function arenaRunBattleStep(token) {
@@ -1255,28 +1403,18 @@ function arenaRunBattleStep(token) {
   setTimeout(() => arenaRunBattleStep(token), arenaGetBattleSpeedMs());
 }
 
+// 솔로 플레이(친구 세션 없음) 전용 - 세션 중엔 계산 담당/결과 수신 흐름으로만 진행됨
 function arenaStartBattle() {
-  arenaBattleToken++;
-  const token = arenaBattleToken;
-
+  if (arenaIsFriendSessionActive()) return;
   const myProfile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
   const oppProfile = arenaGetOppProfile();
-  arenaCurrentBattleResult = runArenaSimulation({
+  const result = runArenaSimulation({
     myProfile, oppProfile,
     mySlotRunes: arenaGetActiveSlotRunes("my"),
     oppSlotRunes: arenaGetActiveSlotRunes("opp"),
     tileSettings: ARENA_TILE_CFG
   });
-  arenaCurrentBattleIndex = 0;
-  arenaBattlePhase = "playing";
-
-  const startBtn = document.getElementById("arenaStartBtn");
-  startBtn.innerText = t("arena.startBtnPause");
-  startBtn.classList.add("is-pressed");
-  document.getElementById("arenaBattleResult").style.display = "none";
-  arenaUpdateRestartButtonState();
-
-  arenaRunBattleStep(token);
+  arenaBeginBattlePlayback(result);
 }
 
 function arenaUpdateRestartButtonState() {
