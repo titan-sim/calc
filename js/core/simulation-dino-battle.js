@@ -140,7 +140,7 @@ function aliveDinos(side) {
 
 // seed가 주어지면(친구 세션의 "이번 라운드" 시드) 그 시드로 고정된 PRNG를 쓰고, 없으면(빠른 계산이
 // 아닌 로컬 "실전 대전"처럼 매번 다른 결과가 나와야 하는 기존 호출부) 그대로 Math.random을 씀
-function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
+function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = true }) {
   const rand = seed !== undefined && seed !== null ? makeSeededRng(seed) : Math.random;
   const tileCfg = tileSettings || { natureAdjacent: false, tribeControl: "none" };
 
@@ -374,16 +374,23 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed }) {
     // 스냅샷(생존 수, 앞장 체력/최대체력)을 이벤트에 그대로 실어둠
     event.myAliveCount = aliveDinos(mySide).length;
     event.oppAliveCount = aliveDinos(oppSide).length;
-    event.myDinos = mySide.dinos.map((d) => ({ hp: d.hp, maxHp: d.maxHp }));
-    event.oppDinos = oppSide.dinos.map((d) => ({ hp: d.hp, maxHp: d.maxHp }));
+    // collectLog:false(조합 찾기 등 반복 호출용)면 매 턴 배열 복제(myDinos/oppDinos)와 화면
+    // 표시 전용 필드를 건너뛰어서, 수천 회 반복 시 events 배열이 통째로 쌓이며 생기는 메모리/GC
+    // 비용을 없앰 - winner/turns 판정에 쓰이는 myFrontNow/oppFrontNow는 로그 여부와 무관하게 계속
+    // 계산함(아래 선공권 재판정에 필요)
+    if (collectLog) {
+      event.myDinos = mySide.dinos.map((d) => ({ hp: d.hp, maxHp: d.maxHp }));
+      event.oppDinos = oppSide.dinos.map((d) => ({ hp: d.hp, maxHp: d.maxHp }));
+    }
     const myFrontNow = aliveDinos(mySide)[0];
     const oppFrontNow = aliveDinos(oppSide)[0];
-    event.myFrontHp = myFrontNow ? myFrontNow.hp : 0;
-    event.myFrontMaxHp = myFrontNow ? myFrontNow.maxHp : (attackerKey === "my" ? attackerVals.maxHp : defenderVals.maxHp);
-    event.oppFrontHp = oppFrontNow ? oppFrontNow.hp : 0;
-    event.oppFrontMaxHp = oppFrontNow ? oppFrontNow.maxHp : (attackerKey === "opp" ? attackerVals.maxHp : defenderVals.maxHp);
-
-    events.push(event);
+    if (collectLog) {
+      event.myFrontHp = myFrontNow ? myFrontNow.hp : 0;
+      event.myFrontMaxHp = myFrontNow ? myFrontNow.maxHp : (attackerKey === "my" ? attackerVals.maxHp : defenderVals.maxHp);
+      event.oppFrontHp = oppFrontNow ? oppFrontNow.hp : 0;
+      event.oppFrontMaxHp = oppFrontNow ? oppFrontNow.maxHp : (attackerKey === "opp" ? attackerVals.maxHp : defenderVals.maxHp);
+      events.push(event);
+    }
 
     if (aliveDinos(mySide).length === 0 || aliveDinos(oppSide).length === 0) break;
 
@@ -595,5 +602,38 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     avgOppDmgPerHit: oppHitCount > 0 ? oppDmgDealt / oppHitCount : 0,
     myDmgDealt,
     oppDmgDealt
+  };
+}
+
+// 공룡 대전 "조합 찾기"(js/pages/dino-battle-page.js)용 반복 시행 래퍼. runDinoBattleSimulation은
+// "버튼 한 번 = 실전 대전 1회"를 그대로 계산하는 동기 함수라 그 자체엔 반복/배치 개념이 없음
+// (runTitanSimulation과 다른 점) - collectLog:false로 이벤트 로그 생성을 생략해 반복 호출 비용을
+// 줄이고, batchSize 시행마다 한 번씩 setTimeout(0)으로 양보해 브라우저가 안 멈추게 함. 시드를
+// 안 주므로(Math.random) 매 시행이 독립적인 실제 확률 분포를 따름 - "빠른 계산"처럼 재현 가능성이
+// 필요 없는 통계 집계 용도.
+async function runDinoBattleTrials({ my, opp, tileSettings, trials, batchSize = 20 }) {
+  let myWins = 0, oppWins = 0, draws = 0, totalTurns = 0, myTotalLosses = 0, oppTotalLosses = 0;
+  let completed = 0;
+  while (completed < trials) {
+    const end = Math.min(completed + batchSize, trials);
+    for (let i = completed; i < end; i++) {
+      const result = runDinoBattleSimulation({ my, opp, tileSettings, collectLog: false });
+      if (result.winner === "my") myWins++;
+      else if (result.winner === "opp") oppWins++;
+      else draws++;
+      totalTurns += result.turns;
+      myTotalLosses += my.count - result.myFinalCount;
+      oppTotalLosses += opp.count - result.oppFinalCount;
+    }
+    completed = end;
+    if (completed < trials) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  return {
+    myWins, oppWins, draws, trials,
+    winRate: myWins / trials,
+    drawRate: draws / trials,
+    avgTurns: totalTurns / trials,
+    avgMyLosses: myTotalLosses / trials,
+    avgOppLosses: oppTotalLosses / trials
   };
 }

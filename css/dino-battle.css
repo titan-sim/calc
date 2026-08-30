@@ -49,34 +49,46 @@
   body[data-page="dino-battle"] .battle-side-panel.opp-side { grid-area: opp; }
 }
 
-/* 전투 설정/빠른 계산/시뮬레이션 3탭 - 공용 .battle-mode-indicator는 2탭 폭(50%)으로 짜여있어서
-   3탭 폭(33.333%)만 여기서 따로 덮어씀(dummy-mode-tabs-3와 같은 패턴, combat-shared.css 참고).
-   이 페이지는 순서가 설정(0번, 기본 위치라 별도 규칙 불필요)/빠른 계산(1번)/시뮬레이션(2번)이라,
-   공용 .mode-live 규칙(1번 자리 이동)을 그대로 못 쓰고 이 스코프 안에서 mode-quick=1번,
-   mode-live=2번으로 다시 정의함 - combat-shared.css보다 이 파일이 늦게 로드되므로(index.html
-   링크 순서) 명시도(specificity)가 같아도 나중에 온 이 규칙이 이김 */
-.dino-mode-tabs-3 .battle-mode-indicator {
-  width: calc(33.333% - 5.333px);
+/* 전투 설정/빠른 계산/시뮬레이션/조합 찾기 4탭 - 공용 .battle-mode-indicator는 2탭 폭(50%)으로
+   짜여있어서 4탭 폭(25%)만 여기서 따로 덮어씀(titan-mode-tabs-4와 같은 패턴, titan.css 참고).
+   이 페이지는 순서가 설정(0번, 기본 위치라 별도 규칙 불필요)/빠른 계산(1번)/시뮬레이션(2번)/
+   조합 찾기(3번)라, 공용 .mode-live 규칙(1번 자리 이동)을 그대로 못 쓰고 이 스코프 안에서
+   mode-quick=1번, mode-live=2번, mode-optimize=3번으로 다시 정의함 - combat-shared.css보다 이
+   파일이 늦게 로드되므로(index.html 링크 순서) 명시도(specificity)가 같아도 나중에 온 이
+   규칙이 이김 */
+.dino-mode-tabs-4 .battle-mode-indicator {
+  width: calc(25% - 5px);
 }
 
-.dino-mode-tabs-3.mode-quick .battle-mode-indicator {
+.dino-mode-tabs-4.mode-quick .battle-mode-indicator {
   transform: translateX(calc(100% + 4px));
 }
 
-.dino-mode-tabs-3.mode-live .battle-mode-indicator {
+.dino-mode-tabs-4.mode-live .battle-mode-indicator {
   transform: translateX(calc(200% + 8px));
+}
+
+.dino-mode-tabs-4.mode-optimize .battle-mode-indicator {
+  transform: translateX(calc(300% + 12px));
 }
 
 /* 전투 설정 탭만 파란색으로 표시(사용자 확정 - "전투 설정은 파란색이어야 해, 타이탄 전투 설정
    색깔" - 타이탄/건물의 #3cb4be를 그대로 씀). data-active-idx가 아니라 이 페이지 고유의
    mode-settings 클래스로 스코프(위 mode-quick/mode-live와 같은 방식) */
-.dino-mode-tabs-3.mode-settings .battle-mode-indicator {
+.dino-mode-tabs-4.mode-settings .battle-mode-indicator {
   background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
   box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
 }
 
-.dino-mode-tabs-3.mode-settings #modeTabSettings.active {
+.dino-mode-tabs-4.mode-settings #modeTabSettings.active {
   color: #eef4ff;
+}
+
+/* 조합 찾기 탭 안의 모드 A/B 서브 토글 - 공용 .battle-mode-indicator가 이미 2탭(50%) 기준이라
+   별도 폭 규칙 없이 그대로 쓰고, 이동 규칙만 이 스코프에 새로 정의(dino-mode-tabs-4의 mode-live
+   규칙과 이름이 겹치지 않도록 mode-modeB로 별도 명명) */
+.dino-optimize-submode-tabs.mode-modeB .battle-mode-indicator {
+  transform: translateX(calc(100% + 4px));
 }
 
 /* 타일 설정: 라벨+컨트롤이 붙은 작은 덩어리(chip)로 만들어서 폭이 남으면 한 줄에 여러 개, 좁으면
@@ -514,6 +526,16 @@
 @keyframes battle-front-defeated {
   0% { transform: scale(1); opacity: 1; }
   100% { transform: scale(0.1); opacity: 0; }
+}
+
+/* 전멸(그 진영에 더 이상 남은 공룡이 없음) 전용 - 승격 전 잠깐 재생되는 위 front-defeated(축소+
+   투명화 애니메이션)와 달리 자리는 그대로 남기고 회색조+반투명으로 "죽었지만 위치는 보이게"
+   영구 표시함(사용자 확정 - 완전히 안 보이면 체력바/닉네임만 붕 떠 보여서 어색하다는 피드백으로
+   재설계, playDeathFlash 참고) */
+.battle-avatar.front-eliminated {
+  filter: grayscale(1) brightness(0.55);
+  opacity: 0.85;
+  transition: filter 0.35s ease-in, opacity 0.35s ease-in;
 }
 
 .battle-arena.area-flash {

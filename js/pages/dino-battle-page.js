@@ -16,6 +16,45 @@ const BATTLE_SPEED_OPTIONS = [
   { ms: 150, label: "빠름" }
 ];
 
+// ===== 룬 조합 찾기 =====
+const DINO_BATTLE_OWNED_LEVELS_KEY = "dino_battle_owned_rune_levels";
+const DINO_BATTLE_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크", "전설"];
+// 조합 찾기 단계별 반복 횟수 - 타이탄 조합 찾기(titan-page.js)와 같은 원리의 스크리닝->정밀화
+// 단계 구성. 승률(이항분포)은 사망 횟수보다 표본 요구량이 적어도 되고, 이항분포 동률 판정
+// (dinoBattleRateStatisticallyTied)이 표본 노이즈를 걸러주므로 절대적으로 큰 표본일 필요는
+// 없음 - "1단계 스크리닝에서 억울하게 탈락하지 않는" 게 핵심이라, 15/250은 타이탄의 15/500과
+// 같은 자릿수를 그대로 재사용함
+const DINO_BATTLE_OPTIMIZER_SCREEN_TRIALS = 15;
+// 모드 A의 1단계(숏리스트 후보끼리 서로 라운드로빈)만 정밀도를 더 올림(사용자 확정 - 기존
+// 15회의 1.5배) - 모드 B는 상대가 고정이라 이 값 그대로 씀
+const DINO_BATTLE_MODE_A_SCREEN_TRIALS = Math.round(DINO_BATTLE_OPTIMIZER_SCREEN_TRIALS * 1.5);
+const DINO_BATTLE_OPTIMIZER_VERIFY_TRIALS = 250;
+const DINO_BATTLE_OPTIMIZER_VERIFY_TOP_N = 8;
+// 모드 A(라운드로빈)는 후보 수의 제곱에 비례해 비용이 커서, 시뮬레이션 없는 애널리틱 점수
+// (getBattleStats + computeExpectedDpsFromCrit, js/core/stat-calc.js)로 먼저 숏리스트를 추림 -
+// 단, 이 사전 필터링 자체가 진짜 정확도 손실 지점임(스킬 룬 시너지를 못 보는 간이 점수라, 점수는
+// 낮게 나와도 실전에서 강한 조합이 라운드로빈 기회조차 못 받을 수 있음 - 사용자 확인).
+// 30(타이탄 조합 찾기의 TITAN_OPTIMIZER_CANDIDATE_COUNT를 앵커로 재사용한 최초값)은 보유 룬
+// 8종(C(8,5)=56)만 넘어도 걸릴 만큼 낮아서 100으로 상향 - 보유 룬 8종까지는 필터링 자체가
+// 아예 안 걸리고(C(8,5)=56<100), 그 이상도 이전보다 훨씬 넉넉하게 통과시킴. 비용은 그대로
+// 후보²라 100에서 1단계만 팀 전투 기준 약 3~4분(435쌍짜리 30 기준 15초의 대략 11배, 후보 수
+// 제곱 증가율) - 인터랙티브치고 느리지만 이 모드 자체가 "가끔 정밀하게 돌려보는" 용도라 감수함
+const DINO_BATTLE_MODE_A_SHORTLIST_SIZE = 100;
+// 모드 B는 상대 하나 고정이라 후보 수에 선형으로만 비례해서 훨씬 싸므로 애널리틱 예비 풀을
+// 더 넉넉히 잡음
+const DINO_BATTLE_MODE_B_ANALYTIC_POOL = 150;
+// 결과 화면 경고 임계값 - "상대와의 스탯 격차"가 만드는 두 가지 서로 다른 현상을 각각 다른
+// 신호로 감지함(사용자 확정):
+// (A) 니어패리티 존버전 - 회복이 대미지와 팽팽히 맞서면 200회 공방 강제 동시사망이 반복
+//     발동해 무승부로 흘러감 -> 무승부율로 감지
+// (B) 큰 격차 전멸전 - 격차가 크면 강제동사와 무관하게 약자 로스터가 빠르게 소진되며 완승/완패로
+//     끝남(무승부가 아님) -> **평균 내 손실 : 평균 상대 손실 비율**로 감지(사용자 확정, 첫
+//     버전이었던 "승률 극단값 비율" 기준은 실사용에서 오작동 - 팀 전투(공룡 여러 마리)는 약간의
+//     우위만으로도 승률이 금방 100%까지 포화되므로 승률은 격차 크기의 대리 지표로 부적합했음.
+//     실제로 사용자가 1.68:1 손실 비율에서도 경고가 뜨는 걸 보고 지적함)
+const DINO_BATTLE_DRAW_WARNING_THRESHOLD = 0.3;
+const DINO_BATTLE_LOPSIDED_RATIO_THRESHOLD = 50;
+
 // ===== 육각형 바닥과 완전히 같은 결합 좌표계(세계좌표) 위에 공룡을 "카메라로 촬영"하듯 배치 =====
 // 타일 중심은 원점(0,0)에 내 대기 타일을 두고 HEX_NEIGHBOR 방향 벡터를 더해가며 명시적으로
 // 선언함(CSS 3D 시절 SVG viewBox 절대좌표를 재사용하지 않기 위함 - 그렇게 했다가 타일 중심과
@@ -159,6 +198,12 @@ let battlePhase = "idle";
 let currentBattleResult = null;
 let currentBattleIndex = 0;
 
+// 룬 조합 찾기 상태 - 지금 선택된 서브모드(모드 A/B)와, 결과에서 클릭한 조합을 프리셋에 저장하는
+// "적용" 모달이 열려있는 동안의 대기 상태(타이탄 조합 찾기의 applyPresetPendingRunes와 같은 패턴)
+let dinoOptimizeSubmode = "modeA";
+let dinoOptimizeApplyPresetPendingRunes = null;
+let dinoOptimizeApplyPresetSelectedIdx = null;
+
 // SPA 라우터(js/router.js)엔 페이지 teardown 훅이 없어서(hashchange가 그냥 다음 페이지를 새로
 // 그릴 뿐) 전투 재생 중에 다른 페이지로 이동해도 setTimeout으로 예약돼있던 runBattleStep이 나중에
 // 그대로 실행되면서 이미 사라진 DOM을 찾다가(document.getElementById가 null) 콘솔 에러를 냈음 -
@@ -227,11 +272,12 @@ function renderDinoBattlePage(container) {
         <button class="battle-peek-btn my-peek" id="myPeekBtn" title="${t("dino_battle.myPeekTooltip")}">▶</button>
 
         <div class="card battle-main-card" id="battleMainCard">
-          <div class="battle-mode-tabs mode-live dino-mode-tabs-3" id="battleModeTabs">
+          <div class="battle-mode-tabs mode-live dino-mode-tabs-4" id="battleModeTabs">
             <span class="battle-mode-indicator"></span>
             <button class="battle-mode-tab" data-mode="settings" id="modeTabSettings"><span>${t("dino_battle.tab.settings")}</span></button>
             <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>${t("dino_battle.tab.quick")}</span></button>
             <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>${t("dino_battle.tab.live")}</span></button>
+            <button class="battle-mode-tab" data-mode="optimize" id="modeTabOptimize"><span>${t("dino_battle.tab.optimize")}</span></button>
           </div>
 
           <div class="battle-mode-panel battle-tile-card" id="settingsModeCard" style="display:none;">
@@ -413,6 +459,31 @@ function renderDinoBattlePage(container) {
               <button class="battle-restart-btn" id="battleRestartBtn" disabled title="${t("dino_battle.restartTooltip")}">↻</button>
             </div>
           </div>
+
+          <div class="battle-mode-panel" id="optimizeModeCard" style="display:none;">
+            <div class="dummy-optimizer">
+              <h3 class="dummy-optimizer-title">${t("dino_battle.optimize.title")}</h3>
+              <p class="quickcalc-desc">${t("dino_battle.optimize.desc")}</p>
+
+              <div class="battle-mode-tabs dino-optimize-submode-tabs" id="optimizeSubmodeTabs">
+                <span class="battle-mode-indicator"></span>
+                <button class="battle-mode-tab active" data-submode="modeA" id="optimizeSubmodeTabA"><span>${t("dino_battle.optimize.modeA.label")}</span></button>
+                <button class="battle-mode-tab" data-submode="modeB" id="optimizeSubmodeTabB"><span>${t("dino_battle.optimize.modeB.label")}</span></button>
+              </div>
+              <p class="quickcalc-desc" id="optimizeSubmodeDesc"></p>
+
+              <div class="titan-owned-rune-header">
+                <span class="titan-owned-rune-header-label">${t("dino_battle.optimize.ownedRuneHeaderLabel")}</span>
+                <button type="button" class="titan-owned-rune-collapse-btn" id="dinoOwnedRuneCollapseBtn" aria-expanded="true" title="${t("dino_battle.optimize.collapseTooltip")}">
+                  <span class="titan-owned-rune-collapse-icon">▲</span>
+                </button>
+              </div>
+              <div class="dummy-owned-rune-grid" id="dinoOwnedRuneGrid"></div>
+
+              <button class="btn-simulate" id="dinoOptimizeBtn">${t("dino_battle.optimize.startBtn")}</button>
+              <div id="dinoOptimizeResult"></div>
+            </div>
+          </div>
         </div>
 
         <button class="battle-peek-btn opp-peek" id="oppPeekBtn" title="${t("dino_battle.oppPeekTooltip")}">◀</button>
@@ -431,6 +502,17 @@ function renderDinoBattlePage(container) {
           <button class="close-btn" id="friendPickerClose">✕</button>
         </div>
         <div id="friendPickerList"></div>
+      </div>
+    </div>
+
+    <div class="friend-picker-overlay" id="dinoOptimizeApplyPresetOverlay" style="display:none;">
+      <div class="friend-picker-modal">
+        <div class="friend-picker-header">
+          <span>${t("dino_battle.optimize.applyPreset.modalTitle")}</span>
+          <button class="close-btn" id="dinoOptimizeApplyPresetClose">✕</button>
+        </div>
+        <div class="arena-preset-row" id="dinoOptimizeApplyPresetList"></div>
+        <button class="btn-apply" id="dinoOptimizeApplyPresetConfirmBtn" disabled>${t("dino_battle.optimize.applyPreset.confirmBtn")}</button>
       </div>
     </div>
   `;
@@ -452,7 +534,10 @@ function openSidePanel(panel) {
   document.getElementById("battlePanelOverlay").classList.add("open");
 }
 
-function initDinoBattlePage() {
+// "내 공룡" 패널 렌더 - 조합 찾기의 "프리셋에 적용" 확정 시(dinoOptimizeConfirmApplyPreset)에도
+// 저장한 프리셋을 즉시 반영하기 위해 같은 설정으로 다시 불러야 해서 이름 붙여 뽑아둠(타이탄
+// 페이지의 titanRenderMyDinoSection과 같은 이유)
+function renderMyDinoBattleSection() {
   renderMyDinoPage(document.getElementById("myDinoBattleSection"), {
     idPrefix: "myB_",
     storageKey: MY_DINO_PROFILE_KEY,
@@ -464,6 +549,10 @@ function initDinoBattlePage() {
       if (isFriendSessionActive()) sendMyProfileUpdate(profile);
     }
   });
+}
+
+function initDinoBattlePage() {
+  renderMyDinoBattleSection();
   // "상대 공룡" 자리는 지금 모드(일반 편집 / 스냅샷 / 실시간 세션 진행 중 재진입)에 맞게 그림
   renderOppPanel();
 
@@ -517,6 +606,24 @@ function initDinoBattlePage() {
   // 실측 확인), 다른 페이지들처럼 탭 클릭을 기다리지 않고 페이지 로드 시점에 바로 마운트함
   dinoBattleInitScene3d();
   resetBattleDisplay();
+
+  dinoBattleInitOwnedRuneGrid();
+  dinoBattleInitOptimizeSubmodeTabs();
+  dinoBattleUpdateSidePanelsVisibility();
+  document.getElementById("dinoOwnedRuneCollapseBtn").onclick = () => {
+    const grid = document.getElementById("dinoOwnedRuneGrid");
+    const collapseBtn = document.getElementById("dinoOwnedRuneCollapseBtn");
+    const collapsed = grid.classList.toggle("titan-owned-rune-grid-collapsed");
+    collapseBtn.setAttribute("aria-expanded", String(!collapsed));
+    collapseBtn.querySelector(".titan-owned-rune-collapse-icon").textContent = collapsed ? "▼" : "▲";
+  };
+  document.getElementById("dinoOptimizeBtn").onclick = () => {
+    if (dinoOptimizeSubmode === "modeA") dinoBattleRunModeA();
+    else dinoBattleRunModeB();
+  };
+  document.getElementById("dinoOptimizeApplyPresetClose").onclick = dinoOptimizeCloseApplyPresetModal;
+  document.getElementById("dinoOptimizeApplyPresetConfirmBtn").onclick = dinoOptimizeConfirmApplyPreset;
+  enableDragScroll(document.getElementById("dinoOptimizeApplyPresetList"));
 }
 
 // 전투 설정/빠른 계산/시뮬레이션 3개 탭 전환 - 허수아비 페이지(dummyInitModeTabs)와 같은
@@ -524,7 +631,8 @@ function initDinoBattlePage() {
 const DINO_BATTLE_MODES = [
   { mode: "settings", tabId: "modeTabSettings", cardId: "settingsModeCard" },
   { mode: "quick", tabId: "modeTabQuick", cardId: "quickModeCard" },
-  { mode: "live", tabId: "modeTabLive", cardId: "liveModeCard" }
+  { mode: "live", tabId: "modeTabLive", cardId: "liveModeCard" },
+  { mode: "optimize", tabId: "modeTabOptimize", cardId: "optimizeModeCard" }
 ];
 
 function initModeTabs() {
@@ -537,8 +645,471 @@ function initModeTabs() {
         document.getElementById(other.cardId).style.display = other.mode === m.mode ? "block" : "none";
         tabsEl.classList.toggle(`mode-${other.mode}`, other.mode === m.mode);
       });
+      // "live" 탭이 숨겨져 있던 동안(다른 탭 보는 중) 레이아웃이 흔들렸을 수 있어서(예: 빠른
+      // 계산 결과 패널이 늘렸다 줄었다 하며 생기는 리플로우), 다시 보일 때마다 타이탄 페이지와
+      // 동일하게 Three.js 장면 크기를 동기적으로 강제 재계산함 - ResizeObserver 하나에만
+      // 의존하면 타이밍이 어긋나 앞장 공룡이 아주 작게(또는 안 보이게) 렌더링되는 버그가 있었음
+      // (사용자 제보). 이미 캔버스가 있으면 dinoBattleInitScene3d()가 내부적으로 .resize()로
+      // 단락되므로 저렴함.
+      if (m.mode === "live") dinoBattleInitScene3d();
+      dinoBattleUpdateSidePanelsVisibility();
     };
   });
+}
+
+// ===== 룬 조합 찾기 =====
+// 모드 A(일반 튜닝) - 상대 미지정, 보유 룬으로 만들 수 있는 조합끼리 서로 라운드로빈(양쪽 다 내
+// 기본 스탯 그대로, 룬 구성만 다름) - "내 후보들 사이의 상대적 우열"만 알려줌.
+// 모드 B(상대 맞춤 카운터 찾기) - 이미 있는 "상대 공룡" 프로필(DINO_BATTLE_OPPONENT_KEY, 실시간
+// 세션/스냅샷 포함)을 고정 타겟으로 삼아, 내 후보 각각을 그 상대 하나에게만 붙여봄. 상대가
+// 고정이라 O(후보) - 모드 A(O(후보²))보다 훨씬 싸서 그만큼 더 정밀하게 볼 수 있음.
+// 두 모드 다 타이탄 조합 찾기(titan-page.js)와 같은 "애널리틱 예비 추림 -> 저비용 스크리닝 ->
+// 통계적으로 애매한 후보만 고비용 정밀검증" 구조를 재사용함 - 특히 통계적 동률 판정
+// (dinoBattleRateStatisticallyTied)은 titanDeathCountsStatisticallyTied와 완전히 같은 공식.
+
+function dinoBattleRuneSortKey(name) {
+  const r = RUNES_DATA[name];
+  const gradeRank = DINO_BATTLE_GRADE_ORDER.indexOf(r.grade);
+  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
+  return gradeRank * 10000 + idNum;
+}
+
+function dinoBattleSuitableRuneNames() {
+  return Object.keys(RUNES_DATA)
+    .filter((n) => !DINO_BATTLE_UNSUITABLE_RUNE_LIST.includes(n))
+    .sort((a, b) => dinoBattleRuneSortKey(b) - dinoBattleRuneSortKey(a));
+}
+
+function loadDinoBattleOwnedLevels() {
+  const levels = {};
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(DINO_BATTLE_OWNED_LEVELS_KEY)) || {};
+  } catch (e) {
+    saved = {};
+  }
+  dinoBattleSuitableRuneNames().forEach((name) => {
+    const v = saved[name];
+    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
+  });
+  return levels;
+}
+
+function saveDinoBattleOwnedLevels(levels) {
+  localStorage.setItem(DINO_BATTLE_OWNED_LEVELS_KEY, JSON.stringify(levels));
+}
+
+function dinoBattleInitOwnedRuneGrid() {
+  const levels = loadDinoBattleOwnedLevels();
+  const grid = document.getElementById("dinoOwnedRuneGrid");
+  grid.innerHTML = dinoBattleSuitableRuneNames().map((name) => `
+    <div class="dummy-owned-rune-row">
+      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
+      <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
+    </div>
+  `).join("");
+
+  grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
+    input.oninput = () => { input.value = input.value.replace(/[^0-9]/g, ""); };
+    input.onblur = () => {
+      const name = input.dataset.rune;
+      const v = Math.max(0, Math.min(31, Number(input.value) || 0));
+      input.value = v || "";
+      const current = loadDinoBattleOwnedLevels();
+      current[name] = v;
+      saveDinoBattleOwnedLevels(current);
+      document.getElementById("dinoOptimizeResult").innerHTML = "";
+    };
+    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+  });
+}
+
+// k개를 고르는 모든 조합(순서 무관) - 조합을 만드는 도중에 MUTUALLY_EXCLUSIVE_RUNE_PAIRS(예:
+// 매머드의 힘/압축된 힘)를 위반하는 가지는 애초에 만들지 않고 잘라냄. 완성된 5슬롯에서 사후에
+// 하나를 null로 지우는 sanitizeRuneConflicts(js/data/rune-data.js)를 여기서 재사용하면 5룬
+// 조합이 조용히 4룬으로 축소되고 서로 다른 두 조합이 같은 결과로 뭉개지므로 새로 작성함
+function dinoBattleCombinations(arr, k) {
+  const results = [];
+  function conflicts(name, combo) {
+    return MUTUALLY_EXCLUSIVE_RUNE_PAIRS.some(([a, b]) => {
+      if (name === a) return combo.includes(b);
+      if (name === b) return combo.includes(a);
+      return false;
+    });
+  }
+  function pick(start, combo) {
+    if (combo.length === k) { results.push(combo.slice()); return; }
+    for (let i = start; i < arr.length; i++) {
+      if (conflicts(arr[i], combo)) continue;
+      combo.push(arr[i]);
+      pick(i + 1, combo);
+      combo.pop();
+    }
+  }
+  pick(0, []);
+  return results;
+}
+
+// 두 후보의 관측된 승수(count, 표본수 n)가 통계적으로 구분 안 되는 동률인지 판정 - 타이탄 조합
+// 찾기(titanDeathCountsStatisticallyTied, titan-page.js)와 완전히 같은 이항분포 공식을 승률에
+// 적용: "두 후보의 진짜 승률이 같다"는 가정 하에 합산 승수 중 A가 차지할 비율은 노출 비율
+// (nA/(nA+nB))을 따르는 이항분포이므로, 실제 관측치가 그 기댓값의 ±2표준편차 안이면 동률로 취급
+function dinoBattleRateStatisticallyTied(countA, nA, countB, nB) {
+  const total = countA + countB;
+  if (total === 0) return true;
+  const p = nA / (nA + nB);
+  const sd = Math.sqrt(total * p * (1 - p));
+  return Math.abs(countA - total * p) < 2 * sd;
+}
+
+// 상위 topN 안에 들거나, 지금까지의 1위(leader)와 통계적으로 동률인 후보만 다음 단계로 승급 -
+// 단순 top-K 자르기와 달리 "표본 노이즈로 근소하게 밀린 진짜 좋은 조합"이 억울하게 탈락하지 않게 함
+function dinoBattleSelectContenders(results, topN) {
+  const sorted = [...results].sort((a, b) => b.winRate - a.winRate);
+  const leader = sorted[0];
+  const topSet = new Set(sorted.slice(0, topN));
+  return results.filter((r) => topSet.has(r) || dinoBattleRateStatisticallyTied(r.wins, r.n, leader.wins, leader.n));
+}
+
+// 상대 프로필이 기본값(안 건드린 상태)인지 - my-dino-page.js가 "바뀐 값"을 강조 표시할 때 쓰는
+// 기준(기본 공격력 1/체력 10, 룬 미장착)과 동일한 휴리스틱. getOppBattleInputs()로 판정해서
+// 세션/스냅샷/로컬 프로필 세 갈래를 한 번에 커버함 - 모드 B는 상대를 실제로 설정했을 때만 의미가 있음
+function dinoBattleOpponentIsConfigured() {
+  const inputs = getOppBattleInputs();
+  return inputs.baseAtk !== 1 || inputs.baseHp !== 10 || inputs.selectedRunes.some((r) => r);
+}
+
+// "내 공룡" 프로필이 기본값인지 - 위와 완전히 같은 기준. 모드 A/B 둘 다 후보 조합의 베이스로
+// getSideInputs(MY_DINO_PROFILE_KEY)를 그대로 쓰므로, 이게 기본값(공격력1/체력10)인 채로
+// 돌리면 실전에서 거의 안 나오는 극단적으로 낮은 스탯끼리 붙어서 200회 강제동사가 남발되고
+// (모든 매치업이 무승부로 수렴, 실측 확인 - 5마리×200회=정확히 1000턴) 계산도 훨씬 느려짐 -
+// 상대 미설정 때와 같은 이유로 두 모드 다 막아야 함
+function dinoBattleMyProfileIsConfigured() {
+  const inputs = getSideInputs(MY_DINO_PROFILE_KEY);
+  return inputs.baseAtk !== 1 || inputs.baseHp !== 10 || inputs.selectedRunes.some((r) => r);
+}
+
+// 시뮬레이션 없이 즉시 계산하는 순수 화력×맷집 점수(getBattleStats + computeExpectedDpsFromCrit,
+// js/core/stat-calc.js) - 낙뢰/메테오/흡혈/방어벽 같은 확률형·스킬 효과는 반영하지 않는 거친
+// 근사치라, 최종 순위가 아니라 "라운드로빈/실제 시뮬레이션을 돌리기 전 후보 숏리스트를 추리는"
+// 용도로만 씀(실제 전투처럼 급격히 갈리는 결과를 애널리틱 승률로 흉내내려 하지 않음)
+function dinoBattleAnalyticPowerScore(pick, levels, baseProfile) {
+  const stats = getBattleStats({ ...baseProfile, selectedRunes: pick.map((name) => ({ name, lv: levels[name] })) });
+  return computeExpectedDpsFromCrit(stats.fAtk, stats.cRate, stats.cDmg) * stats.fHp;
+}
+
+function dinoBattleMakeCandidateProfile(baseProfile, pick, levels) {
+  return { ...baseProfile, selectedRunes: pick.map((name) => ({ name, lv: levels[name] })) };
+}
+
+// 모드 B 잠금(상대 미설정) + 시작 버튼 잠금(내 공룡 미설정, 모드 A/B 둘 다 필요)을 한 번에 갱신 -
+// 예전엔 모드 B 잠금만 했는데, "내 공룡" 미설정 상태로 돌리면 극단적으로 느려지고 결과도 전부
+// 무승부로 뒤엉키는 문제가 실측으로 확인돼서(사용자 확정) 시작 버튼 잠금을 추가함
+function dinoBattleRefreshOptimizeModeBLock() {
+  const tabB = document.getElementById("optimizeSubmodeTabB");
+  if (!tabB) return; // 조합 찾기 탭 DOM이 아직 없는 시점(초기 렌더 전) 방어
+  const locked = !dinoBattleOpponentIsConfigured();
+  tabB.classList.toggle("dropdown-locked", locked);
+  // 모드 B가 선택된 상태에서 상대 설정이 지워졌다면(세션 종료 등) 모드 A로 되돌림
+  if (locked && dinoOptimizeSubmode === "modeB") document.getElementById("optimizeSubmodeTabA").click();
+
+  const startBtn = document.getElementById("dinoOptimizeBtn");
+  if (startBtn) startBtn.classList.toggle("dropdown-locked", !dinoBattleMyProfileIsConfigured());
+}
+
+// 좌우 "내 공룡"/"상대 공룡" 패널은 조합 찾기 탭의 모드 A(일반 튜닝, 상대 불필요)에서는 안 보이게
+// 하고, 모드 B(상대 맞춤, 상대 프로필을 직접 설정해야 함)와 다른 탭(설정/빠른계산/시뮬레이션 -
+// 전부 상대가 필요함)에서는 그대로 보이게 함(사용자 확정)
+function dinoBattleUpdateSidePanelsVisibility() {
+  const onOptimizeTab = document.getElementById("modeTabOptimize").classList.contains("active");
+  const hide = onOptimizeTab && dinoOptimizeSubmode === "modeA";
+  document.getElementById("mySidePanel").style.display = hide ? "none" : "";
+  document.getElementById("oppSidePanel").style.display = hide ? "none" : "";
+  document.getElementById("myPeekBtn").style.display = hide ? "none" : "";
+  document.getElementById("oppPeekBtn").style.display = hide ? "none" : "";
+}
+
+function dinoBattleInitOptimizeSubmodeTabs() {
+  const tabsEl = document.getElementById("optimizeSubmodeTabs");
+  const descEl = document.getElementById("optimizeSubmodeDesc");
+  const submodes = [
+    { key: "modeA", tabId: "optimizeSubmodeTabA", descKey: "dino_battle.optimize.modeA.desc" },
+    { key: "modeB", tabId: "optimizeSubmodeTabB", descKey: "dino_battle.optimize.modeB.desc" }
+  ];
+  submodes.forEach((s) => {
+    document.getElementById(s.tabId).onclick = () => {
+      if (s.key === "modeB" && !dinoBattleOpponentIsConfigured()) return; // dropdown-locked가 클릭을 이미 막지만 방어적으로 재확인
+      dinoOptimizeSubmode = s.key;
+      submodes.forEach((other) => {
+        document.getElementById(other.tabId).classList.toggle("active", other.key === s.key);
+        tabsEl.classList.toggle(`mode-${other.key}`, other.key === s.key);
+      });
+      descEl.textContent = t(s.descKey);
+      document.getElementById("dinoOptimizeResult").innerHTML = "";
+      dinoBattleUpdateSidePanelsVisibility();
+    };
+  });
+  descEl.textContent = t("dino_battle.optimize.modeA.desc");
+  dinoBattleRefreshOptimizeModeBLock();
+}
+
+async function dinoBattleRunModeA() {
+  // 상대/내 공룡 입력칸(기본 스탯·별자리 등)은 onblur에만 저장되므로(my-dino-page.js), 방금
+  // 입력하고 포커스가 그 칸에 남은 채로 바로 이 버튼을 눌렀다면 blur를 강제로 먼저 발생시켜
+  // 저장을 커밋한 뒤에 읽어야 함(버그: 편집한 스탯이 반영 안 된 것처럼 보이는 문제 수정)
+  document.activeElement.blur();
+  const btn = document.getElementById("dinoOptimizeBtn");
+  const resultEl = document.getElementById("dinoOptimizeResult");
+  // .dropdown-locked가 클릭을 이미 막지만(dinoBattleRefreshOptimizeModeBLock), 방어적으로 재확인 -
+  // 미설정 상태(기본 공격력1/체력10)로 돌리면 극단적으로 느려지고 결과도 전부 무승부로 뒤엉킴(실측 확인)
+  if (!dinoBattleMyProfileIsConfigured()) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.needMyProfileMsg")}</p>`;
+    return;
+  }
+  const levels = loadDinoBattleOwnedLevels();
+  const owned = dinoBattleSuitableRuneNames().filter((name) => levels[name] > 0);
+  if (owned.length === 0) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.needLevelsMsg")}</p>`;
+    return;
+  }
+  const slotCount = Math.min(5, owned.length);
+  let combos = dinoBattleCombinations(owned, slotCount);
+  const baseProfile = getSideInputs(MY_DINO_PROFILE_KEY);
+  const tileSettings = getEffectiveTileSettings();
+
+  btn.disabled = true;
+  btn.classList.add("btn-progress");
+  btn.style.setProperty("--progress", "0");
+  resultEl.innerHTML = "";
+
+  if (combos.length > DINO_BATTLE_MODE_A_SHORTLIST_SIZE) {
+    combos = combos
+      .map((pick) => ({ pick, score: dinoBattleAnalyticPowerScore(pick, levels, baseProfile) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, DINO_BATTLE_MODE_A_SHORTLIST_SIZE)
+      .map((c) => c.pick);
+  }
+
+  async function roundRobin(picks, trials, progressBase, progressSpan) {
+    const n = picks.length;
+    const wins = new Array(n).fill(0);
+    const games = new Array(n).fill(0);
+    const pairs = [];
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairs.push([i, j]);
+    for (let p = 0; p < pairs.length; p++) {
+      const [i, j] = pairs[p];
+      const profileI = dinoBattleMakeCandidateProfile(baseProfile, picks[i], levels);
+      const profileJ = dinoBattleMakeCandidateProfile(baseProfile, picks[j], levels);
+      // 양방향 다 돌림 - my/opp 역할 자체에 비대칭이 없는지 매번 새로 보장하지 않고(예: 진영별
+      // 버프 타워 레벨이 다르게 설정돼 있을 수 있음) 방향을 바꿔가며 상쇄시킴(실험4에서 실제로
+      // 겪었던 tribeControl 비대칭 버그와 같은 종류의 문제를 예방)
+      const r1 = await runDinoBattleTrials({ my: profileI, opp: profileJ, tileSettings, trials });
+      wins[i] += r1.myWins; wins[j] += r1.oppWins; games[i] += trials; games[j] += trials;
+      const r2 = await runDinoBattleTrials({ my: profileJ, opp: profileI, tileSettings, trials });
+      wins[j] += r2.myWins; wins[i] += r2.oppWins; games[i] += trials; games[j] += trials;
+      if ((p + 1) % 20 === 0 || p === pairs.length - 1) {
+        btn.textContent = t("dino_battle.optimize.roundRobinProgress", { current: p + 1, total: pairs.length });
+        btn.style.setProperty("--progress", String(progressBase + ((p + 1) / pairs.length) * progressSpan));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    return picks.map((pick, i) => ({ pick, wins: wins[i], n: games[i], winRate: games[i] > 0 ? wins[i] / games[i] : 0 }));
+  }
+
+  const stage1 = await roundRobin(combos, DINO_BATTLE_MODE_A_SCREEN_TRIALS, 0, 40);
+  const contenders = dinoBattleSelectContenders(stage1, DINO_BATTLE_OPTIMIZER_VERIFY_TOP_N).map((r) => r.pick);
+  const stage2 = await roundRobin(contenders, DINO_BATTLE_OPTIMIZER_VERIFY_TRIALS, 40, 60);
+  const ranked = stage2.sort((a, b) => b.winRate - a.winRate);
+
+  btn.disabled = false;
+  btn.textContent = t("dino_battle.optimize.startBtn");
+  btn.classList.remove("btn-progress");
+  btn.style.removeProperty("--progress");
+
+  dinoBattleRenderOptimizeResults(ranked, { slotCount, ownedCount: owned.length, levels, showOppMetrics: false });
+}
+
+async function dinoBattleRunModeB() {
+  // startQuickCalc/startBattle과 같은 이유(onblur 저장 커밋 없이 바로 클릭되는 경우 방지)
+  document.activeElement.blur();
+  const btn = document.getElementById("dinoOptimizeBtn");
+  const resultEl = document.getElementById("dinoOptimizeResult");
+  if (!dinoBattleMyProfileIsConfigured()) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.needMyProfileMsg")}</p>`;
+    return;
+  }
+  if (!dinoBattleOpponentIsConfigured()) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.modeB.needOpponentMsg")}</p>`;
+    return;
+  }
+  const levels = loadDinoBattleOwnedLevels();
+  const owned = dinoBattleSuitableRuneNames().filter((name) => levels[name] > 0);
+  if (owned.length === 0) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.needLevelsMsg")}</p>`;
+    return;
+  }
+  const slotCount = Math.min(5, owned.length);
+  let combos = dinoBattleCombinations(owned, slotCount);
+  const baseProfile = getSideInputs(MY_DINO_PROFILE_KEY);
+  const opp = getOppBattleInputs();
+  const tileSettings = getEffectiveTileSettings();
+
+  btn.disabled = true;
+  btn.classList.add("btn-progress");
+  btn.style.setProperty("--progress", "0");
+  resultEl.innerHTML = "";
+
+  if (combos.length > DINO_BATTLE_MODE_B_ANALYTIC_POOL) {
+    combos = combos
+      .map((pick) => ({ pick, score: dinoBattleAnalyticPowerScore(pick, levels, baseProfile) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, DINO_BATTLE_MODE_B_ANALYTIC_POOL)
+      .map((c) => c.pick);
+  }
+
+  async function evalAgainstOpp(picks, trials, progressBase, progressSpan) {
+    const out = [];
+    for (let i = 0; i < picks.length; i++) {
+      const profile = dinoBattleMakeCandidateProfile(baseProfile, picks[i], levels);
+      const r = await runDinoBattleTrials({ my: profile, opp, tileSettings, trials });
+      out.push({
+        pick: picks[i], wins: r.myWins, n: trials, winRate: r.winRate,
+        drawRate: r.drawRate, avgTurns: r.avgTurns, avgMyLosses: r.avgMyLosses, avgOppLosses: r.avgOppLosses
+      });
+      if ((i + 1) % 10 === 0 || i === picks.length - 1) {
+        btn.textContent = t("dino_battle.optimize.modeBProgress", { current: i + 1, total: picks.length });
+        btn.style.setProperty("--progress", String(progressBase + ((i + 1) / picks.length) * progressSpan));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    return out;
+  }
+
+  const stage1 = await evalAgainstOpp(combos, DINO_BATTLE_OPTIMIZER_SCREEN_TRIALS, 0, 40);
+  const contenderPicks = dinoBattleSelectContenders(stage1, DINO_BATTLE_OPTIMIZER_VERIFY_TOP_N).map((r) => r.pick);
+  const stage2 = await evalAgainstOpp(contenderPicks, DINO_BATTLE_OPTIMIZER_VERIFY_TRIALS, 40, 60);
+  const ranked = stage2.sort((a, b) => b.winRate - a.winRate);
+
+  btn.disabled = false;
+  btn.textContent = t("dino_battle.optimize.startBtn");
+  btn.classList.remove("btn-progress");
+  btn.style.removeProperty("--progress");
+
+  dinoBattleRenderOptimizeResults(ranked, { slotCount, ownedCount: owned.length, levels, showOppMetrics: true });
+}
+
+function dinoBattleRenderOptimizeResults(ranked, opts) {
+  const resultEl = document.getElementById("dinoOptimizeResult");
+  const { slotCount, ownedCount, levels, showOppMetrics } = opts;
+  if (ranked.length === 0) {
+    resultEl.innerHTML = `<p class="quickcalc-desc">${t("dino_battle.optimize.noResultMsg")}</p>`;
+    return;
+  }
+  const best = ranked[0];
+  const comboLine = (pick) => pick.map((n) => `${ruleDisplayName(n)} Lv.${levels[n]}`).join(" · ");
+  const fmtPct = (x) => `${(x * 100).toFixed(1)}%`;
+
+  // 3번 우려(사용자 확정)의 두 가지 서로 다른 미스매치 신호 - 모드 A는 항상 같은 기본 스탯끼리
+  // 붙어서 구조적으로 해당 없으므로 showOppMetrics(모드 B)일 때만 검사함
+  let warningHtml = "";
+  if (showOppMetrics) {
+    if (best.drawRate >= DINO_BATTLE_DRAW_WARNING_THRESHOLD) {
+      warningHtml += `<div class="warning">${t("dino_battle.optimize.drawWarning", { percent: Math.round(best.drawRate * 100) })}</div>`;
+    }
+    // 승률이 아니라 "평균 내 손실 : 평균 상대 손실" 비율로 격차를 판단(팀 전투는 약간의
+    // 우위만으로도 승률이 금방 포화되어 승률 자체는 격차 크기의 신뢰할 수 있는 신호가 아님)
+    const lossRatio = best.avgMyLosses > 0
+      ? best.avgOppLosses / best.avgMyLosses
+      : (best.avgOppLosses > 0 ? Infinity : 1);
+    const reverseLossRatio = best.avgOppLosses > 0
+      ? best.avgMyLosses / best.avgOppLosses
+      : (best.avgMyLosses > 0 ? Infinity : 1);
+    if (lossRatio >= DINO_BATTLE_LOPSIDED_RATIO_THRESHOLD || reverseLossRatio >= DINO_BATTLE_LOPSIDED_RATIO_THRESHOLD) {
+      warningHtml += `<div class="warning">${t("dino_battle.optimize.lopsidedWarning")}</div>`;
+    }
+  }
+
+  const statTiles = showOppMetrics ? `
+      <div class="report-tile"><div class="metric-label">${t("dino_battle.optimize.winRateLabel")}</div><div class="metric-value accent">${fmtPct(best.winRate)}</div></div>
+      <div class="report-tile"><div class="metric-label">${t("dino_battle.optimize.drawRateLabel")}</div><div class="metric-value">${fmtPct(best.drawRate)}</div></div>
+      <div class="report-tile"><div class="metric-label">${t("dino_battle.optimize.avgMyLossesLabel")}</div><div class="metric-value">${best.avgMyLosses.toFixed(2)}</div></div>
+      <div class="report-tile"><div class="metric-label">${t("dino_battle.optimize.avgOppLossesLabel")}</div><div class="metric-value">${best.avgOppLosses.toFixed(2)}</div></div>
+    ` : `
+      <div class="report-tile"><div class="metric-label">${t("dino_battle.optimize.winRateLabel")}</div><div class="metric-value accent">${fmtPct(best.winRate)}</div></div>
+    `;
+
+  resultEl.innerHTML = `
+    ${slotCount < 5 ? `<p class="quickcalc-desc">${t("dino_battle.optimize.limitedSlotMsg", { count: ownedCount, slotCount })}</p>` : ""}
+    ${warningHtml}
+    <div class="dummy-optimize-result-box">
+      <div class="report-grid">
+        <div class="report-tile dummy-optimize-best-tile">
+          <div class="metric-label">${t("dino_battle.optimize.bestComboLabel")}</div>
+          <div class="dummy-optimize-best-combo" title="${t("dino_battle.optimize.comboClickTooltip")}">${comboLine(best.pick)}</div>
+        </div>
+        ${statTiles}
+      </div>
+    </div>
+    ${ranked.length > 1 ? `
+      <div class="dummy-optimize-runner-ups">
+        ${ranked.slice(1, 15).map((r, i) => `<div class="dummy-optimize-runner-up">${showOppMetrics
+          ? t("dino_battle.optimize.runnerUpLineB", { rank: i + 2, names: r.pick.map(ruleDisplayName).join(", "), winRate: (r.winRate * 100).toFixed(1), drawRate: Math.round(r.drawRate * 100), losses: r.avgMyLosses.toFixed(2) })
+          : t("dino_battle.optimize.runnerUpLineA", { rank: i + 2, names: r.pick.map(ruleDisplayName).join(", "), winRate: (r.winRate * 100).toFixed(1) })
+        }</div>`).join("")}
+      </div>
+    ` : ""}
+  `;
+
+  resultEl.querySelector(".dummy-optimize-best-combo").onclick = () => {
+    dinoOptimizeOpenApplyPresetModal(best.pick.map((name) => ({ name, lv: levels[name] })));
+  };
+}
+
+function dinoOptimizeOpenApplyPresetModal(runes) {
+  dinoOptimizeApplyPresetPendingRunes = runes;
+  dinoOptimizeApplyPresetSelectedIdx = null;
+  dinoOptimizeRenderApplyPresetList();
+  document.getElementById("dinoOptimizeApplyPresetConfirmBtn").disabled = true;
+  document.getElementById("dinoOptimizeApplyPresetOverlay").style.display = "flex";
+}
+
+function dinoOptimizeRenderApplyPresetList() {
+  const row = document.getElementById("dinoOptimizeApplyPresetList");
+  const profile = loadMyDinoProfile();
+  row.innerHTML = "";
+  profile.runePresets.forEach((preset, idx) => {
+    const btn = document.createElement("div");
+    btn.className = "arena-preset-btn" + (idx === dinoOptimizeApplyPresetSelectedIdx ? " active" : "");
+    btn.textContent = runePresetDisplayName(preset, idx);
+    btn.onclick = () => {
+      dinoOptimizeApplyPresetSelectedIdx = idx;
+      dinoOptimizeRenderApplyPresetList();
+      document.getElementById("dinoOptimizeApplyPresetConfirmBtn").disabled = false;
+    };
+    row.appendChild(btn);
+  });
+}
+
+function dinoOptimizeCloseApplyPresetModal() {
+  document.getElementById("dinoOptimizeApplyPresetOverlay").style.display = "none";
+  dinoOptimizeApplyPresetPendingRunes = null;
+  dinoOptimizeApplyPresetSelectedIdx = null;
+}
+
+function dinoOptimizeConfirmApplyPreset() {
+  if (dinoOptimizeApplyPresetSelectedIdx === null || !dinoOptimizeApplyPresetPendingRunes) return;
+  const idx = dinoOptimizeApplyPresetSelectedIdx;
+  const runes = dinoOptimizeApplyPresetPendingRunes.map((r) => ({ ...r }));
+  const profile = loadMyDinoProfile();
+  profile.runePresets[idx].runes = runes;
+  profile.activePresetIndex = idx;
+  profile.runes = runes.map((r) => ({ ...r }));
+  saveMyDinoProfile(profile);
+  const presetName = runePresetDisplayName(profile.runePresets[idx], idx);
+  dinoOptimizeCloseApplyPresetModal();
+  renderMyDinoBattleSection();
+  resetBattleDisplay();
+  showToast(t("dino_battle.optimize.applyPreset.toastAppliedTo", { presetName }));
 }
 
 // 죽음(약한 쪽)이 아니라 생존(강한 쪽)이 1이 되도록, "적게 죽은 쪽"을 1로 고정하고 "많이 죽은
@@ -551,6 +1122,10 @@ function formatNormalizedRatio(myDeaths, oppDeaths) {
 }
 
 function startQuickCalc() {
+  // 상대/내 공룡 기본 스탯·별자리 입력칸은 onblur에만 저장됨(my-dino-page.js) - 방금 입력하고
+  // 포커스가 그 칸에 남은 채로 바로 이 버튼을 눌렀다면 blur를 강제로 먼저 발생시켜 저장을
+  // 커밋한 뒤에 읽어야 함(사용자 제보 버그: 편집한 상대 스탯이 반영 안 된 것처럼 보이는 문제)
+  document.activeElement.blur();
   // 10,000회 통계 평균이라 시드로 고정할 이유가 없음(시드는 실전 대전 전용) - 타일 설정만
   // 세션 중이면 공유값으로 맞춰서 계산
   const tileSettings = getEffectiveTileSettings();
@@ -1161,7 +1736,13 @@ function updateStackDisplay(sideKey, aliveCount) {
   const behindSlots = [1, 2, 3].map((n) => document.getElementById(`${sideKey}Behind${n}Slot`));
   const avatarSlot = document.getElementById(`${sideKey}AvatarSlot`);
 
-  const avatarPoint = formationPoints(frontCenter, aliveCount > 0 ? 1 : 0, 0, 0, awayDir)[0] || frontCenter;
+  // 앞장 자리는 생존 마릿수와 무관하게 항상 "1마리 있을 때"의 정상 위치(상대와 거리를 벌린 자리)로
+  // 계산함 - 예전엔 전멸(aliveCount===0) 시 formationPoints가 빈 배열을 반환해서 `|| frontCenter`
+  // 폴백으로 떨어졌는데, frontCenter는 이 정상 위치보다 중앙에 더 가까운 지점이라 전멸한 공룡이
+  // 순간 중앙 쪽으로 튀는 것처럼 보였음. 예전엔 전멸 시 완전히 투명해져서(front-defeated) 이
+  // 위치 오차가 안 보였지만, 지금은 회색으로 남겨두는 방식(front-eliminated)이라 눈에 보이게 됨
+  // (사용자 제보 - "죽은 공룡이 상대를 공격하는 것처럼 중앙 쪽으로 가서 멈춤")
+  const avatarPoint = formationPoints(frontCenter, 1, 0, 0, awayDir)[0];
   const reserveCount = separate ? Math.max(0, Math.min(3, aliveCount - 1)) : 0;
   const reservePoints = separate ? formationPoints(reserveCenter, reserveCount, R2_RESERVE, R3_RESERVE, null) : [];
 
@@ -1292,15 +1873,32 @@ function resetBattleDisplay() {
   applyDinoScale("opp", oppInputs.selectedRunes);
   applyCenterTileColor(getEffectiveTileSettings().tribeControl);
 
-  ["myFormationGroup", "oppFormationGroup"].forEach((elId) => document.getElementById(elId).classList.remove("defeated"));
+  // 죽음 연출이 예전 "회색 필터"(formationGroup에 .defeated) 방식에서 지금의 "축소되며
+  // 사라짐"(avatar에 .front-defeated, playDeathFlash) 방식으로 바뀌었는데 여기 정리 코드는 옛
+  // 클래스 이름 그대로 남아있었음 - .defeated는 CSS 규칙조차 없는 죽은 코드라 사실상 아무 효과가
+  // 없었고, 정작 실제로 붙는 .front-defeated는 전멸 시(isFinalDeath) 영구히 안 지워지는
+  // 설계(사용자 확정 - "없어지면 그걸로 끝")라 다시 시작해도 계속 축소·투명 상태로 남아있던 버그
+  // (사용자 제보 - "다시 시작 눌러도 맨 처음 공룡이 안 보임"). 새 전투를 시작하는 시점엔 이전
+  // 전투의 흔적을 지워야 하므로 실제로 쓰이는 클래스/엘리먼트로 고침
+  ["myAvatar", "oppAvatar"].forEach((elId) => document.getElementById(elId).classList.remove("front-defeated", "front-eliminated"));
   const result = document.getElementById("battleResult");
   result.style.display = "none";
   result.innerText = "";
+
+  // 빠른 계산 결과도 설정이 바뀌면 무효화 - 예전엔 상대/내 공룡을 편집해도 이전 계산 결과가
+  // 화면에 그대로 남아있어서, 편집한 스탯이 반영 안 된 것처럼 보이는 혼동을 줬음(사용자 제보)
+  document.getElementById("quickCalcResult").style.display = "none";
 
   const startBtn = document.getElementById("battleStartBtn");
   startBtn.disabled = false;
   startBtn.innerText = t("dino_battle.startBtn");
   startBtn.classList.remove("is-pressed");
+
+  // 이 함수는 my/opp 프로필이나 세션 상태가 바뀔 수 있는 모든 경로(로컬 편집/세션 참가·이탈/
+  // 스냅샷 로드)에서 이미 공통으로 호출되고 있어서, 모드 B 잠금 상태를 다시 확인하기에 가장
+  // 안전한 공용 지점임(조합 찾기 탭이 아직 안 열려있어도 dinoBattleRefreshOptimizeModeBLock
+  // 안에서 DOM 존재 여부를 방어적으로 확인함)
+  dinoBattleRefreshOptimizeModeBLock();
 }
 
 // js/core/simulation-dino-battle.js가 hit/aoe label로 넘기는 문자열은 "평타"(사전 정의된 비교용
@@ -1376,19 +1974,27 @@ const deathFlashTimeout = { my: null, opp: null };
 const promotionTimeout = { my: null, opp: null };
 
 // isFinalDeath: 이 죽음으로 그 진영이 전멸했는지(더 이상 승격할 공룡이 없음) - 전멸이면
-// front-defeated(축소+투명화)를 지우지 않고 그대로 둠(사용자 확정 - 회색 처리 대신 "없어지면
-// 그걸로 끝"). 승격이 있는 경우에만 예전처럼 350ms 뒤 지워서 handlePromotionEffects가 이어서
-// 등장 애니메이션을 재생하게 함 - 안 그러면(예전 버그) 전멸 시에도 무조건 지워져서 죽은 공룡이
-// 완전히 보이는 상태로 튕겨 돌아왔었음(사용자 지적 - "회색 처리가... 다시 생기면서"). 새 죽음은
-// 그 슬롯에 대해 예약돼있던 이전 죽음/승격 타이머를 전부 무효화함(공속이 빨라 350ms 안에 연달아
-// 죽으면 낡은 타이머가 뒤늦게 발동해서 방금 막 걸린 전멸 상태를 지워버리는 경쟁 상태가 있었음 -
-// 5연킬 실측으로 재현/확인)
+// front-eliminated(회색조+반투명, 자리는 그대로 남음)로 영구히 표시함. 원래는 front-defeated
+// (축소+투명화, 완전히 안 보이게)를 그대로 둬서 "없어지면 그걸로 끝"으로 처리했었는데, 실사용
+// 확인 결과 체력바/닉네임만 남고 공룡 자체가 아예 안 보이는 게 어색하다는 피드백을 받아 재설계함
+// (사용자 확정 - "이 설계 자체를 바꿔야 함") - 자리는 계속 보이되 회색조로 죽었음을 표시.
+// 승격이 있는 경우(전멸 아님)엔 예전처럼 축소+투명 애니메이션(front-defeated)을 350ms만 잠깐
+// 재생한 뒤 지워서 handlePromotionEffects가 이어서 등장 애니메이션을 재생하게 함 - 안 그러면
+// (예전 버그) 전멸 시에도 무조건 지워져서 죽은 공룡이 완전히 보이는 상태로 튕겨 돌아왔었음
+// (사용자 지적 - "회색 처리가... 다시 생기면서"). 새 죽음은 그 슬롯에 대해 예약돼있던 이전
+// 죽음/승격 타이머를 전부 무효화함(공속이 빨라 350ms 안에 연달아 죽으면 낡은 타이머가 뒤늦게
+// 발동해서 방금 막 걸린 상태를 지워버리는 경쟁 상태가 있었음 - 5연킬 실측으로 재현/확인)
 function playDeathFlash(sideKey, isFinalDeath) {
   const avatar = document.getElementById(`${sideKey}Avatar`);
   clearTimeout(deathFlashTimeout[sideKey]);
   clearTimeout(promotionTimeout[sideKey]);
+  if (isFinalDeath) {
+    avatar.classList.remove("front-defeated");
+    avatar.classList.add("front-eliminated");
+    return;
+  }
+  avatar.classList.remove("front-eliminated");
   avatar.classList.add("front-defeated");
-  if (isFinalDeath) return;
   deathFlashTimeout[sideKey] = setTimeout(() => avatar.classList.remove("front-defeated"), DEATH_ANIM_MS);
 }
 
@@ -1625,9 +2231,13 @@ function runBattleStep(token) {
 // 재생만 함 - 새 시드를 만들어 다시 보내지 않음(그러면 무한루프). 내가 직접 누른 거면 새 시드를
 // 만들어서 세션 중일 때만 상대에게도 전파함(로컬 "실전 대전"은 지금까지처럼 매번 다른 결과)
 function startBattle(externalSeed) {
-  // 직전 전투가 패배로 끝났다면 finishBattleDisplay()가 진 쪽 formationGroup에 .defeated(회색
-  // 필터)를 남겨둔 채임 - 다시 시작해도 지워주는 로직이 없어서 새 전투 내내 회색으로 남아있던
-  // 버그(사용자 지적). resetBattleDisplay()가 이 클래스 제거를 포함해 전체 시각 상태를 처음
+  // 상대/내 공룡 기본 스탯·별자리 입력칸은 onblur에만 저장됨(my-dino-page.js) - 방금 입력하고
+  // 포커스가 그 칸에 남은 채로 바로 "전투 시작"을 눌렀다면 blur를 강제로 먼저 발생시켜 저장을
+  // 커밋한 뒤에 읽어야 함(사용자 제보 버그). 친구 세션이 전파한 battle-start로 호출된 경우엔
+  // 포커스된 입력칸이 없을 테니 안전하게 아무 효과 없음.
+  document.activeElement.blur();
+  // 직전 전투가 전멸로 끝났다면 죽은 쪽 avatar에 .front-defeated(축소+투명화, playDeathFlash)가
+  // 영구히 남아있는 채임 - resetBattleDisplay()가 이 클래스 제거를 포함해 전체 시각 상태를 처음
   // 상태로 되돌려주므로, battleToken을 새로 발급하기 전에 먼저 호출해서 깨끗한 상태에서 시작함
   resetBattleDisplay();
   battleToken++;
