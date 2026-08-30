@@ -255,8 +255,11 @@
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 3px;
-  width: calc(var(--avatar-diam-px, clamp(24px, 9cqw, 40px)) * 0.9);
-  height: 5px;
+  /* 다이노 배틀(.battle-hp-bar-mini, css/dino-battle.css)과 같은 공용 규칙으로 통일(사용자 확정
+     - "이건 공룡 자체 로직에 들어가야 하는거야... 모든 페이지에서 사용해야 한다는거지") - 가로를
+     공룡 실제 지름과 정확히 맞추고, 세로는 원래 바의 비율(가로 46px일 때 세로 4px)을 유지 */
+  width: var(--avatar-diam-px, clamp(24px, 9cqw, 40px));
+  height: max(2px, calc(var(--avatar-diam-px, clamp(24px, 9cqw, 40px)) * 4 / 46));
   border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);

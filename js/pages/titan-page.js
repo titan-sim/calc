@@ -333,6 +333,13 @@ function renderTitanPage(container) {
                     <div class="titan-hex-avatar-hpbar titan-hex-avatar-hpbar-boss">
                       <div class="titan-hex-avatar-hpfill titan-hex-hpfill-boss" id="titanBossHpFill"></div>
                     </div>
+                    <!-- 내 공룡 쪽엔 이미 닉네임 이름표(.titan-hex-avatar-name)가 있는데 타이탄만
+                         없어서 사용자 지적("공룡 밑에 닉네임 있는 것처럼 타이탄도") - 닉네임처럼
+                         매번 바뀌는 값이 아니라 고정 문구라 my-dino와 달리 JS로 채울 필요 없이
+                         템플릿에 바로 텍스트를 심음. DOM 순서(hpbar -> ball -> hp-text -> name)는
+                         그대로 두고 이름표만 맨 끝에 추가 - 다른 자식들처럼 order를 따로 안 줬으니
+                         기본값(0)이라 자연스럽게 가장 아래(발밑)에 옴(내 공룡과 동일한 규칙) -->
+                    <div class="titan-hex-avatar-name titan-hex-avatar-name-boss">${t("titan.heading")}</div>
                   </div>
                 </div>
                 <div class="titan-hex-anchor-popup-layer" id="titanBossPopupLayer"></div>
@@ -1833,7 +1840,10 @@ function initTitanPage() {
 
   // 로그인 상태면 "내 공룡" 대신 실제 닉네임을 보여줌(js/ui/dino-display-ui.js, 다이노 배틀 페이지가
   // 먼저 확정한 방식과 통일 - 사용자 확정 "로그인 하면 닉네임 보이는거... 통일시켜"). 비동기 조회가
-  // 끝나기 전까지는 getMyDisplayNameSync()의 폴백("내 공룡")이 즉시 보이도록 동기 호출도 한 번 먼저 함
-  applyMyDisplayName(".titan-hex-avatar-name");
-  loadMyDisplayName().then(() => applyMyDisplayName(".titan-hex-avatar-name"));
+  // 끝나기 전까지는 getMyDisplayNameSync()의 폴백("내 공룡")이 즉시 보이도록 동기 호출도 한 번 먼저 함.
+  // .titan-hex-avatar-mine으로 범위를 좁혀야 함 - 타이탄(보스) 이름표도 같은 .titan-hex-avatar-name
+  // 클래스를 쓰는데, 범위를 안 좁히면 이 함수가 보스 이름표까지 "내 공룡"으로 덮어써버림(실측으로
+  // 발견 - 타이탄 이름표를 새로 추가하자마자 "타이탄" 대신 "내 공룡"이 뜸)
+  applyMyDisplayName(".titan-hex-avatar-mine .titan-hex-avatar-name");
+  loadMyDisplayName().then(() => applyMyDisplayName(".titan-hex-avatar-mine .titan-hex-avatar-name"));
 }

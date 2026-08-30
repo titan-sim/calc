@@ -476,7 +476,6 @@
     "dino_battle.startBtnPause": "一時停止",
     "dino_battle.startBtnResume": "再開",
     "dino_battle.startBtnRestart": "最初から",
-    "dino_battle.aoeHitLabel": "{label} {count}匹に命中",
     "dino_battle.mutualKillPopup": "100回交換 - 相打ち",
     "dino_battle.log.meteorInstant": "落雷(即死)",
     "dino_battle.log.meteorAoe": "メテオ(範囲)",

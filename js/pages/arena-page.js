@@ -1259,7 +1259,12 @@ function arenaRenderBattleEvent(ev) {
       bump(ev.defenderSide, t.slot);
       const k = slotKey(ev.defenderSide, t.slot);
       const dmg = Math.max(0, t.before - t.after);
-      arenaSpawnPopup(ev.defenderSide, t.slot, Math.round(dmg).toLocaleString(), t.isCrit ? "skill crit" : "skill", nextDelay[k], popupIndex[k]);
+      // 다이노 배틀은 맞은 인원을 하나로 묶어 "메테오(광역) N마리 적중" 팝업 하나로 보여주지만,
+      // 아레나는 슬롯마다 이미 개별 팝업이 뜨는 구조라 각 팝업 자체에 룬 이름을 붙임(사용자 지적 -
+      // "아레나에서도 공룡 대전처럼 모든 룬의 효과를 다 적어줘" - 예전엔 이 팝업만 숫자만 뜨고
+      // "메테오" 같은 룬 이름이 안 붙어서 평타랑 구분이 안 갔음)
+      const text = `${dinoBattleDisplayLabel(ev.aoe.label)} ${Math.round(dmg).toLocaleString()}`;
+      arenaSpawnPopup(ev.defenderSide, t.slot, text, t.isCrit ? "skill crit" : "skill", nextDelay[k], popupIndex[k]);
       arenaSpawnHitEffect(ev.defenderSide, t.slot);
       popupIndex[k]++;
       nextDelay[k] += STAGGER_MS;

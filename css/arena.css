@@ -481,13 +481,26 @@ body[data-page="arena"] .dino-tab-panel[data-panel="base"] .input-grid > div:las
   box-shadow: 0 0 10px rgba(224, 71, 63, 0.5);
 }
 
+/* 다이노 배틀(.battle-hp-bar-mini, css/dino-battle.css)과 같은 공용 규칙으로 통일(사용자 확정 -
+   "이건 공룡 자체 로직에 들어가야 하는거야... 모든 페이지에서 사용해야 한다는거지") - 예전엔
+   .arena-slot-avatar와 무관한 별도 clamp()라 공룡 크기와 체력바 길이 비율이 안 맞을 수 있었음.
+   전열/후열이 아바타 크기 자체가 다르므로(.arena-col-front/.arena-col-back) 체력바 폭도 각각의
+   실제 아바타 폭과 맞춰 따로 선언 - 세로는 원래 바의 비율(가로 46px일 때 세로 4px)을 유지 */
 .arena-slot-hpbar {
-  width: clamp(26px, 8.5cqw, 56px);
-  height: 5px;
   border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   overflow: hidden;
+}
+
+.arena-col-front .arena-slot-hpbar {
+  width: clamp(36px, 11.5cqw, 96px);
+  height: max(2px, calc(clamp(36px, 11.5cqw, 96px) * 4 / 46));
+}
+
+.arena-col-back .arena-slot-hpbar {
+  width: clamp(27px, 8.6cqw, 72px);
+  height: max(2px, calc(clamp(27px, 8.6cqw, 72px) * 4 / 46));
 }
 
 .arena-slot-hpfill {

@@ -476,7 +476,6 @@
     "dino_battle.startBtnPause": "暂停",
     "dino_battle.startBtnResume": "继续",
     "dino_battle.startBtnRestart": "重新开始",
-    "dino_battle.aoeHitLabel": "{label} 命中{count}只",
     "dino_battle.mutualKillPopup": "100回合交换 - 同时阵亡",
     "dino_battle.log.meteorInstant": "落雷（即死）",
     "dino_battle.log.meteorAoe": "陨石（范围）",

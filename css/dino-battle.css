@@ -299,8 +299,17 @@
 }
 
 .battle-hp-bar-mini {
-  width: clamp(26px, 9cqw, 46px);
-  height: 4px;
+  /* 가로 길이를 공룡 실제 렌더 폭(.battle-avatar와 완전히 같은 공식)과 정확히 맞춤 - 예전엔 고정
+     clamp()라 화면 폭/원근 배율에 따라 공룡 크기와 체력바 길이 비율이 안 맞을 수 있었음(사용자
+     지적 - "공룡 크기에 비해 체력바가 짧아 보임"). 처음엔 1.1배로 했다가 "너무 길다"는 재지적을
+     받아 1배로 조정하고, 대신 세로 두께도 기존 바의 원래 비율(가로 46px일 때 세로 4px)을 그대로
+     유지한 채 같이 줄어들게 함 - 세로를 4px 고정값으로 그냥 두면 가로만 줄어들 때 상대적으로
+     두꺼워 보이는 문제가 있었음(사용자 지적). max()의 2px 바닥은 아주 작은 화면에서 세로가
+     안 보일 만큼 얇아지는 것만 방지하는 안전판. 부모(.battle-team-slot)의 --perspective-scale
+     변환은 체력바/공룡 둘 다 똑같이 받으므로 이 비율(1:1, 그리고 원래 세로 비율)은 화면
+     크기·원근 배율과 무관하게 항상 유지됨 */
+  width: calc(var(--avatar-base-px, 60px) * var(--avatar-formation-scale, 1) * var(--dino-scale, 1));
+  height: max(2px, calc(var(--avatar-base-px, 60px) * var(--avatar-formation-scale, 1) * var(--dino-scale, 1) * 4 / 46));
   border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);

@@ -2194,33 +2194,40 @@ function playLungeAndShake(attackerSide, defenderSide) {
 function renderBattleEvent(ev) {
   playLungeAndShake(ev.attackerSide, ev.defenderSide);
 
-  // 같은 타겟(내 공룡/상대 공룡)에게 뜨는 팝업들끼리 순서대로 인덱스를 매겨서 겹치지 않게 흩어줌
-  const popupIndex = { my: 0, opp: 0 };
-  const nextDelay = { my: 0, opp: 0 };
-  const STAGGER_MS = 150;
+  // 같은 슬롯에 뜨는 팝업들끼리 순서대로 인덱스를 매겨서 겹치지 않게 흩어줌 - js/ui/dino-display-ui.js
+  // 공용 함수(아레나와 공유, createPopupStagger 주석 참고). 슬롯 단위로 키를 매겨서(진영 단위가
+  // 아니라) 메테오 "주변 타일"처럼 한 이벤트에 여러 슬롯이 동시에 맞아도 슬롯마다 따로 쌓임
+  const stagger = createPopupStagger();
+  const avatarSlotId = (sideKey) => `${sideKey}AvatarSlot`;
+  // 메테오 등 광역 효과의 타겟 인덱스(0=앞장, 1~3=대기 육각형의 behind1~3) -> 실제 슬롯 엘리먼트 id
+  const aoeTargetSlotId = (sideKey, index) => (index === 0 ? avatarSlotId(sideKey) : `${sideKey}Behind${index}Slot`);
 
   ev.hits.forEach((hit) => {
-    const side = hit.targetSide;
-    spawnDamagePopup(`${side}AvatarSlot`, hit.dmg, hit.isCrit, hit.label, nextDelay[side], popupIndex[side]);
-    popupIndex[side]++;
-    nextDelay[side] += STAGGER_MS;
+    const slotId = avatarSlotId(hit.targetSide);
+    const { index, delay } = stagger(slotId);
+    spawnDamagePopup(slotId, hit.dmg, hit.isCrit, hit.label, delay, index);
   });
   ev.heals.forEach((heal) => {
-    const side = heal.side;
-    spawnHealPopup(`${side}AvatarSlot`, heal.amount, heal.cause, nextDelay[side], popupIndex[side]);
-    popupIndex[side]++;
-    nextDelay[side] += STAGGER_MS;
+    const slotId = avatarSlotId(heal.side);
+    const { index, delay } = stagger(slotId);
+    spawnHealPopup(slotId, heal.amount, heal.cause, delay, index);
   });
 
   if (ev.aoe) {
     const arena = document.getElementById("battleArena");
     arena.classList.add("area-flash");
     setTimeout(() => arena.classList.remove("area-flash"), 400);
-    const side = ev.defenderSide;
-    const aoeLabel = t("dino_battle.aoeHitLabel", { label: dinoBattleDisplayLabel(ev.aoe.label), count: ev.aoe.targets.length });
-    spawnDamagePopup(`${side}AvatarSlot`, ev.aoe.targets.length, ev.aoe.isCrit, aoeLabel, nextDelay[side], popupIndex[side]);
-    popupIndex[side]++;
-    nextDelay[side] += STAGGER_MS;
+    // 예전엔 맞은 인원을 하나로 묶어 "메테오(광역) N마리 적중"이라는 팝업 하나만 앞장 슬롯에
+    // 띄웠는데, "메테오(주변 타일)"처럼 대기 육각형(근접 타일)의 다른 슬롯이 맞아도 그 슬롯엔
+    // 아무 메시지가 안 뜨는 버그였음(사용자 지적) - 실제로 맞은 슬롯마다 개별 팝업을 띄우도록
+    // 변경(아레나가 이미 하던 방식과 통일 - 다이노 배틀이 확정한 dinoBattleDisplayLabel 규칙을
+    // spawnDamagePopup이 그대로 처리해주므로 라벨 조합 로직 중복 없음)
+    ev.aoe.targets.forEach((target) => {
+      const slotId = aoeTargetSlotId(ev.defenderSide, target.index);
+      const dmg = Math.max(0, target.before - target.after);
+      const { index, delay } = stagger(slotId);
+      spawnDamagePopup(slotId, dmg, target.isCrit, ev.aoe.label, delay, index);
+    });
   }
 
   if (ev.deaths.length > 0) {
@@ -2232,8 +2239,10 @@ function renderBattleEvent(ev) {
 
   // 평타 100회 교환 동시사망(무한 교착 방지 규칙) - 양쪽 다 표시
   if (ev.mutualKill) {
-    spawnHealPopup("myAvatarSlot", 0, "100회 교환 - 동시 사망", nextDelay.my, popupIndex.my);
-    spawnHealPopup("oppAvatarSlot", 0, "100회 교환 - 동시 사망", nextDelay.opp, popupIndex.opp);
+    const my = stagger(avatarSlotId("my"));
+    const opp = stagger(avatarSlotId("opp"));
+    spawnHealPopup("myAvatarSlot", 0, "100회 교환 - 동시 사망", my.delay, my.index);
+    spawnHealPopup("oppAvatarSlot", 0, "100회 교환 - 동시 사망", opp.delay, opp.index);
   }
 
   const beforeCount = lastAliveCount;

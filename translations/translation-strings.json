@@ -476,7 +476,6 @@
     "dino_battle.startBtnPause": "일시정지",
     "dino_battle.startBtnResume": "재개",
     "dino_battle.startBtnRestart": "다시 시작",
-    "dino_battle.aoeHitLabel": "{label} {count}마리 적중",
     "dino_battle.mutualKillPopup": "100회 교환 - 동시 사망",
     "dino_battle.log.meteorInstant": "낙뢰(즉사)",
     "dino_battle.log.meteorAoe": "메테오(광역)",

@@ -476,7 +476,6 @@
     "dino_battle.startBtnPause": "Pause",
     "dino_battle.startBtnResume": "Resume",
     "dino_battle.startBtnRestart": "Restart",
-    "dino_battle.aoeHitLabel": "{label} hit {count}",
     "dino_battle.mutualKillPopup": "100 Exchanges - Mutual Death",
     "dino_battle.log.meteorInstant": "Lightning Strike (Instant Kill)",
     "dino_battle.log.meteorAoe": "Meteor (AoE)",

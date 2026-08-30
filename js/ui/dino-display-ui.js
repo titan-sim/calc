@@ -45,6 +45,28 @@ function applyMyDisplayName(selector) {
   document.querySelectorAll(selector).forEach((el) => { el.textContent = label; });
 }
 
+// ===== 광역기(메테오 등) 팝업 스태거 =====
+// 한 이벤트에 여러 슬롯이 동시에 맞을 수 있는 광역 효과를 렌더링할 때, 슬롯별로 "이번 턴에 몇
+// 번째 팝업인지/얼마나 지연시킬지"를 추적하는 카운터. 원래 다이노 배틀은 진영 하나에 팝업이 뜨는
+// 자리가 항상 앞장 1곳뿐이라 진영 단위로만 추적했는데, 메테오 "주변 타일" 효과가 실제로는 대기
+// 육각형(근접 타일)의 다른 슬롯들도 맞히면서 그 슬롯들엔 아무 메시지도 안 뜨는 버그가 있었음
+// (사용자 지적 - "중앙 타일만 나오고 근접 타일에는 메시지가 안 뜨네"). 아레나는 처음부터 슬롯이
+// 5개라 슬롯 단위로 추적하고 있었으므로, 두 페이지가 각자 만들지 말고 공용으로 뽑아 쓰기로 함
+// (사용자 확정 - "공룡 공용 로직에 넣어서 한꺼번에 쓰는게 더 좋을 것 같은데"). key가 다르면
+// 완전히 독립적으로 카운트됨(같은 슬롯에 이번 턴 두 번째 팝업이 뜨면 살짝 밀려서 안 겹치게,
+// delayMs만큼 순차 재생도 겸함)
+function createPopupStagger(staggerMs = 150) {
+  const popupIndex = {};
+  const nextDelay = {};
+  return function next(key) {
+    if (!(key in popupIndex)) { popupIndex[key] = 0; nextDelay[key] = 0; }
+    const result = { index: popupIndex[key], delay: nextDelay[key] };
+    popupIndex[key]++;
+    nextDelay[key] += staggerMs;
+    return result;
+  };
+}
+
 // ===== 체력바 채움 폭 =====
 // hp/maxHp 비율을 0~100% 사이로 클램프해서 fillEl의 width로 적용 - 페이지마다 상한 클램프가
 // 있거나 없거나 제각각이었는데(다이노 배틀은 하한만, 건물 새 코드는 상하한 다 클램프) 항상 안전한

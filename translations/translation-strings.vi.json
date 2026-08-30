@@ -476,7 +476,6 @@
     "dino_battle.startBtnPause": "Tạm Dừng",
     "dino_battle.startBtnResume": "Tiếp Tục",
     "dino_battle.startBtnRestart": "Bắt Đầu Lại",
-    "dino_battle.aoeHitLabel": "{label} trúng {count} con",
     "dino_battle.mutualKillPopup": "100 Lần Trao Đổi - Cùng Chết",
     "dino_battle.log.meteorInstant": "Sét Đánh (Giết Ngay)",
     "dino_battle.log.meteorAoe": "Thiên Thạch (Diện Rộng)",

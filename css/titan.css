@@ -458,6 +458,12 @@
   /* "내 공룡" 이름표 색 - 다이노 배틀의 #myFormationGroup .battle-team-slot-name과 통일(사용자
      지적 - "어느 페이지는 초록색이고 어떤 페이지는 하얀색이고") */
   color: #4ade80;
+}
+
+/* 타이탄 이름표는 "내 공룡"과 달리 적(보스) 쪽이라 다이노 배틀의 #oppFormationGroup
+   .battle-team-slot-name과 같은 빨강으로 - 공/체력바가 이미 빨강 계열이라 초록 글씨는 안 맞음 */
+.titan-hex-avatar-name-boss {
+  color: #e0473f;
   white-space: nowrap;
   /* 로그인 닉네임은 길이가 제각각이라(사용자가 직접 정함) 다이노 배틀의 .battle-team-slot-name과
      같은 방식으로 잘라냄 - 안 그러면 옆 공룡 이름표와 겹침(건물 페이지에서 실측으로 먼저 발견) */
@@ -513,8 +519,11 @@
 .titan-hex-avatar-hpbar {
   position: relative;
   order: -1;
-  width: calc(var(--avatar-diam-px, clamp(30px, 11cqw, 52px)) * 0.9);
-  height: 5px;
+  /* 다이노 배틀(.battle-hp-bar-mini, css/dino-battle.css)과 같은 공용 규칙으로 통일(사용자 확정
+     - "이건 공룡 자체 로직에 들어가야 하는거야... 모든 페이지에서 사용해야 한다는거지") - 가로를
+     공룡 실제 지름과 정확히 맞추고, 세로는 원래 바의 비율(가로 46px일 때 세로 4px)을 유지 */
+  width: var(--avatar-diam-px, clamp(30px, 11cqw, 52px));
+  height: max(2px, calc(var(--avatar-diam-px, clamp(30px, 11cqw, 52px)) * 4 / 46));
   border-radius: 999px;
   background: var(--input-bg);
   border: 1px solid var(--border-color);
