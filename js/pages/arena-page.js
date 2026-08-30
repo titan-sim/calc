@@ -443,7 +443,11 @@ function arenaHandleFriendSessionEvent(event) {
     arenaFriendFormations = null;
     renderArenaOppPanel();
     arenaUpdateFriendLabels();
+    // 지금 내가 보고 있는 탭을 전파 - 늦게 들어온 쪽이 곧바로 내 배지를 보게 함
+    sendTabChange("arena", currentArenaMode);
     arenaResetDisplay();
+  } else if (event.type === "friend-tab-change") {
+    arenaUpdatePresenceBadges();
   } else if (event.type === "friend-profile") {
     // 이 세션에서 친구의 실제 배치를 아직 못 받아왔으면(막 시작된 시점) 지금 도착한 프로필로 채움 -
     // 이후 세션 도중 친구가 자기 설정을 바꿔서 오는 추가 갱신마다 매번 덮어쓰면 내가 방금 로컬로
@@ -528,6 +532,8 @@ function renderArenaPage(container) {
         <div class="card battle-main-card" id="arenaMainCard">
           <div class="battle-mode-tabs mode-live" id="arenaModeTabs">
             <span class="battle-mode-indicator"></span>
+            <div class="battle-tab-presence my-presence" id="arenaMyPresenceBadge"></div>
+            <div class="battle-tab-presence friend-presence" id="arenaFriendPresenceBadge"></div>
             <button class="battle-mode-tab" data-mode="quick" id="arenaModeTabQuick"><span>${t("arena.tab.quick")}</span></button>
             <button class="battle-mode-tab active" data-mode="live" id="arenaModeTabLive"><span>${t("arena.tab.live")}</span></button>
           </div>
@@ -697,6 +703,36 @@ function initArenaPage() {
   arenaResetDisplay();
 }
 
+// 친구 기능 4단계: 화면 강제 전환 대신, 지금 보고 있는 탭 버튼에 닉네임 첫 글자 배지 표시
+// (dino-battle-page.js의 updatePresenceBadges와 동일한 원리, 아레나는 quick/live 2탭뿐)
+let currentArenaMode = "live"; // arenaModeTabs 템플릿의 기본 active 탭과 일치
+
+function arenaUpdatePresenceBadges() {
+  const myBadge = document.getElementById("arenaMyPresenceBadge");
+  const friendBadge = document.getElementById("arenaFriendPresenceBadge");
+  if (!myBadge || !friendBadge) return;
+  const session = getActiveSession();
+  if (!session || session.status !== "active") {
+    myBadge.style.display = "none";
+    friendBadge.style.display = "none";
+    return;
+  }
+
+  const myBtn = document.getElementById(currentArenaMode === "live" ? "arenaModeTabLive" : "arenaModeTabQuick");
+  if (myBtn && myBadge.parentElement !== myBtn) myBtn.insertBefore(myBadge, myBtn.firstChild);
+  myBadge.textContent = Array.from(session.myNickname || "?")[0];
+  myBadge.style.display = "inline-flex";
+
+  if (session.friendPage === "arena" && session.friendMode) {
+    const friendBtn = document.getElementById(session.friendMode === "live" ? "arenaModeTabLive" : "arenaModeTabQuick");
+    if (friendBtn && friendBadge.parentElement !== friendBtn) friendBtn.appendChild(friendBadge);
+    friendBadge.textContent = Array.from(session.friendNickname || "?")[0];
+    friendBadge.style.display = "inline-flex";
+    return;
+  }
+  friendBadge.style.display = "none";
+}
+
 function arenaInitModeTabs() {
   const tabsEl = document.getElementById("arenaModeTabs");
   const quickTab = document.getElementById("arenaModeTabQuick");
@@ -711,6 +747,9 @@ function arenaInitModeTabs() {
     liveCard.style.display = "none";
     tabsEl.classList.remove("mode-live");
     tabsEl.classList.add("mode-quick");
+    currentArenaMode = "quick";
+    arenaUpdatePresenceBadges();
+    if (arenaIsFriendSessionActive()) sendTabChange("arena", "quick");
   };
   liveTab.onclick = () => {
     liveTab.classList.add("active");
@@ -719,6 +758,9 @@ function arenaInitModeTabs() {
     quickCard.style.display = "none";
     tabsEl.classList.remove("mode-quick");
     tabsEl.classList.add("mode-live");
+    currentArenaMode = "live";
+    arenaUpdatePresenceBadges();
+    if (arenaIsFriendSessionActive()) sendTabChange("arena", "live");
   };
 }
 
@@ -1086,6 +1128,7 @@ function arenaResetDisplay() {
   // 친구 세션 중이면 위에서 넣은 기본 라벨을 "준비 완료"류 라벨로 덮어씀(세션 아니면 무해)
   arenaUpdateReadyButtonUI();
   renderArenaOppToolbar();
+  arenaUpdatePresenceBadges();
 }
 
 // 10마리가 한 화면에 있으면 어떤 슬롯이 공격하고 어떤 슬롯이 맞는지 순간적으로 알아보기 어렵다는

@@ -274,6 +274,8 @@ function renderDinoBattlePage(container) {
         <div class="card battle-main-card" id="battleMainCard">
           <div class="battle-mode-tabs mode-live dino-mode-tabs-4" id="battleModeTabs">
             <span class="battle-mode-indicator"></span>
+            <div class="battle-tab-presence my-presence" id="dinoBattleMyPresenceBadge"></div>
+            <div class="battle-tab-presence friend-presence" id="dinoBattleFriendPresenceBadge"></div>
             <button class="battle-mode-tab" data-mode="settings" id="modeTabSettings"><span>${t("dino_battle.tab.settings")}</span></button>
             <button class="battle-mode-tab" data-mode="quick" id="modeTabQuick"><span>${t("dino_battle.tab.quick")}</span></button>
             <button class="battle-mode-tab active" data-mode="live" id="modeTabLive"><span>${t("dino_battle.tab.live")}</span></button>
@@ -635,6 +637,43 @@ const DINO_BATTLE_MODES = [
   { mode: "optimize", tabId: "modeTabOptimize", cardId: "optimizeModeCard" }
 ];
 
+// 친구 기능 4단계: 화면을 강제로 맞추지 않고(사용자 지적 - "내가 보고 싶은 페이지를 못 보게
+// 되고 방해받을 수 있다"), 대신 각자 지금 보고 있는 탭 버튼 위에 닉네임 첫 글자 배지를 띄워서
+// "누가 어느 탭에 있는지"만 알 수 있게 함. 내 배지는 탭 글자 왼쪽, 상대 배지는 오른쪽.
+let currentDinoBattleMode = "live"; // battleModeTabs 템플릿의 기본 active 탭과 일치시켜둠
+
+function updatePresenceBadges() {
+  const myBadge = document.getElementById("dinoBattleMyPresenceBadge");
+  const friendBadge = document.getElementById("dinoBattleFriendPresenceBadge");
+  if (!myBadge || !friendBadge) return;
+  const session = getActiveSession();
+  if (!session || session.status !== "active") {
+    myBadge.style.display = "none";
+    friendBadge.style.display = "none";
+    return;
+  }
+
+  const myTarget = DINO_BATTLE_MODES.find((m) => m.mode === currentDinoBattleMode);
+  if (myTarget) {
+    const btn = document.getElementById(myTarget.tabId);
+    if (btn && myBadge.parentElement !== btn) btn.insertBefore(myBadge, btn.firstChild);
+    myBadge.textContent = Array.from(session.myNickname || "?")[0];
+    myBadge.style.display = "inline-flex";
+  }
+
+  if (session.friendPage === "dino_battle" && session.friendMode) {
+    const friendTarget = DINO_BATTLE_MODES.find((m) => m.mode === session.friendMode);
+    if (friendTarget) {
+      const btn = document.getElementById(friendTarget.tabId);
+      if (btn && friendBadge.parentElement !== btn) btn.appendChild(friendBadge);
+      friendBadge.textContent = Array.from(session.friendNickname || "?")[0];
+      friendBadge.style.display = "inline-flex";
+      return;
+    }
+  }
+  friendBadge.style.display = "none";
+}
+
 function initModeTabs() {
   const tabsEl = document.getElementById("battleModeTabs");
 
@@ -653,6 +692,10 @@ function initModeTabs() {
       // 단락되므로 저렴함.
       if (m.mode === "live") dinoBattleInitScene3d();
       dinoBattleUpdateSidePanelsVisibility();
+
+      currentDinoBattleMode = m.mode;
+      updatePresenceBadges();
+      if (isFriendSessionActive()) sendTabChange("dino_battle", m.mode);
     };
   });
 }
@@ -1685,8 +1728,12 @@ function handleFriendSessionEvent(event) {
         atkTowerLevel: settings.myAtkTowerLevel,
         hpTowerLevel: settings.myHpTowerLevel
       });
+      // 지금 내가 보고 있는 탭도 전파 - 늦게 들어온 쪽이 곧바로 내 배지를 보게 함(위 타일 설정
+      // 이중 전송과 같은 이유)
+      sendTabChange("dino_battle", currentDinoBattleMode);
     }
     resetBattleDisplay();
+    updatePresenceBadges();
   } else if (event.type === "friend-profile") {
     renderOppPanel();
     resetBattleDisplay();
@@ -1694,6 +1741,8 @@ function handleFriendSessionEvent(event) {
     refreshSharedTileDisplayFromSession();
     refreshOppTileDisplayFromSession();
     resetBattleDisplay();
+  } else if (event.type === "friend-tab-change") {
+    updatePresenceBadges();
   } else if (event.type === "friend-ready") {
     // 친구 기능 4단계 - "battle-start"(시드 공유) 방식은 더 이상 안 씀. 상대가 준비 완료를 누른
     // 시점 - 나도 이미 준비 완료 상태였다면 지금 both-ready가 되어 계산이 바로 시작됨
@@ -1709,6 +1758,7 @@ function handleFriendSessionEvent(event) {
     updateFriendLabels();
     applyOppTileLock(false);
     resetBattleDisplay();
+    updatePresenceBadges();
   }
 }
 
@@ -1918,6 +1968,7 @@ function resetBattleDisplay() {
   // 친구 세션 중이면 위에서 방금 넣은 기본 라벨을 "준비 완료"류 라벨로 덮어씀(세션 아니면 무해)
   updateReadyButtonUI();
   renderOppPanelToolbar();
+  updatePresenceBadges();
 
   // 이 함수는 my/opp 프로필이나 세션 상태가 바뀔 수 있는 모든 경로(로컬 편집/세션 참가·이탈/
   // 스냅샷 로드)에서 이미 공통으로 호출되고 있어서, 모드 B 잠금 상태를 다시 확인하기에 가장

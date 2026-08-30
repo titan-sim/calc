@@ -11,7 +11,7 @@
 let notifyChannel = null;
 let notifyMyId = null;
 let notifyMyNickname = null;
-let currentSession = null; // { channel, myId, myNickname, friendId, friendNickname, status, friendProfile, sharedTile, friendSide, myReady, friendReady }
+let currentSession = null; // { channel, myId, myNickname, friendId, friendNickname, status, friendProfile, sharedTile, friendSide, myReady, friendReady, friendPage, friendMode }
 const sessionListeners = new Set();
 const friendRequestListeners = new Set();
 
@@ -89,6 +89,12 @@ function initFriendNotifications(myId, myNickname) {
   notifyChannel = supabaseClient.channel(`user-notify:${myId}`, { config: { broadcast: { self: false } } });
   notifyChannel.on("broadcast", { event: "msg" }, ({ payload }) => {
     if (payload.type === "invite") {
+      // 교차 초대(서로 거의 동시에 초대) 대응: 방 채널명이 대칭이라 서로 초대만 보내도 join/profile
+      // 핸드셰이크로 이미 세션이 active가 될 수 있음(joinFriendRoom 참고) - 그 상태에서 뒤늦게
+      // 도착한 이 초대 알림까지 배너로 띄우면, 사용자가 무심코 눌렀을 때 이미 멀쩡한 세션을
+      // 허물 위험이 있어서(joinFriendRoom의 가드로 방지는 되지만) 애초에 배너 자체를 안 띄움
+      const existing = getActiveSession();
+      if (existing && existing.friendId === payload.fromId) return;
       showInviteBanner(myId, myNickname, payload.fromId, payload.fromNickname);
     } else if (payload.type === "invite-declined") {
       hideInviteWaitingIfFrom(payload.fromId);
@@ -194,6 +200,17 @@ function sendInviteToFriend(myId, myNickname, friendId, friendNickname) {
 
 // status: "inviting"(초대 보내고 응답 대기 중) | "active"(둘 다 참가, 정상 세션 중)
 function joinFriendRoom(myId, myNickname, friendId, friendNickname, status = "active") {
+  if (currentSession && currentSession.friendId === friendId) {
+    // 이미 이 친구와 연결(active) 또는 연결 시도 중(inviting)인 세션이 있음 - 교차 초대나 중복
+    // 수락 클릭으로 여기 다시 들어온 것. 허물고 다시 만들면 leaveFriendSession()이 진짜 "leave"를
+    // 상대에게 브로드캐스트해버려서, 상대는 멀쩡히 연결돼 있던 세션이 갑자기 끊기는 것처럼 보임
+    // (사용자 제보 - "친구가 들어왔다가 다시 나가버림"). 그냥 상태만 승격시키고 끝냄.
+    if (currentSession.status === "inviting" && status === "active") {
+      currentSession.status = "active";
+      notifyListeners({ type: "joined" });
+    }
+    return;
+  }
   leaveFriendSession();
 
   const channel = supabaseClient.channel(roomChannelName(myId, friendId), { config: { broadcast: { self: false } } });
@@ -257,6 +274,12 @@ function handleRoomMessage(payload) {
     resultChunkBuffer = { battleType: payload.battleType, total: payload.total, chunks: new Array(payload.total) };
   } else if (payload.type === "battle-result-chunk") {
     if (resultChunkBuffer) resultChunkBuffer.chunks[payload.index] = payload.data;
+  } else if (payload.type === "tab-change") {
+    // 친구 기능 4단계 - 화면을 강제로 맞추지 않고, 상대가 지금 어느 탭을 보는지만 currentSession에
+    // 저장해뒀다가 페이지 쪽(updatePresenceBadges류)이 탭 버튼 위에 배지로 표시함
+    currentSession.friendPage = payload.page;
+    currentSession.friendMode = payload.mode;
+    notifyListeners({ type: "friend-tab-change" });
   } else if (payload.type === "battle-result-end") {
     if (resultChunkBuffer) {
       const { battleType, chunks } = resultChunkBuffer;
@@ -290,6 +313,12 @@ function sendMyTileUpdate(partial) {
 
 function sendBattleStart(seed) {
   broadcastToRoom({ type: "battle-start", seed });
+}
+
+// 지금 내가 보고 있는 탭(page: "dino_battle"|"arena", mode: 그 페이지의 탭 모드 문자열)을 상대에게
+// 알림 - 화면을 강제로 맞추진 않고, 상대 쪽에서 탭 버튼에 내 닉네임 배지를 띄우는 용도
+function sendTabChange(page, mode) {
+  broadcastToRoom({ type: "tab-change", page, mode });
 }
 
 // "준비 완료" - 내 상태를 브로드캐스트하고 로컬에도 즉시 반영(둘 다 준비됐는지 판정은 호출부가

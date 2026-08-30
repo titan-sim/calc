@@ -161,16 +161,49 @@
 .battle-mode-tab {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(4px, 1cqw, 6px);
   flex: 1;
   padding: 9px 0;
   border-radius: 7px;
   border: none;
   background: none;
   color: var(--text-sub);
-  font-size: 13px;
+  /* 카드 폭 비례 스케일링(사이트 공용 컨벤션) - 좁은 화면에서 라벨이 줄바꿈되기 전에 글자부터
+     먼저 작아지게 해서, 옆에 붙는 배지(.battle-tab-presence)와 부딪히는 걸 줄임 */
+  font-size: clamp(10.5px, 2.17cqw, 13px);
   font-weight: 700;
   cursor: pointer;
   transition: color 0.2s ease;
+}
+
+/* 친구 기능 4단계: 화면을 강제로 맞추는 대신, 지금 누가 어느 탭을 보고 있는지 탭 글자 옆에
+   닉네임 첫 글자 배지로 표시함(내 배지=글자 왼쪽, 상대 배지=글자 오른쪽) - JS(updatePresenceBadges
+   류)가 해당하는 탭 버튼 안으로 이 엘리먼트 자체를 옮겨 붙임. 배지 크기도 탭 글자와 같은 비율로
+   같이 작아지게 함(둘 다 같은 clamp 공식 - 600px 기준 18px -> 3cqw) */
+.battle-tab-presence {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: clamp(14px, 3cqw, 18px);
+  height: clamp(14px, 3cqw, 18px);
+  border-radius: 50%;
+  font-size: clamp(8px, 1.67cqw, 10px);
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.battle-tab-presence.my-presence {
+  background: var(--accent);
+  color: #1a1206;
+}
+
+.battle-tab-presence.friend-presence {
+  background: #e0473f;
+  color: #fff;
 }
 
 .battle-mode-tab.active {

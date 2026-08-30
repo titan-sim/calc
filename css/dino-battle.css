@@ -529,13 +529,18 @@
 }
 
 /* 전멸(그 진영에 더 이상 남은 공룡이 없음) 전용 - 승격 전 잠깐 재생되는 위 front-defeated(축소+
-   투명화 애니메이션)와 달리 자리는 그대로 남기고 회색조+반투명으로 "죽었지만 위치는 보이게"
-   영구 표시함(사용자 확정 - 완전히 안 보이면 체력바/닉네임만 붕 떠 보여서 어색하다는 피드백으로
-   재설계, playDeathFlash 참고) */
+   투명화 애니메이션)와 달리 자리는 그대로 남기고 무채색으로 "죽었지만 위치는 보이게" 영구
+   표시함(사용자 확정 - 완전히 안 보이면 체력바/닉네임만 붕 떠 보여서 어색하다는 피드백으로
+   재설계, playDeathFlash 참고). 처음엔 filter:grayscale+opacity로 반투명하게 남겼는데, opacity가
+   그 뒤에 실시간 렌더링되는 3D 육각 타일(부족 점령 상태에 따라 흰색/골드/빨강으로 바뀜)과
+   알파 합성되면서 색이 살짝 섞여 들어가 타일보다 위/아래인지 헷갈린다는 피드백(사용자 제보) -
+   반투명 자체를 없애고 완전 불투명한 회색으로 바꿔서 경계를 또렷하게 함 */
 .battle-avatar.front-eliminated {
-  filter: grayscale(1) brightness(0.55);
-  opacity: 0.85;
-  transition: filter 0.35s ease-in, opacity 0.35s ease-in;
+  background: #4d4d4d;
+  box-shadow: none;
+  filter: none;
+  opacity: 1;
+  transition: background 0.35s ease-in;
 }
 
 .battle-arena.area-flash {
