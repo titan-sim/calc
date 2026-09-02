@@ -88,7 +88,7 @@
    패널 폭에서 글자가 줄바꿈되던 문제 - 줄바꿈 대신 글자 크기를 줄여서 한 줄에 들어가게 함(모바일도
    해당되는 문제라 min-width 미디어쿼리 밖에서 페이지 스코프로만 적용) */
 body[data-page="arena"] .dino-tab {
-  font-size: 9.5px;
+  font-size: clamp(8px, 1.58cqw, 9.5px);
   padding: 14px 0;
   letter-spacing: -0.3px;
 }

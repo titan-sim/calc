@@ -1290,6 +1290,11 @@ function initTileSettings() {
       saveServerLevelCap(opt.value);
       capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
+      // 레벨캡 40% 이하 별자리 차단 경고는 "내 공룡"/"상대 공룡" 요약 카드에 표시되는데, 그 카드는
+      // 프로필 자체를 편집할 때만 갱신됨(updateSummary) - 레벨캡 값만 바뀐 지금 시점엔 다시 그려주지
+      // 않으면 경고가 즉시 안 나타남(실제 전투 계산은 매번 getSideInputs를 새로 부르므로 이미 정확함)
+      renderMyDinoBattleSection();
+      renderOppPanel();
       resetBattleDisplay();
     };
     capList.appendChild(li);
@@ -1444,7 +1449,7 @@ function playConvergeGhosts(sideKey) {
 // 서버 레벨캡(전역 공유 설정, my-dino-page.js) - 내 공룡/상대 공룡 둘 다 같은 서버에서 뛴다는
 // 전제라 양쪽 다 적용함(getOppBattleInputs의 나머지 두 분기도 동일하게 적용, 아래 참고)
 function getSideInputs(storageKey) {
-  return applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs(storageKey)));
+  return applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs(storageKey))));
 }
 
 // ===== 친구 기능 3단계: 친구와 함께 실시간 공동 연구 =====
@@ -1473,10 +1478,10 @@ function computeTribeControlFromUserId(tribeControlUserId, myId, friendId) {
 function getOppBattleInputs() {
   const session = getActiveSession();
   if (session && session.status === "active" && session.friendProfile) {
-    return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(session.friendProfile)));
+    return applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(session.friendProfile))));
   }
   if (friendSnapshotProfile) {
-    return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(friendSnapshotProfile)));
+    return applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(friendSnapshotProfile))));
   }
   return getSideInputs(DINO_BATTLE_OPPONENT_KEY);
 }

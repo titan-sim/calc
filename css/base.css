@@ -291,6 +291,160 @@ input:focus, select:focus {
   right: 14px;
 }
 
+/* 기본 스탯/둥지·알스킨 - 입력칸 왼쪽에 아이콘만 붙임(사용자 확정, 배지 스타일 없이 기존 입력칸
+   그대로 유지). 입력칸 자체는 손 안 대서 전역 input 스타일(자기 배경/둥근 테두리)을 그대로 씀. */
+.field-icon-row,
+.const-badge {
+  display: flex;
+  align-items: center;
+  /* 이미지와 다음 내용(Lv./수치) 사이는 넉넉히 띄움(사용자 확정 - "이미지와 Lv를 더 떨어뜨려야") */
+  gap: clamp(8px, 2.2cqw, 14px);
+  background: var(--input-bg);
+  border-radius: 10px;
+  height: clamp(34px, 8cqw, 48px);
+  padding: 0 clamp(10px, 2.33cqw, 14px);
+  box-sizing: border-box;
+}
+
+.field-icon-row:focus-within,
+.const-badge:focus-within {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.field-icon,
+.const-badge-icon {
+  width: clamp(18px, 5cqw, 24px);
+  height: clamp(18px, 5cqw, 24px);
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+/* 기본 스탯처럼 접두사 없는 단독 입력(field-icon-row 바로 밑 input) */
+.field-icon-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  height: auto;
+  /* 공룡 수/현재 체력 드롭다운(.selected-value)이 이미 가운데 정렬이라 나머지도 맞춤(사용자 확정) */
+  text-align: center;
+}
+
+/* 레벨표가 있는 별자리 6종 - 값 입력 대신 레벨을 고르는 드롭다운("Lv. 33 (+270)", 사용자 확정).
+   .const-badge가 이미 사각형(배경/테두리)을 담당하므로, 안의 selected-value는 배경 없이 남는
+   폭을 다 차지하며 가운데 정렬(사용자 확정 - "드롭다운 내에서 가운데 정렬"). 펼쳐지는 목록
+   (dropdown-list)은 사이트 공용 드롭다운 팝업이라 그대로 자기 배경/테두리를 유지함. */
+.const-badge-dropdown {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.const-badge-dropdown .selected-value {
+  background: transparent;
+  border: none;
+  /* 오른쪽에 화살표(▼) 자리 확보 - 안 그러면 텍스트랑 겹침 */
+  padding: 0 16px 0 0;
+  height: auto;
+  line-height: normal;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* 화살표는 그대로 유지(사용자 확정 - "역삼각형 없으니까 드롭다운인지 모르겠다") - 다만 이 사각형
+   자체가 좁아서 기본 15px 오프셋 대신 상자 오른쪽 끝에 붙임 */
+.const-badge-dropdown .selected-value::after {
+  right: 0;
+}
+
+.const-badge-dropdown .dropdown-list li {
+  text-align: center;
+}
+
+/* "+" + 수치(+ 있으면 "%") - 실제 <input>은 박스 전체를 차지하지만 글자색을 투명하게 만들어
+   안 보이게 하고(커서만 보임 - 드롭다운과 동일한 넓은 클릭/포커스 영역 확보, 사용자 확정 -
+   "지금의 드롭다운 범위만큼이 다 입력창이어야 해"), 그 위에 겹친 .plus-value-display가 "+"(기본
+   글자색)와 숫자(강조색)를 붙여서 보여줌(사용자 확정 - "+와 수치를 붙이고... 수치 부분은
+   노란색으로"). 이 표시 레이어는 pointer-events:none이라 클릭은 그대로 밑의 입력칸에 전달됨.
+   정렬은 justify-content로: 둥지·알스킨은 오른쪽(기본값), 별자리의 레벨표 없는 3종(이동속도/보스
+   피해 감소·증가)은 가운데(.plus-value-group-center 모디파이어). */
+.plus-value-group {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.plus-value-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.plus-value-group-center .plus-value-display {
+  justify-content: center;
+}
+
+.plus-value-display-prefix {
+  color: var(--text-main);
+  font-size: clamp(11px, 2.3cqw, 15px);
+}
+
+.plus-value-display-number {
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: clamp(12px, 2.5cqw, 15px);
+}
+
+.plus-value-display-number.value-changed {
+  color: var(--accent);
+}
+
+.plus-value-display-suffix {
+  color: var(--text-sub);
+  font-size: clamp(11px, 2.3cqw, 15px);
+}
+
+.plus-value-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: transparent;
+  caret-color: var(--text-main);
+  text-align: right;
+}
+
+/* 입력칸을 눌러 편집 중일 때는 "+수치" 표시 레이어를 완전히 숨기고(사용자 확정 - "입력창을
+   클릭하면 +랑 수치가 다 안보여야 해"), 실제로 타이핑하는 내용은 입력칸 자기 글자색으로 보여줌 -
+   편집을 마치고(blur) 값이 확정되면 다시 표시 레이어가 "+수치"를 색깔 입혀서 보여줌 */
+.plus-value-group:focus-within .plus-value-display {
+  visibility: hidden;
+}
+
+.plus-value-input:focus {
+  color: var(--text-main);
+}
+
+.plus-value-group-center .plus-value-input {
+  text-align: center;
+}
+
+.const-badge .value-changed,
+.field-icon-row .value-changed {
+  color: var(--accent);
+}
+
 .full-width {
   grid-column: 1 / -1;
 }

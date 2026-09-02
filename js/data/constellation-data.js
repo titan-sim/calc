@@ -69,6 +69,19 @@ const CONSTELLATION_CAP_TABLES = {
   stewEffect: CONSTELLATION_CUMULATIVE_STEW
 };
 
+// 값 -> 레벨 역조회(별자리 입력칸에서 "레벨 입력 시 수치 자동 반영 / 수치 입력 시 레벨 자동 반영"을
+// 지원하기 위함, my-dino-page.js - 사용자 확정: "왼쪽에 해당 별자리 레벨 입력하면 그 오른쪽의 수치가
+// 변경, 만약 수치를 입력하면 레벨을 변경"). 부동소수점 비교라 아주 작은 오차는 허용함. 이 표 자체가
+// 없는 스탯(moveSpeed/bossDmgReduction/bossDmgIncrease)은 null을 돌려줌.
+function constellationLevelForValue(key, value) {
+  const table = CONSTELLATION_CAP_TABLES[key];
+  if (!table) return null;
+  for (let i = 0; i < table.length; i++) {
+    if (table[i] !== undefined && Math.abs(table[i] - value) < 1e-9) return i;
+  }
+  return null;
+}
+
 // "없음" + 5~50(5단위, 사용자 확정) - SERVER_LEVEL_CAP_OPTIONS와 같은 형태로 맞춤(my-dino-page.js)
 const CONSTELLATION_LEVEL_CAP_OPTIONS = [
   { value: null, label: "없음" },

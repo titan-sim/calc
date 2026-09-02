@@ -154,7 +154,7 @@ function saveBuildingTileSettings(settings) {
 const BUILDING_MAX_DINO_COUNT = 7;
 
 function buildingDinoInputs(profile) {
-  const inputs = applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(profile)));
+  const inputs = applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(profile))));
   inputs.count = BUILDING_MAX_DINO_COUNT;
   return inputs;
 }
@@ -327,6 +327,21 @@ window.addEventListener("hashchange", () => {
   buildingRunning = false;
   buildingClearPendingCatapultTimers();
 });
+
+// 서버 레벨캡 드롭다운 변경 시에도 "내 공룡" 요약 카드(40% 이하 별자리 차단 경고)를 다시 그릴 수
+// 있도록 별도 함수로 뽑음(titan-page.js의 titanRenderMyDinoSection과 같은 패턴)
+function buildingRenderMyDinoSection() {
+  renderMyDinoPage(document.getElementById("buildingMyDinoSection"), {
+    idPrefix: "buildingMy_",
+    unsuitableList: BUILDING_UNSUITABLE_RUNE_LIST,
+    unsuitableLabel: t("building.unsuitableRuneLabel"),
+    onChange: () => {
+      buildingRefreshMetricsCard();
+      buildingResetDisplay();
+      buildingResetQuickCalc();
+    }
+  });
+}
 
 function renderBuildingPage(container) {
   const [c0, c1, c2, c3] = BUILDING_HEX_CENTERS;
@@ -567,16 +582,7 @@ function renderBuildingPage(container) {
     </div>
   `;
 
-  renderMyDinoPage(document.getElementById("buildingMyDinoSection"), {
-    idPrefix: "buildingMy_",
-    unsuitableList: BUILDING_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: t("building.unsuitableRuneLabel"),
-    onChange: () => {
-      buildingRefreshMetricsCard();
-      buildingResetDisplay();
-      buildingResetQuickCalc();
-    }
-  });
+  buildingRenderMyDinoSection();
 
   buildingInitMetricsCard();
   buildingRefreshMetricsCard();
@@ -900,6 +906,10 @@ function buildingInitTileSettings() {
       saveServerLevelCap(opt.value);
       capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
+      // 레벨캡 40% 이하 별자리 차단 경고는 "내 공룡" 요약 카드에 표시되는데, 그 카드는 프로필
+      // 자체를 편집할 때만 갱신됨(updateSummary) - 레벨캡 값만 바뀐 지금 시점엔 다시 그려주지
+      // 않으면 경고가 즉시 안 나타남(실제 계산은 매번 buildingDinoInputs를 새로 불러 정확함)
+      buildingRenderMyDinoSection();
       buildingRefreshMetricsCard();
       buildingResetDisplay();
       buildingResetQuickCalc();

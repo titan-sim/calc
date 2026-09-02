@@ -16,7 +16,7 @@ const DUMMY_OWNED_LEVELS_KEY = "dino_dummy_owned_rune_levels";
 // 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - dinoProfileToBattleInputs(profile)를
 // 직접 쓰던 곳을 이걸로 교체
 function dummyDinoInputs(profile) {
-  return applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(profile)));
+  return applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(dinoProfileToBattleInputs(profile))));
 }
 
 // 적합 룬 14종 - "최적 조합 찾기"가 이 안에서만 조합을 뒤짐(부적합 룬은 애초에 대미지에 기여하는
@@ -98,6 +98,20 @@ window.addEventListener("hashchange", () => {
   clearInterval(dummyAttackTimer);
   dummyRunning = false;
 });
+
+// 서버 레벨캡 드롭다운 변경 시에도 "내 공룡" 요약 카드(40% 이하 별자리 차단 경고)를 다시 그릴 수
+// 있도록 별도 함수로 뽑음(titan-page.js의 titanRenderMyDinoSection과 같은 패턴)
+function dummyRenderMyDinoSection() {
+  renderMyDinoPage(document.getElementById("dummyMyDinoSection"), {
+    idPrefix: "dummyMy_",
+    unsuitableList: DUMMY_UNSUITABLE_RUNE_LIST,
+    unsuitableLabel: t("dummy.unsuitableRuneLabel"),
+    onChange: () => {
+      dummyResetDisplay();
+      dummyResetQuickCalc();
+    }
+  });
+}
 
 function renderDummyPage(container) {
   container.innerHTML = `
@@ -206,15 +220,7 @@ function renderDummyPage(container) {
     </div>
   `;
 
-  renderMyDinoPage(document.getElementById("dummyMyDinoSection"), {
-    idPrefix: "dummyMy_",
-    unsuitableList: DUMMY_UNSUITABLE_RUNE_LIST,
-    unsuitableLabel: t("dummy.unsuitableRuneLabel"),
-    onChange: () => {
-      dummyResetDisplay();
-      dummyResetQuickCalc();
-    }
-  });
+  dummyRenderMyDinoSection();
 
   dummyInitTileSettings();
   dummyInitModeTabs();
@@ -317,6 +323,10 @@ function dummyInitTileSettings() {
       saveServerLevelCap(opt.value);
       capSelectedValue.textContent = sharedOptionLabel(opt.label);
       capList.style.display = "none";
+      // 레벨캡 40% 이하 별자리 차단 경고는 "내 공룡" 요약 카드에 표시되는데, 그 카드는 프로필
+      // 자체를 편집할 때만 갱신됨(updateSummary) - 레벨캡 값만 바뀐 지금 시점엔 다시 그려주지
+      // 않으면 경고가 즉시 안 나타남(실제 계산은 매번 dummyDinoInputs를 새로 불러 정확함)
+      dummyRenderMyDinoSection();
       dummyResetDisplay();
       dummyResetQuickCalc();
     };

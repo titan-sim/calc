@@ -231,7 +231,9 @@
   background: none;
   border: none;
   color: var(--text-sub);
-  font-size: 13px;
+  /* 카드 폭 비례 스케일링(사이트 공통 관례) - "기본 스탯/별자리/둥지·알스킨/룬 조합" 4개 탭이
+     좁은 카드에서도 한 줄에 다 들어가야 하므로(사용자 확정) */
+  font-size: clamp(10px, 2.17cqw, 13px);
   font-weight: 500;
   cursor: pointer;
   transition: color 0.2s;

@@ -301,6 +301,7 @@ function renderArenaOppPanel() {
         unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
         unsuitableLabel: t("arena.unsuitableRuneLabel"),
         splitCritStat: true,
+        constellationLevelCapWarning: false, // 아레나는 서버 레벨캡 개념 자체를 안 씀(사용자 확정)
         header,
         extraTab: formationExtraTab,
         readOnly: { profile: session.friendProfile, tagText: t("arena.readonlyLiveTag", { nickname: session.friendNickname }) }
@@ -320,6 +321,7 @@ function renderArenaOppPanel() {
       unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
       unsuitableLabel: t("arena.unsuitableRuneLabel"),
       splitCritStat: true,
+      constellationLevelCapWarning: false, // 아레나는 서버 레벨캡 개념 자체를 안 씀(사용자 확정)
       header,
       extraTab: formationExtraTab,
       readOnly: {
@@ -336,6 +338,7 @@ function renderArenaOppPanel() {
       unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
       unsuitableLabel: t("arena.unsuitableRuneLabel"),
       splitCritStat: true,
+      constellationLevelCapWarning: false, // 아레나는 서버 레벨캡 개념 자체를 안 씀(사용자 확정)
       header,
       extraTab: formationExtraTab,
       onChange: () => arenaResetDisplay()
@@ -646,6 +649,7 @@ function initArenaPage() {
     unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
     unsuitableLabel: t("arena.unsuitableRuneLabel"),
     splitCritStat: true,
+    constellationLevelCapWarning: false, // 아레나는 서버 레벨캡 개념 자체를 안 씀(사용자 확정)
     header: { title: t("arena.panelHeader.myFormation"), titleId: "arenaMyPanelTitleText", closeId: "arenaMyPanelClose", onClose: arenaCloseSidePanels },
     extraTab: { id: "arenaFormation", label: t("arena.formationTabLabel"), render: (panelEl) => arenaMountFormationTab("my", panelEl) },
     onChange: (profile) => {

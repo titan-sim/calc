@@ -15,7 +15,7 @@ const TITAN_SPEED_KEY = "dino_titan_speed_ms";
 // 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - getMyDinoBattleInputs()를 직접 쓰던
 // 모든 곳을 이걸로 교체
 function titanDinoInputs() {
-  return applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs()));
+  return applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(getMyDinoBattleInputs())));
 }
 // 조합 찾기는 조합 수가 많으면(보유 룬이 많을수록 기하급수적으로 늘어남) 매번 정밀 시뮬레이션을
 // 돌리기엔 너무 느려서 3단계로 나눔: 1단계는 모든 조합의 DPS/기대 사망 횟수/균형 점수를
@@ -636,6 +636,10 @@ function initTitanPage() {
         saveServerLevelCap(opt.value);
         capSelectedValue.textContent = sharedOptionLabel(opt.label);
         capList.style.display = "none";
+        // 레벨캡 40% 이하 별자리 차단 경고는 "내 공룡" 요약 카드에 표시되는데, 그 카드는 프로필
+        // 자체를 편집할 때만 갱신됨(updateSummary) - 레벨캡 값만 바뀐 지금 시점엔 다시 그려주지
+        // 않으면 경고가 즉시 안 나타남(실제 시뮬레이션은 매번 titanDinoInputs를 새로 불러 정확함)
+        titanRenderMyDinoSection();
         onTileChange();
       };
       capList.appendChild(li);

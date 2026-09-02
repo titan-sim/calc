@@ -4,6 +4,84 @@
 // 있음(예: 공룡 대전 페이지의 "내 공룡"/"상대 공룡"). 기본값은 지금까지와 완전히 동일하게 동작함.
 const MY_DINO_PROFILE_KEY = "dino_my_profile";
 
+// 별자리 9개 필드 - 아이콘(assets/constellation, 사용자가 실제 게임 아이콘을 업로드) + 레벨/수치
+// 입력 배지 하나로 렌더링하는 단일 소스(템플릿 생성과 이벤트 와이어링이 이 배열 하나만 봄).
+// decimal/suffix는 치확·치피·스튜처럼 소수+%로 표시되는 3개 필드만 true/"%" - 나머지는 정수.
+// CONSTELLATION_CAP_TABLES(js/data/constellation-data.js)에 레벨표가 있는 6개 필드만 "레벨" 입력
+// 칸이 같이 뜨고, 표 자체가 없는 3개(이동속도/보스 피해 감소·증가)는 수치만 입력받음(기존 그대로).
+const CONSTELLATION_FIELDS = [
+  { key: "hp", fieldId: "fConstHp", labelKey: "my_dino.field.constHp", decimal: false, suffix: null, icon: "HP_Icon.png" },
+  { key: "atk", fieldId: "fConstAtk", labelKey: "my_dino.field.constAtk", decimal: false, suffix: null, icon: "Damage_Icon.png" },
+  { key: "critRate", fieldId: "fConstCritRate", labelKey: "my_dino.field.constCritRate", decimal: true, suffix: "%", icon: "CriticalRate_Icon.png" },
+  { key: "critDmg", fieldId: "fConstCritDmg", labelKey: "my_dino.field.constCritDmg", decimal: true, suffix: "%", icon: "CriticalDamage_Icon.png" },
+  { key: "buildingDmg", fieldId: "fConstBuildingDmg", labelKey: "my_dino.field.constBuildingDmg", decimal: false, suffix: null, icon: "StructureDamageConst_Icon.png" },
+  { key: "stewEffect", fieldId: "fConstStewEffect", labelKey: "my_dino.field.constStewEffect", decimal: false, suffix: null, icon: "MutationRate_Icon.png" },
+  { key: "moveSpeed", fieldId: "fConstMoveSpeed", labelKey: "my_dino.field.constMoveSpeed", decimal: false, suffix: null, icon: "Speed_Icon.png" },
+  { key: "bossDmgReduction", fieldId: "fConstBossDmgReduction", labelKey: "my_dino.field.constBossDmgReduction", decimal: false, suffix: null, icon: "BossReduction_Icon.png" },
+  { key: "bossDmgIncrease", fieldId: "fConstBossDmgIncrease", labelKey: "my_dino.field.constBossDmgIncrease", decimal: false, suffix: null, icon: "BossDamageConst_Icon.png" }
+];
+
+// 레벨표(CONSTELLATION_CAP_TABLES)가 있는 필드용 옵션 표시 문구 - "Lv. 33 (+270)"(사용자 확정)
+function constellationLevelOptionLabel(level, value, suffix) {
+  // "Lv. X"와 "(+수치)" 사이를 스페이스 3~4칸 정도로 넉넉히 띄움(사용자 확정) - 일반 스페이스는
+  // 여러 개 써도 브라우저가 하나로 붙여버리므로(white-space:normal 기본 동작), 줄어들지 않는
+  // 공백 문자(non-breaking space,  )를 대신 씀
+  return `Lv. ${level}    (+${value}${suffix || ""})`;
+}
+
+// idFn: renderMyDinoPage 인스턴스별 id(name) 헬퍼(idPrefix 접두) 그대로 받아서 씀. 레벨표가 있는
+// 필드(6개)는 값을 직접 입력하는 대신 레벨을 고르는 드롭다운으로(사용자 확정 - "스튜효과까지
+// 레벨로 되어 있는 건 드롭다운으로 해결하자"), 표가 없는 3개(이동속도/보스 피해 감소·증가)는
+// 그대로 "+수치" 입력칸(가운데 정렬).
+// "+수치[%]" 입력칸 - 실제 <input>은 박스 전체를 차지하되 글자색을 투명하게 만들고(caret만 보임),
+// 그 위에 겹쳐놓은 표시 전용 레이어(.plus-value-display, pointer-events:none)가 "+"(흰 글자)와
+// 숫자(노란 강조색)를 서로 붙여서 보여줌(사용자 확정 - "숫자 왼쪽에 + 표시를... 내가 입력한 숫자를
+// 변수로 저장해 두고 앞에 흰색 +를 문자열로 붙여버리는 건 어때? 수치 부분은 노란색으로"). 이러면
+// 클릭 가능 영역은 드롭다운과 동일하게 박스 전체(입력칸이 실제로 그만큼 넓음)이면서도, 보이는
+// "+숫자"는 항상 붙어있고 원하는 색으로 표시됨 - 서로 달라 보이던 두 요구가 "실제 입력칸"과
+// "보여주는 레이어"를 분리하면 동시에 만족됨.
+function plusValueFieldHtml(fieldId, idFn, decimal, suffix, center) {
+  const valueType = decimal ? "text" : "tel";
+  const valueMode = decimal ? "decimal" : "numeric";
+  return `
+    <div class="plus-value-group${center ? " plus-value-group-center" : ""}">
+      <div class="plus-value-display">
+        <span class="plus-value-display-prefix">+</span>
+        <span class="plus-value-display-number" id="${idFn(fieldId + "Display")}"></span>
+        ${suffix ? `<span class="plus-value-display-suffix">${suffix}</span>` : ""}
+      </div>
+      <input type="${valueType}" inputmode="${valueMode}" class="plus-value-input" id="${idFn(fieldId)}">
+    </div>
+  `;
+}
+
+function constellationBadgeHtml(field, idFn) {
+  const table = CONSTELLATION_CAP_TABLES[field.key];
+  if (table) {
+    return `
+      <div>
+        <label>${t(field.labelKey)}</label>
+        <div class="const-badge">
+          <img class="const-badge-icon" src="./assets/constellation/${field.icon}" alt="">
+          <div class="custom-dropdown const-badge-dropdown" id="${idFn(field.fieldId + "Dropdown")}">
+            <div class="selected-value" id="${idFn(field.fieldId + "SelectedValue")}"></div>
+            <ul class="dropdown-list" id="${idFn(field.fieldId + "List")}"></ul>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div>
+      <label>${t(field.labelKey)}</label>
+      <div class="const-badge">
+        <img class="const-badge-icon" src="./assets/constellation/${field.icon}" alt="">
+        ${plusValueFieldHtml(field.fieldId, idFn, field.decimal, field.suffix, true)}
+      </div>
+    </div>
+  `;
+}
+
 const RUNE_PRESET_COUNT = 9;
 
 function defaultRunePresets() {
@@ -159,6 +237,22 @@ function applyServerLevelCap(inputs) {
   const newHpUnit = total > 0 ? Math.round((remaining * hpUnit) / total) : 0;
 
   return { ...inputs, baseAtk: newBaseAtk, baseHp: newHpUnit * 10 };
+}
+
+// 서버 레벨캡의 40% 이하 레벨이면 별자리 효과 자체가 적용되지 않는 신규 규칙(사용자 확정). 레벨캡이
+// "없음"이면 성립 안 함. applyServerLevelCap은 레벨캡을 "초과"할 때만 baseAtk/baseHp를 깎으므로,
+// 이 "미달" 판정 범위(40% 이하 <= 레벨캡)에서는 항상 원본 레벨 그대로라 순서와 무관하게 안전함
+function isConstellationBlockedByLevelCap(level) {
+  const cap = loadServerLevelCap();
+  return cap !== null && level <= cap * 0.4;
+}
+
+// 위 규칙을 실제 전투 계산 입력값에 반영 - 별자리 필드를 전부 없앤 객체로 교체(각 엔진이 쓰는
+// `constellation.xxx || 0` 폴백 패턴에 안전, RUNES_DATA 등과 무관하게 항상 0 취급됨)
+function applyLowLevelConstellationBlock(inputs) {
+  const level = inputs.baseAtk + Math.floor(inputs.baseHp / 10) + inputs.moveSpeed;
+  if (!isConstellationBlockedByLevelCap(level)) return inputs;
+  return { ...inputs, constellation: {} };
 }
 
 // ===== 별자리 레벨캡 - 서버 레벨캡과 같은 4개 페이지 공용/전역 공유 설정(사용자 확정 - "레벨캡을
@@ -346,6 +440,7 @@ function renderMyDinoPage(container, options = {}) {
   const id = (name) => idPrefix + name;
   const readOnly = !!options.readOnly;
   const profile = readOnly ? normalizeDinoProfile(options.readOnly.profile) : loadMyDinoProfile(storageKey);
+  const constellationFieldsHtml = CONSTELLATION_FIELDS.map((f) => constellationBadgeHtml(f, id)).join("");
 
   // splitCritStat: 아레나처럼 "공룡 수"가 의미 없는 컨텍스트에서, 그 자리를 비우는 대신 치확/치피를
   // 각각 별도 항목(칸)으로 나눠서 5칸을 그대로 채움. 기본값(공룡 수가 있는 컨텍스트)은 한 칸 안에
@@ -381,6 +476,7 @@ function renderMyDinoPage(container, options = {}) {
           ${critItemsHtml}
         </div>
       </div>
+      <div class="warning" id="${id("constellationCapWarning")}" style="display:none;">${t("my_dino.constellationCapWarning")}</div>
 
       <div class="dino-tabs">
         <button class="dino-tab active" data-tab="base">${t("my_dino.tab.base")}</button>
@@ -400,9 +496,9 @@ function renderMyDinoPage(container, options = {}) {
               <ul class="dropdown-list vip-dropdown-list" id="${id("vipList")}"></ul>
             </div>
           </div>
-          <div><label>${t("my_dino.field.hp")}</label><input type="tel" inputmode="numeric" id="${id("fBaseHp")}"></div>
-          <div><label>${t("my_dino.field.atk")}</label><input type="tel" inputmode="numeric" id="${id("fBaseAtk")}"></div>
-          <div><label>${t("my_dino.field.moveSpeed")}</label><input type="tel" inputmode="numeric" id="${id("fMoveSpeed")}"></div>
+          <div><label>${t("my_dino.field.hp")}</label><div class="field-icon-row"><img class="field-icon" src="./assets/constellation/HP_Icon.png" alt=""><input type="tel" inputmode="numeric" id="${id("fBaseHp")}"></div></div>
+          <div><label>${t("my_dino.field.atk")}</label><div class="field-icon-row"><img class="field-icon" src="./assets/constellation/Damage_Icon.png" alt=""><input type="tel" inputmode="numeric" id="${id("fBaseAtk")}"></div></div>
+          <div><label>${t("my_dino.field.moveSpeed")}</label><div class="field-icon-row"><img class="field-icon" src="./assets/constellation/Speed_Icon.png" alt=""><input type="tel" inputmode="numeric" id="${id("fMoveSpeed")}"></div></div>
           <div>
             <label>${t("my_dino.field.dinoCount")}</label>
             <div class="custom-dropdown" id="${id("dinoCountDropdown")}">
@@ -422,42 +518,7 @@ function renderMyDinoPage(container, options = {}) {
 
       <div class="dino-tab-panel${readOnly ? " tab-panel-readonly" : ""}" data-panel="constellation" style="display:none;">
         <div class="input-grid">
-          <div>
-            <label>${t("my_dino.field.constHp")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstHp")}"></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constAtk")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstAtk")}"></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constCritRate")}</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritRate")}"><span class="affix-suffix">%</span></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constCritDmg")}</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstCritDmg")}"><span class="affix-suffix">%</span></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constBuildingDmg")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBuildingDmg")}"></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constStewEffect")}</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fConstStewEffect")}"><span class="affix-suffix">%</span></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constMoveSpeed")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstMoveSpeed")}"></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constBossDmgReduction")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgReduction")}"></div>
-          </div>
-          <div>
-            <label>${t("my_dino.field.constBossDmgIncrease")}</label>
-            <div class="affix-input"><span class="affix-prefix">+</span><input type="tel" inputmode="numeric" id="${id("fConstBossDmgIncrease")}"></div>
-          </div>
+          ${constellationFieldsHtml}
         </div>
       </div>
 
@@ -465,11 +526,17 @@ function renderMyDinoPage(container, options = {}) {
         <div class="input-grid">
           <div>
             <label>${t("my_dino.field.bonusAtk")}</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusAtk")}"><span class="affix-suffix">%</span></div>
+            <div class="field-icon-row">
+              <img class="field-icon" src="./assets/sprites/Tribe_Egg_0.png" alt="">
+              ${plusValueFieldHtml("fBonusAtk", id, true, "%", false)}
+            </div>
           </div>
           <div>
             <label>${t("my_dino.field.bonusHp")}</label>
-            <div class="affix-input has-suffix"><span class="affix-prefix">+</span><input type="text" inputmode="decimal" id="${id("fBonusHp")}"><span class="affix-suffix">%</span></div>
+            <div class="field-icon-row">
+              <img class="field-icon" src="./assets/sprites/Nest_0.png" alt="">
+              ${plusValueFieldHtml("fBonusHp", id, true, "%", false)}
+            </div>
           </div>
         </div>
       </div>
@@ -515,6 +582,9 @@ function initMyDinoPage(profile, options = {}, container) {
   const $ = (name) => document.getElementById(id(name));
   const root = container || document;
   const readOnly = !!options.readOnly;
+  // 서버 레벨캡의 40% 이하 별자리 차단 경고 - 아레나는 서버 레벨캡 개념 자체를 안 쓰는 페이지라 꺼둠
+  // (사용자 확정, arena-page.js의 renderMyDinoPage 호출부에서 false로 넘김)
+  const showConstellationCapWarning = options.constellationLevelCapWarning !== false;
   // 아래 흩어진 el.onclick = ...같은 대입을 전부 이 헬퍼로 통일 - readOnly면 그냥 핸들러를 안
   // 붙이는 것 하나로 모든 입력/드롭다운/프리셋 항목이 한 번에 비활성화됨(각 자리마다
   // `if (readOnly) return;`을 반복해서 넣지 않아도 됨).
@@ -527,6 +597,39 @@ function initMyDinoPage(profile, options = {}, container) {
     el[evt] = fn;
     if (evt === "onblur") el.onkeydown = (e) => { if (e.key === "Enter") el.blur(); };
   };
+
+  // "+수치[%]" 입력칸 공용 와이어링(별자리의 레벨표 없는 3종 + 둥지·알스킨 2종이 씀) - 실제
+  // <input>은 투명해서 안 보이고, displayEl(.plus-value-display-number)이 "+숫자"를 색 입혀서
+  // 보여줌. 타이핑할 때마다(oninput) 화면 표시도 같이 갱신해야 입력 중에도 뭘 쳤는지 보임.
+  // onCommit(rawValue)는 profile에 최종 반영하고 저장할 숫자를 리턴해야 함.
+  function wirePlusValueField(inputEl, displayEl, decimal, onCommit) {
+    // 0이면 흰색(기본 글자색), 0보다 크면 노란 강조색(사용자 확정 - "이동속도부터 0이면 흰색하고
+    // 그 이상부터는 그냥 노란색으로") - 다른 입력칸들과 같은 markChanged 관례를 그대로 씀
+    const syncDisplay = () => {
+      displayEl.textContent = inputEl.value;
+      markChanged(displayEl, Number(inputEl.value) !== 0);
+    };
+    inputEl.value = displayEl.textContent;
+    syncDisplay();
+    if (readOnly) { inputEl.readOnly = true; return; }
+    let beforeEditValue = inputEl.value;
+    on(inputEl, "oninput", () => {
+      if (decimal) sanitizeDecimalInput(inputEl); else sanitizeIntInput(inputEl);
+      syncDisplay();
+    });
+    // 값이 0이 아니어도 편집을 시작하면 항상 빈 칸에서 새로 입력함(사용자 확정 - "입력창을
+    // 클릭하면 +랑 수치가 다 안보여야 해") - 표시 레이어 자체는 CSS(.plus-value-group:focus-within
+    // .plus-value-display)가 숨겨줌. 편집 시작 직전 값을 beforeEditValue에 기억해뒀다가, 아무것도
+    // 안 치고 그냥 클릭으로 빠져나가면(blur) 그 값을 그대로 복원함 - 안 그러면 "이미 값이 있는데
+    // 다시 눌렀다가 아무것도 안 치고 취소"만 해도 0으로 지워지는 버그가 생김(사용자 제보)
+    on(inputEl, "onfocus", () => { beforeEditValue = inputEl.value; inputEl.value = ""; syncDisplay(); });
+    on(inputEl, "onblur", () => {
+      const raw = inputEl.value.trim() === "" ? beforeEditValue : inputEl.value;
+      const committed = onCommit(raw);
+      inputEl.value = committed;
+      syncDisplay();
+    });
+  }
 
   // 탭 전환 (+ 밑줄 인디케이터 슬라이드 애니메이션). 인스턴스가 여러 개 떠 있을 수 있어서
   // document 전체가 아니라 이 인스턴스의 root 안에서만 탭을 찾음. readOnly여도 탭 전환 자체는
@@ -713,51 +816,67 @@ function initMyDinoPage(profile, options = {}, container) {
     persistAndRefresh();
   });
 
-  // 별자리
-  const constFields = [
-    ["fConstHp", "hp"], ["fConstAtk", "atk"],
-    ["fConstCritRate", "critRate"], ["fConstCritDmg", "critDmg"],
-    ["fConstBuildingDmg", "buildingDmg"], ["fConstStewEffect", "stewEffect"],
-    ["fConstMoveSpeed", "moveSpeed"], ["fConstBossDmgReduction", "bossDmgReduction"],
-    ["fConstBossDmgIncrease", "bossDmgIncrease"]
-  ];
-  const DECIMAL_CONST_FIELDS = ["critRate", "critDmg", "stewEffect"];
-  constFields.forEach(([fieldId, key]) => {
+  // 별자리 - 레벨표(CONSTELLATION_CAP_TABLES, js/data/constellation-data.js)가 있는 6개 스탯은
+  // 값을 직접 입력하는 대신 레벨을 고르는 드롭다운("Lv. 33 (+270)")으로(사용자 확정 - "스튜효과까지
+  // 레벨로 되어 있는 건 드롭다운으로 해결하자" - 드롭다운은 항상 표에 있는 값만 고를 수 있어서
+  // 잘못된 값 입력 자체가 불가능해짐), 나머지 3개(이동속도/보스 피해 감소·증가)는 원본 자료 자체가
+  // 없어서 예전처럼 수치만 입력받음(가운데 정렬)
+  CONSTELLATION_FIELDS.forEach(({ fieldId, key, decimal, suffix }) => {
+    const table = CONSTELLATION_CAP_TABLES[key];
+
+    if (table) {
+      const selectedValueEl = $(`${fieldId}SelectedValue`);
+      const listEl = $(`${fieldId}List`);
+      const setLevel = (level) => {
+        const value = table[level];
+        profile.constellation[key] = value;
+        selectedValueEl.textContent = constellationLevelOptionLabel(level, value, suffix);
+        markChanged(selectedValueEl, value !== 0);
+      };
+      table.forEach((value, level) => {
+        if (value === undefined) return; // 스튜처럼 일부 레벨까지만 자료가 있는 경우 그 이후는 생략
+        const li = document.createElement("li");
+        li.textContent = constellationLevelOptionLabel(level, value, suffix);
+        on(li, "onclick", () => {
+          setLevel(level);
+          listEl.style.display = "none";
+          persistAndRefresh();
+        });
+        listEl.appendChild(li);
+      });
+      // 기존 값이 표에 없는 예전 데이터 등 예외적인 경우 레벨 0으로 안전하게 보정
+      const initialLevel = constellationLevelForValue(key, profile.constellation[key]) ?? 0;
+      setLevel(initialLevel);
+      on(selectedValueEl, "onclick", () => toggleDropdownList(selectedValueEl, listEl));
+      return;
+    }
+
     const el = $(fieldId);
-    el.value = profile.constellation[key];
-    markChanged(el, profile.constellation[key] !== 0);
-    if (readOnly) el.readOnly = true;
-    on(el, "oninput", () => (DECIMAL_CONST_FIELDS.includes(key) ? sanitizeDecimalInput(el) : sanitizeIntInput(el)));
-    on(el, "onfocus", () => { if (el.value === "0") el.value = ""; });
-    on(el, "onblur", () => {
-      profile.constellation[key] = Number(el.value) || 0;
-      el.value = profile.constellation[key];
-      markChanged(el, profile.constellation[key] !== 0);
+    const displayEl = $(`${fieldId}Display`);
+    displayEl.textContent = profile.constellation[key];
+    wirePlusValueField(el, displayEl, decimal, (raw) => {
+      profile.constellation[key] = Number(raw) || 0;
       persistAndRefresh();
+      return profile.constellation[key];
     });
   });
 
   // 둥지·알스킨 (합산된 %값 하나씩만 존재)
   const fBonusAtk = $("fBonusAtk");
   const fBonusHp = $("fBonusHp");
-  fBonusAtk.value = profile.bonusPercent.atk;
-  markChanged(fBonusAtk, profile.bonusPercent.atk !== 0);
-  fBonusHp.value = profile.bonusPercent.hp;
-  markChanged(fBonusHp, profile.bonusPercent.hp !== 0);
-  if (readOnly) { fBonusAtk.readOnly = true; fBonusHp.readOnly = true; }
-  on(fBonusAtk, "onfocus", () => { if (fBonusAtk.value === "0") fBonusAtk.value = ""; });
-  on(fBonusHp, "onfocus", () => { if (fBonusHp.value === "0") fBonusHp.value = ""; });
-  on(fBonusAtk, "onblur", () => {
-    profile.bonusPercent.atk = Number(fBonusAtk.value) || 0;
-    fBonusAtk.value = profile.bonusPercent.atk;
-    markChanged(fBonusAtk, profile.bonusPercent.atk !== 0);
+  const fBonusAtkDisplay = $("fBonusAtkDisplay");
+  const fBonusHpDisplay = $("fBonusHpDisplay");
+  fBonusAtkDisplay.textContent = profile.bonusPercent.atk;
+  fBonusHpDisplay.textContent = profile.bonusPercent.hp;
+  wirePlusValueField(fBonusAtk, fBonusAtkDisplay, true, (raw) => {
+    profile.bonusPercent.atk = Number(raw) || 0;
     persistAndRefresh();
+    return profile.bonusPercent.atk;
   });
-  on(fBonusHp, "onblur", () => {
-    profile.bonusPercent.hp = Number(fBonusHp.value) || 0;
-    fBonusHp.value = profile.bonusPercent.hp;
-    markChanged(fBonusHp, profile.bonusPercent.hp !== 0);
+  wirePlusValueField(fBonusHp, fBonusHpDisplay, true, (raw) => {
+    profile.bonusPercent.hp = Number(raw) || 0;
     persistAndRefresh();
+    return profile.bonusPercent.hp;
   });
 
   // 룬 조합 (편집한 내용은 현재 활성 프리셋에 바로 반영됨)
@@ -857,7 +976,7 @@ function initMyDinoPage(profile, options = {}, container) {
     // readOnly는 남의 프로필(친구 세션/스냅샷)이라 이 profile을 절대 storageKey에 저장하면 안 됨 -
     // 화면 갱신만 하고 여기서 끝냄(프리셋 로컬 미리보기 등도 이 가드 하나로 안전해짐)
     if (readOnly) {
-      updateSummary(profile, idPrefix, options.splitCritStat, true);
+      updateSummary(profile, idPrefix, options.splitCritStat, true, showConstellationCapWarning);
       return;
     }
     // 이 profile 객체는 마운트 시점에 한 번 로드해서 계속 재사용하는 클로저라, 이 모듈이 관리하지
@@ -869,7 +988,7 @@ function initMyDinoPage(profile, options = {}, container) {
     const latest = loadMyDinoProfile(storageKey);
     profile.arenaFormations = latest.arenaFormations;
     saveMyDinoProfile(profile, storageKey);
-    updateSummary(profile, idPrefix, options.splitCritStat, true);
+    updateSummary(profile, idPrefix, options.splitCritStat, true, showConstellationCapWarning);
     if (options.onChange) options.onChange(profile);
   }
 
@@ -883,7 +1002,7 @@ function initMyDinoPage(profile, options = {}, container) {
     renderPresetRow();
   }
 
-  updateSummary(profile, idPrefix, options.splitCritStat);
+  updateSummary(profile, idPrefix, options.splitCritStat, false, showConstellationCapWarning);
 
   // extraTab(예: 아레나 배치)이 있으면 그 탭 패널에 컨텍스트가 제공한 렌더러를 한 번 실행 -
   // readOnly와 무관하게 항상 실행(아레나 배치는 상대가 읽기 전용이어도 로컬 편집 가능한 별개 데이터)
@@ -899,14 +1018,20 @@ function initMyDinoPage(profile, options = {}, container) {
 // animate=true면(사용자가 설정을 실제로 수정해서 재계산된 경우) 값이 바뀐 항목만 롤링 애니메이션으로
 // 보여줌(js/ui/stat-roll-ui.js) - 처음 페이지를 열 때(마운트 시 최초 1회)는 "0 -> 실제값"으로 전부
 // 애니메이션되면 산만하니 animate=false로 그냥 바로 표시함
-function updateSummary(profile, idPrefix = "", splitCrit = false, animate = false) {
+function updateSummary(profile, idPrefix = "", splitCrit = false, animate = false, showConstellationCapWarning = true) {
   const id = (name) => idPrefix + name;
+  // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
+  // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
+  const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
+  // 서버 레벨캡의 40% 이하면 별자리가 적용되지 않는 신규 규칙 - 요약 카드도 실제 전투 계산과 같은
+  // 결과를 보여줘야 하므로 여기서도 반영(아레나는 서버 레벨캡 자체를 안 쓰는 페이지라 이 경고를 끔)
+  const constellationBlocked = showConstellationCapWarning && isConstellationBlockedByLevelCap(level);
   const stats = getBattleStats({
     baseAtk: profile.baseAtk,
     baseHp: profile.baseHp,
     count: profile.dinoCount,
     selectedRunes: profile.runes,
-    constellation: profile.constellation,
+    constellation: constellationBlocked ? {} : profile.constellation,
     bonusPercent: getEffectiveBonusPercent(profile),
     currentHpPercent: profile.currentHpPercent
   });
@@ -929,9 +1054,8 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
   if (!splitCrit) {
     setVal(id("sumCount"), t("my_dino.stat.dinoCountValue", { count: profile.dinoCount }));
   }
-  // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
-  // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
-  const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
   setVal(id("sumLevel"), level.toLocaleString());
+  const warnEl = document.getElementById(id("constellationCapWarning"));
+  if (warnEl) warnEl.style.display = constellationBlocked ? "block" : "none";
 }
 
