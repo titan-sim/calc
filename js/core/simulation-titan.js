@@ -34,6 +34,7 @@ function runTitanSimulation(cfg) {
     tribeControl = false,
     atkTowerLevel = null,
     hpTowerLevel = null,
+    currentHpPercent = 100,
     iterations = 500,
     collectLog = false,
     onProgress = () => {},
@@ -68,6 +69,9 @@ function runTitanSimulation(cfg) {
     // activeRunes.find(...)로 탐색했음(성능 낭비, 사용자 지적 - 사이트 전체 점검 결과)
     const shieldRune = activeRunes.find((r) => r.name === "보호막");
     const guardRune = activeRunes.find((r) => r.name === "타이탄 가드");
+    // 광전사의 분노는 공룡 개체별 실시간 체력을 알아야만 판정 가능해서(팀 공용 atkP 바구니가 아니라)
+    // 매 틱 각 공룡의 공격력을 계산하는 지점에서 개별적으로 처리함
+    const berserkerRune = activeRunes.find((r) => r.name === "광전사의 분노");
 
     // 자연의 포옹/부족의 축복은 해당 타일 조건이 충족된 상태여야만 효과가 적용됨(허수아비/공룡
     // 대전과 같은 조건). 다른 룬은 항상 적용.
@@ -80,6 +84,7 @@ function runTitanSimulation(cfg) {
     activeRunes.forEach((r) => {
       if (VAMP_EXCLUSION_LIST.includes(r.name)) return;
       if (isTileGated(r)) return;
+      if (r.name === "광전사의 분노") { atkP_vamp += computeBerserkerAtkBonus(currentHpPercent, r.s); return; }
       if (r.s.atk_f) atkF_vamp += r.s.atk_f;
       if (r.s.atk_p) atkP_vamp += r.s.atk_p;
     });
@@ -139,6 +144,7 @@ function runTitanSimulation(cfg) {
             // 상시 스탯이 아님 -> 상시 % 바구니에는 넣지 않음
             if (r.name === "마지막 선물") return;
             if (isTileGated(r)) return;
+            if (r.name === "광전사의 분노") return; // 개체별 실시간 체력으로 아래 공격 루프에서 따로 처리
             let active = r.name === "협동 공격" ? aliveCount >= 5 : r.name === "고독한 분노" ? aliveCount === 1 : true;
             if (active) {
               if (r.s.atk_f) atkF += r.s.atk_f;
@@ -156,8 +162,11 @@ function runTitanSimulation(cfg) {
           if (t === 1) {
             initialFullHp = currentMaxHp;
             prevMaxHp = currentMaxHp;
+            // currentHpPercent는 "전투 시작을 최대 체력의 몇 %로 할지"(사용자 확정) - 광전사의
+            // 분노 자체는 이후 실제로 깎이는 만큼만 반영되는 실시간 체력을 따름
+            const startHp = initialFullHp * (currentHpPercent / 100);
             dinos.forEach((d) => {
-              d.hp = initialFullHp;
+              d.hp = startHp;
               d.shieldSteps = shieldRune ? shieldRune.s.turn : 0;
             });
             aliveDinos = dinos;
@@ -187,7 +196,8 @@ function runTitanSimulation(cfg) {
 
           for (let d of aliveDinos) {
             d.attackCount++;
-            let finalBaseAtk = currentAtk + d.giftAtk;
+            const berserkerBonus = berserkerRune ? computeBerserkerAtkBonus((d.hp / currentMaxHp) * 100, berserkerRune.s) : 0;
+            let finalBaseAtk = (currentAtk + d.giftAtk) * (1 + berserkerBonus / 100);
 
             // 치명타 여부까지 같이 돌려줘야 "주요 이벤트" 로그(치명타 발동)에 남길 수 있음 -
             // stat-calc.js의 rollCritHit 공용 함수 사용(전투 수식 공용화 작업 - 예전엔 매 공룡,
@@ -199,7 +209,10 @@ function runTitanSimulation(cfg) {
             }
 
             activeRunes.forEach((r) => {
-              if ((r.name === "낙뢰" || r.name === "메테오") && Math.random() * 100 < r.s.prob) {
+              // 가시도 메테오/낙뢰와 같은 취급 - 타이탄전은 보스 1마리뿐이라 "현재 타일 전체"/
+              // "주변 타일" 구분 자체가 무의미해서(사용자 확정 "타이탄은 직접 때리는 피해만
+              // 적용되고 메테오, 가시는 [주변 타일 부분이] 적용 안 됨") burst_p 기반 단일 피해만 반영
+              if ((r.name === "낙뢰" || r.name === "메테오" || r.name === "가시") && Math.random() * 100 < r.s.prob) {
                 const skillHit = rollCritHit(finalBaseAtk * (r.s.burst_p / 100), cRate, cDmg);
                 tHp -= skillHit.dmg;
                 if (collectLog && i === 0) {
@@ -236,7 +249,7 @@ function runTitanSimulation(cfg) {
               activeRunes.forEach((r) => {
                 if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
                   const before = d.hp;
-                  d.hp = Math.min(currentMaxHp, d.hp + (currentMaxHp * r.s.rec_p) / 100);
+                  d.hp = Math.min(currentMaxHp, d.hp + r.s.rec_f);
                   if (collectLog && i === 0 && d.hp > before) {
                     tickEvents.push(`${dinos.indexOf(d) + 1}번 공룡 힐 발동 (체력 +${Math.round(d.hp - before).toLocaleString()})`);
                   }
@@ -287,7 +300,7 @@ function runTitanSimulation(cfg) {
                     dinos.forEach((target, tIdx) => {
                       if (target.hp > 0) {
                         const before = target.hp;
-                        target.hp = Math.min(currentMaxHp, target.hp + (currentMaxHp * r.s.rec_p) / 100);
+                        target.hp = Math.min(currentMaxHp, target.hp + r.s.rec_f);
                         if (collectLog && i === 0 && target.hp > before) {
                           tickEvents.push(`${deadIdx + 1}번 공룡 사망 -> 희생 발동, ${tIdx + 1}번 공룡 체력 +${Math.round(target.hp - before).toLocaleString()}`);
                         }

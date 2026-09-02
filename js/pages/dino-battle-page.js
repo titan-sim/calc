@@ -2213,7 +2213,7 @@ function renderBattleEvent(ev) {
     spawnHealPopup(slotId, heal.amount, heal.cause, delay, index);
   });
 
-  if (ev.aoe) {
+  if (ev.aoeList.length > 0) {
     const arena = document.getElementById("battleArena");
     arena.classList.add("area-flash");
     setTimeout(() => arena.classList.remove("area-flash"), 400);
@@ -2221,12 +2221,16 @@ function renderBattleEvent(ev) {
     // 띄웠는데, "메테오(주변 타일)"처럼 대기 육각형(근접 타일)의 다른 슬롯이 맞아도 그 슬롯엔
     // 아무 메시지가 안 뜨는 버그였음(사용자 지적) - 실제로 맞은 슬롯마다 개별 팝업을 띄우도록
     // 변경(아레나가 이미 하던 방식과 통일 - 다이노 배틀이 확정한 dinoBattleDisplayLabel 규칙을
-    // spawnDamagePopup이 그대로 처리해주므로 라벨 조합 로직 중복 없음)
-    ev.aoe.targets.forEach((target) => {
-      const slotId = aoeTargetSlotId(ev.defenderSide, target.index);
-      const dmg = Math.max(0, target.before - target.after);
-      const { index, delay } = stagger(slotId);
-      spawnDamagePopup(slotId, dmg, target.isCrit, ev.aoe.label, delay, index);
+    // spawnDamagePopup이 그대로 처리해주므로 라벨 조합 로직 중복 없음).
+    // aoeList는 배열 - 메테오/가시처럼 광역기 룬 2개를 동시에 장착해 같은 턴에 둘 다 발동해도
+    // (묶음 이후 추가된 "가시" 룬으로 처음 생긴 시나리오) 서로 안 덮어쓰고 전부 표시됨
+    ev.aoeList.forEach((aoe) => {
+      aoe.targets.forEach((target) => {
+        const slotId = aoeTargetSlotId(ev.defenderSide, target.index);
+        const dmg = Math.max(0, target.before - target.after);
+        const { index, delay } = stagger(slotId);
+        spawnDamagePopup(slotId, dmg, target.isCrit, aoe.label, delay, index);
+      });
     });
   }
 

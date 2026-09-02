@@ -762,6 +762,7 @@ function initTitanPage() {
       selectedRunes: selectedRunesOverride || dino.selectedRunes,
       constellation: dino.constellation,
       bonusPercent: dino.bonusPercent,
+      currentHpPercent: dino.currentHpPercent,
       moveSpeed: dino.moveSpeed,
       distanceTiles,
       continuousBattle,

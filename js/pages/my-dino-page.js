@@ -27,6 +27,7 @@ function defaultMyDinoProfile() {
     moveSpeed: 1,
     vip: 0,
     dinoCount: 5,
+    currentHpPercent: 100, // 광전사의 분노 판정용(전투 중 실시간이 아니라 직접 설정하는 고정값)
     constellation: {
       hp: 0, atk: 0, critRate: 0, critDmg: 0, buildingDmg: 0, stewEffect: 0,
       moveSpeed: 0, bossDmgReduction: 0, bossDmgIncrease: 0
@@ -104,7 +105,8 @@ function dinoProfileToBattleInputs(p) {
     moveSpeed: p.moveSpeed,
     selectedRunes: p.runes,
     constellation: p.constellation,
-    bonusPercent: getEffectiveBonusPercent(p)
+    bonusPercent: getEffectiveBonusPercent(p),
+    currentHpPercent: p.currentHpPercent
   };
 }
 
@@ -408,6 +410,13 @@ function renderMyDinoPage(container, options = {}) {
               <ul class="dropdown-list" id="${id("dinoCountList")}"></ul>
             </div>
           </div>
+          <div class="full-width">
+            <label>${t("my_dino.field.currentHpPercent")}</label>
+            <div class="custom-dropdown" id="${id("currentHpPercentDropdown")}">
+              <div class="selected-value" id="${id("currentHpPercentSelectedValue")}"></div>
+              <ul class="dropdown-list" id="${id("currentHpPercentList")}"></ul>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -608,6 +617,32 @@ function initMyDinoPage(profile, options = {}, container) {
   setDinoCount(profile.dinoCount);
 
   on(dinoCountSelectedValue, "onclick", () => toggleDropdownList(dinoCountSelectedValue, dinoCountList));
+
+  // 현재 체력 % - 광전사의 분노 룬 판정용(사용자 확정 - "그냥 기본 스탯 제일 밑에 현재 체력 설정
+  // 해놓고 10% 단위로 설정 가능하게 해"). 전투 중 실시간으로 바뀌는 값이 아니라, 허수아비/건물처럼
+  // 체력 개념 자체가 없는 모드까지 전부 커버하는 단일 고정값 - dinoCount와 같은 커스텀 드롭다운 패턴
+  const currentHpPercentList = $("currentHpPercentList");
+  const currentHpPercentSelectedValue = $("currentHpPercentSelectedValue");
+
+  function setCurrentHpPercent(percent) {
+    profile.currentHpPercent = percent;
+    currentHpPercentSelectedValue.textContent = t("my_dino.stat.currentHpPercentValue", { percent });
+    markChanged(currentHpPercentSelectedValue, percent !== 100);
+  }
+
+  for (let v = 100; v >= 10; v -= 10) {
+    const li = document.createElement("li");
+    li.textContent = t("my_dino.stat.currentHpPercentValue", { percent: v });
+    on(li, "onclick", () => {
+      setCurrentHpPercent(v);
+      currentHpPercentList.style.display = "none";
+      persistAndRefresh();
+    });
+    currentHpPercentList.appendChild(li);
+  }
+  setCurrentHpPercent(profile.currentHpPercent);
+
+  on(currentHpPercentSelectedValue, "onclick", () => toggleDropdownList(currentHpPercentSelectedValue, currentHpPercentList));
 
   // VIP (이미지 배지 + 설명이 들어가는 커스텀 드롭다운. <select>는 항목 안에 이미지를 넣을 수 없어서 직접 구현)
   const vipList = $("vipList");
@@ -872,7 +907,8 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
     count: profile.dinoCount,
     selectedRunes: profile.runes,
     constellation: profile.constellation,
-    bonusPercent: getEffectiveBonusPercent(profile)
+    bonusPercent: getEffectiveBonusPercent(profile),
+    currentHpPercent: profile.currentHpPercent
   });
   const setVal = (elId, text) => {
     const el = document.getElementById(elId);

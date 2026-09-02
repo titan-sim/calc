@@ -1260,7 +1260,7 @@ async function buildingRunQuickCalc() {
 
   const result = await runBuildingSimulation({
     baseAtk: inputs.baseAtk, baseHp: inputs.baseHp, selectedRunes: inputs.selectedRunes,
-    constellation: inputs.constellation, bonusPercent: inputs.bonusPercent, moveSpeed: inputs.moveSpeed,
+    constellation: inputs.constellation, bonusPercent: inputs.bonusPercent, currentHpPercent: inputs.currentHpPercent, moveSpeed: inputs.moveSpeed,
     distanceTiles: combatConfig.distanceTiles, continuousBattle: combatConfig.continuousBattle,
     tileCfg, maxDino: BUILDING_MAX_DINO_COUNT,
     targetHp: targetDef.hp, behindHp: behindDef ? behindDef.hp : null,
@@ -1473,7 +1473,7 @@ async function buildingRunOptimizer() {
     const c = candidates[i];
     const result = await runBuildingSimulation({
       baseAtk: inputs.baseAtk, baseHp: inputs.baseHp, selectedRunes: c.selectedRunes,
-      constellation: inputs.constellation, bonusPercent: inputs.bonusPercent, moveSpeed: inputs.moveSpeed,
+      constellation: inputs.constellation, bonusPercent: inputs.bonusPercent, currentHpPercent: inputs.currentHpPercent, moveSpeed: inputs.moveSpeed,
       distanceTiles: combatConfig.distanceTiles, continuousBattle: combatConfig.continuousBattle,
       tileCfg, maxDino: BUILDING_MAX_DINO_COUNT,
       targetHp: targetDef.hp, behindHp: behindDef ? behindDef.hp : null,

@@ -25,6 +25,18 @@ function rollCritHit(baseDmg, cRate, cDmg, rand = Math.random) {
   return { dmg: isCrit ? baseDmg * (cDmg / 100) : baseDmg, isCrit };
 }
 
+// 광전사의 분노: 체력이 임계값 이하로 떨어지면 공격력이 증가(누적형 - 더 낮은 임계값도 넘었으면
+// 둘 다 적용됨). 전투 중 실시간 체력이 아니라 "기본 스탯" 탭에서 직접 설정하는 고정 체력%
+// 기준으로 계산함(허수아비/건물처럼 전투 중 체력이 변하는 개념 자체가 없는 모드도 있어서, 사용자
+// 확정 - "그냥 기본 스탯 제일 밑에 현재 체력 설정 해놓고 10% 단위로 설정 가능하게 해" - 5개
+// 시뮬레이션 엔진(타이탄/공룡대전/아레나/건물/허수아비) 전부 이 하나의 정적 값만 참조)
+function computeBerserkerAtkBonus(currentHpPercent, s) {
+  let bonus = 0;
+  if (currentHpPercent <= s.hp_p1) bonus += s.atk_p1;
+  if (currentHpPercent <= s.hp_p2) bonus += s.atk_p2;
+  return bonus;
+}
+
 // 치확/치피 평균을 반영한 기대 대미지 배율(빠른 계산용 - 확률/굴림 없이 "1초당 기댓값"으로 환산)
 function computeExpectedDpsFromCrit(atk, cRate, cDmg) {
   return atk * (1 + (cRate / 100) * (cDmg / 100 - 1));
@@ -98,7 +110,8 @@ function getBattleStats({
   count,
   selectedRunes,
   constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0 },
-  bonusPercent = { atk: 0, hp: 0 }
+  bonusPercent = { atk: 0, hp: 0 },
+  currentHpPercent = 100
 }) {
   let atkF = 0, atkP = 0, hpF = 0, hpP = 0;
   let cRate = 3, cDmg = 105;
@@ -113,6 +126,8 @@ function getBattleStats({
 
     // 마지막 선물의 atk_f는 사망한 아군이 남은 아군에게 넘겨주는 임시 버프량이지 상시 스탯이 아님
     if (r.name === "마지막 선물") return;
+
+    if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
 
     let active =
       r.name === "협동 공격" ? count >= 5
@@ -161,7 +176,8 @@ function getTitanCombatMetrics({
   count,
   selectedRunes,
   constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0, bossDmgIncrease: 0 },
-  bonusPercent = { atk: 0, hp: 0 }
+  bonusPercent = { atk: 0, hp: 0 },
+  currentHpPercent = 100
 }, tileCfg = {}) {
   let atkF = 0, atkP = 0, hpF = 0, hpP = 0;
   if (tileCfg.atkTowerLevel !== null && tileCfg.atkTowerLevel !== undefined) atkP += BUFF_TOWER_PERCENTS[tileCfg.atkTowerLevel];
@@ -170,7 +186,7 @@ function getTitanCombatMetrics({
   let bossSlayerPercent = 0;
   const reductions = [];
   const skillHits = [];
-  let healProb = 0, healRecP = 0;
+  let healProb = 0, healRecF = 0;
   let vProb = 0, vRecP = 0;
   let atkF_vamp = 0, atkP_vamp = 0;
 
@@ -190,17 +206,21 @@ function getTitanCombatMetrics({
       : r.name === "고독한 분노" ? count === 1
       : true;
 
+    const berserkerBonus = r.name === "광전사의 분노" ? computeBerserkerAtkBonus(currentHpPercent, s) : 0;
+
     if (active && !isAmpRune && !isGiftRune && !isTileGated) {
       if (s.atk_f) atkF += s.atk_f;
       if (s.atk_p) atkP += s.atk_p;
       if (s.hp_f) hpF += s.hp_f;
       if (s.hp_p) hpP += s.hp_p;
+      atkP += berserkerBonus;
     }
     if (isAmpRune) bossSlayerPercent += s.atk_p;
 
     if (!VAMP_EXCLUSION_LIST.includes(r.name) && !isTileGated) {
       if (s.atk_f) atkF_vamp += s.atk_f;
       if (s.atk_p) atkP_vamp += s.atk_p;
+      atkP_vamp += berserkerBonus;
     }
 
     if (r.name === "치명타 확률") cRate += s.prob;
@@ -229,7 +249,7 @@ function getTitanCombatMetrics({
       skillHits.push({ name: r.name, triggerRate: s.prob / 100, burstP: s.burst_p, prob: s.prob });
     }
 
-    if (r.name === "힐") { healProb = s.prob; healRecP = s.rec_p; }
+    if (r.name === "힐") { healProb = s.prob; healRecF = s.rec_f; }
     if (r.name === "흡혈") { vProb = s.prob; vRecP = s.rec_p; }
   });
 
@@ -273,12 +293,12 @@ function getTitanCombatMetrics({
 
   // 흡혈 기준 공격력은 오버밸런스 방지용 제외 목록이 적용된 별도 바구니(VAMP_EXCLUSION_LIST) 사용
   const vBaseAtk = (baseAtk + atkF_vamp) * (1 + atkP_vamp / 100);
-  const healAvg = ((finalHp * healRecP) / 100) * (healProb / 100);
+  const healAvg = healRecF * (healProb / 100);
   const vampAvg = vBaseAtk * (vRecP / 100) * (vProb / 100);
   // rawAmount = "발동됐을 때 실제로 회복되는 양"(발동 확률을 안 곱한 절대값) - avg는 발동 확률까지
   // 반영된 평균값이라 관련 수치 카드 breakdown에서 "평균"과 "원래 회복량"을 나란히 보여줄 때 씀
   const recoveries = [
-    { name: "힐", value: healRecP, prob: healProb, avg: healAvg, rawAmount: (finalHp * healRecP) / 100 },
+    { name: "힐", value: healRecF, prob: healProb, avg: healAvg, rawAmount: healRecF },
     { name: "흡혈", value: vRecP, prob: vProb, avg: vampAvg, rawAmount: (vBaseAtk * vRecP) / 100 }
   ].filter((r) => r.prob > 0);
   const recoveryTotal = healAvg + vampAvg;
@@ -304,7 +324,7 @@ function getTitanCombatMetrics({
     // 그대로 써야 해서 추가로 노출함 - 전부 이미 위에서 계산되던 지역변수라 순수 추가일 뿐,
     // 기존 소비자(관련 수치 카드 등)에는 영향 없음
     healProb,
-    healRecP,
+    healRecF,
     vProb,
     vRecP,
     vBaseAtk
@@ -372,7 +392,7 @@ const TITAN_SURVIVAL_EXTENDED_CYCLES = 150;
 // 되고(시간 불변), reductions 배열을 그대로 순회해서 확률형 룬 종류가 늘어도 자동 대응됨
 function buildTitanCycleBranches(metrics, targetTitan) {
   const healP = metrics.healProb / 100;
-  const healAmount = (metrics.finalHp * metrics.healRecP) / 100;
+  const healAmount = metrics.healRecF;
   const healOutcomes = healP > 0
     ? [{ prob: 1 - healP, amount: 0 }, { prob: healP, amount: healAmount }]
     : [{ prob: 1, amount: 0 }];

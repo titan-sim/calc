@@ -26,7 +26,7 @@
  * @returns {{atk:number, cRate:number, cDmg:number, earthquake:({burst_p:number, count:number}|null)}}
  */
 function computeBuildingCombatValues(inputs, tileCfg, extraAtkFlat = 0) {
-  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 } } = inputs;
+  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 }, currentHpPercent = 100 } = inputs;
 
   let atkF = constellation.atk || 0;
   let atkP = bonusPercent.atk || 0;
@@ -49,6 +49,7 @@ function computeBuildingCombatValues(inputs, tileCfg, extraAtkFlat = 0) {
     // count가 동적으로 변하는 이번 시뮬레이션에서는 성립할 수 있으므로 다른 페이지(titan/dummy 등)와
     // 같은 게이팅을 추가함
     if (r.name === "고독한 분노" && count !== 1) return;
+    if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
     if (s.atk_f) atkF += s.atk_f;
     if (s.atk_p) atkP += s.atk_p;
     if (r.name === "치명타 확률") cRate += s.prob;
@@ -72,7 +73,7 @@ function computeBuildingCombatValues(inputs, tileCfg, extraAtkFlat = 0) {
 //   destroyerBreakdown:Array<{name:string, percent:number}>, atkAmpGain:number,
 //   earthquake:({burst_p:number, count:number}|null), avgHitDamage:number, avgEarthquakeDamage:number}}
 function computeBuildingCombatMetrics(inputs, tileCfg) {
-  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 } } = inputs;
+  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 }, currentHpPercent = 100 } = inputs;
 
   let atkF = constellation.atk || 0;
   let atkP = bonusPercent.atk || 0;
@@ -94,6 +95,7 @@ function computeBuildingCombatMetrics(inputs, tileCfg) {
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
     if (r.name === "협동 공격" && count < 5) return;
     if (r.name === "고독한 분노" && count !== 1) return;
+    if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
     if (s.atk_f) atkF += s.atk_f;
     if (s.atk_p) atkP += s.atk_p;
     if (r.name === "치명타 확률") cRate += s.prob;
@@ -242,6 +244,7 @@ function computeEarthquakeExpectedSplashDps(values) {
 function runBuildingSimulation(cfg) {
   const {
     baseAtk, baseHp, selectedRunes, constellation = {}, bonusPercent = {},
+    currentHpPercent = 100,
     moveSpeed = 1, distanceTiles = 1, continuousBattle = false, tileCfg,
     targetHp, behindHp = null, catapultDmg = null, catapultPeriodSec = null,
     maxDino, iterations = 1, onProgress = () => {}, batchSize = 1
@@ -259,7 +262,7 @@ function runBuildingSimulation(cfg) {
   // 안전 상한(사용자에게 노출되는 설정이 아니라 순수 내부 안전장치) - 극단적으로 방어만 몰빵해서
   // 이론상으론 안 죽지만 캐터펄트가 없어서 전멸 조건도 성립 안 하는 등 퇴화 입력에서도 브라우저가
   // 안 멈추게 함. targetHp를 대략적인 dps로 나눈 값의 5배 정도면 실제로 걸릴 일은 거의 없음.
-  const roughValues = computeBuildingCombatValues({ baseAtk, count: maxDino, selectedRunes, constellation, bonusPercent }, tileCfg);
+  const roughValues = computeBuildingCombatValues({ baseAtk, count: maxDino, selectedRunes, constellation, bonusPercent, currentHpPercent }, tileCfg);
   const roughDps = Math.max(1, computeBuildingExpectedDps(roughValues));
   const SAFETY_CAP_SEC = Math.max(3600, (targetHp / roughDps) * 5);
 
@@ -287,7 +290,10 @@ function runBuildingSimulation(cfg) {
       for (let i = 0; i < maxDino; i++) dinos.push({ hp: 0, giftAtk: 0, giftSteps: 0, reviveAt: null });
 
       const seedMaxHp = computeBuildingDinoMaxHp({ baseHp, count: maxDino, selectedRunes, constellation, bonusPercent }, tileCfg);
-      dinos.forEach((d) => { d.hp = seedMaxHp; });
+      // currentHpPercent는 "전투 시작을 최대 체력의 몇 %로 할지"(사용자 확정) - 광전사의 분노 자체는
+      // 이후 캐터펄트에 실제로 맞아 줄어드는 실시간 체력을 따름(아래 hpPercentAvg 참고)
+      const startHp = seedMaxHp * (currentHpPercent / 100);
+      dinos.forEach((d) => { d.hp = startHp; });
 
       let frontHpNow = targetHp;
       let behindHpNow = behindHp;
@@ -333,8 +339,12 @@ function runBuildingSimulation(cfg) {
           const aliveNow = dinos.filter((d) => d.hp > 0);
           if (aliveNow.length > 0) {
             const sumGiftAtk = aliveNow.reduce((s, d) => s + d.giftAtk, 0);
+            // 광전사의 분노 판정용 - 살아있는 개체들의 지금 이 순간 평균 체력 비율(공격은 "블렌드
+            // 1회 굴림"으로 유지하는 이 엔진 구조상 개체별로 따로 굴리지 않으므로, 살아있는 만큼의
+            // 평균으로 근사함 - 캐터펄트가 전원에게 항상 동일한 피해를 주므로 대부분 다 같은 값임)
+            const aliveAvgHpPercent = (aliveNow.reduce((s, d) => s + d.hp, 0) / aliveNow.length / seedMaxHp) * 100;
             const values = computeBuildingCombatValues(
-              { baseAtk, count: aliveNow.length, selectedRunes, constellation, bonusPercent },
+              { baseAtk, count: aliveNow.length, selectedRunes, constellation, bonusPercent, currentHpPercent: aliveAvgHpPercent },
               tileCfg,
               sumGiftAtk
             );
@@ -387,7 +397,7 @@ function runBuildingSimulation(cfg) {
                   tileCfg
                 );
                 otherAlive.forEach((target) => {
-                  target.hp = Math.min(targetMaxHp, target.hp + (targetMaxHp * s.rec_p) / 100);
+                  target.hp = Math.min(targetMaxHp, target.hp + s.rec_f);
                 });
               }
             }

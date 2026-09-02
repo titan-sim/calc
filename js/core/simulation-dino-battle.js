@@ -59,10 +59,11 @@ function buildDinoSideRunes(selectedRunes, unsuitableList) {
 }
 
 // 흡혈 기준 공격력(VAMP_EXCLUSION_LIST 적용된 별도 바구니)은 인원수 조건에 안 흔들려서 한 번만 계산
-function computeVampBaseAtk(baseAtk, runes, constellation, bonusPercent) {
+function computeVampBaseAtk(baseAtk, runes, constellation, bonusPercent, currentHpPercent = 100) {
   let atkF = constellation.atk || 0, atkP = bonusPercent.atk || 0;
   runes.forEach((r) => {
     if (VAMP_EXCLUSION_LIST.includes(r.name)) return;
+    if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, r.s); return; }
     if (r.s.atk_f) atkF += r.s.atk_f;
     if (r.s.atk_p) atkP += r.s.atk_p;
   });
@@ -85,6 +86,9 @@ function computeSideCombatValues(side, aliveCount, tileCfg) {
     if (r.name === "마지막 선물") return; // 상시 스탯 아님(사망 시 임시 버프로 별도 처리)
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
     if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && tileCfg.tribeControl !== side.key) return;
+    // 광전사의 분노는 이 함수(진영 단위 공용 수치)가 아니라, 실제 공격하는 그 개체의 실시간 체력을
+    // 알아야만 판정 가능해서 finalAtk를 계산하는 지점(attacker 객체가 있는 곳)에서 따로 처리함
+    if (r.name === "광전사의 분노") return;
 
     const active = r.name === "협동 공격" ? aliveCount >= 5 : r.name === "고독한 분노" ? aliveCount === 1 : true;
     if (active) {
@@ -111,16 +115,20 @@ function makeDinoSide(inputs, key, tileCfg) {
     baseHp: inputs.baseHp,
     constellation: inputs.constellation,
     bonusPercent: inputs.bonusPercent,
+    currentHpPercent: inputs.currentHpPercent != null ? inputs.currentHpPercent : 100,
     runes: buildDinoSideRunes(inputs.selectedRunes, DINO_BATTLE_UNSUITABLE_RUNE_LIST),
     count: inputs.count
   };
-  side.vampBaseAtk = computeVampBaseAtk(side.baseAtk, side.runes, side.constellation, side.bonusPercent);
+  side.vampBaseAtk = computeVampBaseAtk(side.baseAtk, side.runes, side.constellation, side.bonusPercent, side.currentHpPercent);
 
   const initVals = computeSideCombatValues(side, side.count, tileCfg);
+  // currentHpPercent는 "전투 중 실시간 체력"이 아니라 "전투 시작을 최대 체력의 몇 %로 할지"(사용자
+  // 확정) - 그래서 시작 체력만 이 비율로 깎아두고, 이후엔 평소처럼 실제로 맞은 만큼만 줄어듦
+  const startHp = initVals.maxHp * (side.currentHpPercent / 100);
   side.dinos = [];
   for (let i = 0; i < side.count; i++) {
     side.dinos.push({
-      hp: initVals.maxHp, maxHp: initVals.maxHp,
+      hp: startHp, maxHp: initVals.maxHp,
       giftAtk: 0, giftSteps: 0,           // 마지막 선물로 받은 임시 공격력 버프
       warCryAtkP: 0, warCrySteps: 0,      // 승리의 함성으로 받은 임시 공격력% 버프
       shieldSteps: shieldTurnOf(side), attackCount: 0
@@ -205,7 +213,9 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
       defenderSide: defenderKey,
       hits: [],   // { label, dmg, isCrit, targetSide }
       heals: [],  // { side, amount, cause }
-      aoe: null,  // { label, isCrit, targets: [{ index, before, after }] }
+      aoeList: [], // [{ label, isCrit, targets: [{ index, before, after }] }, ...] - 메테오/가시처럼
+      // 광역기 룬을 여러 개 동시에 장착해서 한 턴에 둘 다 발동할 수도 있어서 배열로 둠(단일 객체면
+      // 나중에 발동한 쪽이 먼저 것을 덮어써서 팝업이 사라지는 버그가 생김)
       deaths: [], // { side }
       spawn: null // { side } - 이번 턴에 새 앞장이 등장했는지
     };
@@ -235,13 +245,17 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
     defenderSide.runes.forEach((r) => {
       if (r.name === "힐" && rand() * 100 < r.s.prob) {
         const before = defender.hp;
-        defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
+        defender.hp = Math.min(defender.maxHp, defender.hp + r.s.rec_f);
         if (defender.hp > before) event.heals.push({ side: defenderKey, amount: defender.hp - before, cause: "힐" });
       }
     });
 
     // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
-    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
+    // 광전사의 분노는 지금 공격하는 그 개체의 실시간 체력 비율로 판정(체력이 깎일수록 강해짐 -
+    // 사용자 확정: "현재 체력 설정"은 시작 체력%일 뿐, 룬 자체는 전투 중 실시간 체력을 따름)
+    const berserkerRune = attackerSide.runes.find((r) => r.name === "광전사의 분노");
+    const berserkerBonus = berserkerRune ? computeBerserkerAtkBonus((attacker.hp / attackerVals.maxHp) * 100, berserkerRune.s) : 0;
+    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100) * (1 + berserkerBonus / 100);
     const basicHit = rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg, rand);
     hitDefender(basicHit.dmg, basicHit.isCrit, "평타");
 
@@ -286,7 +300,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
             d.hp = Math.max(0, d.hp - dmg);
             targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: meteorAoeHit.isCrit });
           });
-          event.aoe = { label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets };
+          event.aoeList.push({ label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets });
         } else {
           const meteorHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
           hitDefender(meteorHit.dmg, meteorHit.isCrit, "메테오");
@@ -301,7 +315,44 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
               areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: meteorAreaHit.isCrit });
             });
             if (areaTargets.length > 0) {
-              event.aoe = { label: "메테오(주변 타일)", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets };
+              event.aoeList.push({ label: "메테오(주변 타일)", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets });
+            }
+          }
+        }
+      }
+      // 가시: 메테오와 같은 "현재 타일 전체 + 주변 타일 추가 피해" 구조(사용자 확정 "메테오랑
+      // 완전히 똑같다"). 다른 점은 주변 타일 추가 피해가 area_burst_p라는 별도의(더 약한) 확정
+      // 수치가 아니라, burst_p와 완전히 같은 위력을 "6개 타일 중 side_tile_count개가 무작위로
+      // 뽑혔을 때만" 확률적으로 맞는다는 것 - 실제 게임은 100x100 타일이라 후보가 6개나 되지만
+      // 이 엔진은 "대기 육각형" 딱 1개만 후보가 될 수 있는 3타일 구조라, "그 유일한 후보가 뽑혔을
+      // 확률"을 side_tile_count/6으로 근사해서 대기 공룡이 맞을지 여부를 한 번 더 굴림(사용자 확정)
+      if (r.name === "가시" && rand() * 100 < r.s.prob) {
+        if (sameTile) {
+          const targets = [];
+          defenderSide.dinos.forEach((d, idx) => {
+            if (d.hp <= 0) return;
+            const spikeAoeHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+            const dmg = Math.max(0, spikeAoeHit.dmg);
+            const before = d.hp;
+            d.hp = Math.max(0, d.hp - dmg);
+            targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: spikeAoeHit.isCrit });
+          });
+          event.aoeList.push({ label: "가시", isCrit: targets.some((t) => t.isCrit), targets });
+        } else {
+          const spikeHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+          hitDefender(spikeHit.dmg, spikeHit.isCrit, "가시");
+          if (rand() * 100 < (r.s.side_tile_count / 6) * 100) {
+            const areaTargets = [];
+            defenderSide.dinos.forEach((d, idx) => {
+              if (d === defender || d.hp <= 0) return;
+              const spikeAreaHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+              const dmg = Math.max(0, spikeAreaHit.dmg);
+              const before = d.hp;
+              d.hp = Math.max(0, d.hp - dmg);
+              areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: spikeAreaHit.isCrit });
+            });
+            if (areaTargets.length > 0) {
+              event.aoeList.push({ label: "가시", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets });
             }
           }
         }
@@ -324,7 +375,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
         if (r.name === "희생" && sameTile && rand() * 100 < r.s.prob) {
           stillAlive.forEach((target) => {
             const before = target.hp;
-            target.hp = Math.min(target.maxHp, target.hp + (target.maxHp * r.s.rec_p) / 100);
+            target.hp = Math.min(target.maxHp, target.hp + r.s.rec_f);
             if (target.hp > before) event.heals.push({ side: dyingKey, amount: target.hp - before, cause: "희생" });
           });
         }
@@ -488,12 +539,14 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
     // 힐: 맞기 직전에 방어측 확률 발동
     defenderSide.runes.forEach((r) => {
       if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
-        defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
+        defender.hp = Math.min(defender.maxHp, defender.hp + r.s.rec_f);
       }
     });
 
     // 평타 (마지막 선물의 giftAtk는 고정치 가산, 승리의 함성의 warCryAtkP는 % 가산이라 그 다음에 곱함)
-    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
+    const berserkerRune = attackerSide.runes.find((r) => r.name === "광전사의 분노");
+    const berserkerBonus = berserkerRune ? computeBerserkerAtkBonus((attacker.hp / attackerVals.maxHp) * 100, berserkerRune.s) : 0;
+    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100) * (1 + berserkerBonus / 100);
     hitDefender(rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg).dmg);
 
     // 공격측 스킬 룬들 (1마리뿐이라 메테오의 "타일 전체" 피해도 사실상 이 상대 한 명에게만 적용됨)
@@ -509,7 +562,9 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
           if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) defender.hp = 0;
         }
       }
-      if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
+      if ((r.name === "메테오" || r.name === "가시") && Math.random() * 100 < r.s.prob) {
+        // 빠른 계산은 대기 공룡 개념 자체가 없는 1v1 모델이라(위 주석 참고) 가시의 "주변 타일"
+        // 추가 피해도 메테오와 마찬가지로 여기선 의미가 없음 - 확정 스킬 피해 1회만 반영
         hitDefender(rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg, true);
       }
       if (r.name === "흡혈" && Math.random() * 100 < r.s.prob) {

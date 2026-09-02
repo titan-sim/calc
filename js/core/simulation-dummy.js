@@ -15,7 +15,7 @@
  * @returns {{atk:number, cRate:number, cDmg:number}}
  */
 function computeDummyCombatValues(inputs, tileCfg) {
-  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 } } = inputs;
+  const { baseAtk, count, selectedRunes, constellation = {}, bonusPercent = { atk: 0 }, currentHpPercent = 100 } = inputs;
 
   let atkF = constellation.atk || 0;
   let atkP = bonusPercent.atk || 0;
@@ -32,6 +32,7 @@ function computeDummyCombatValues(inputs, tileCfg) {
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
     if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && !tileCfg.tribeControl) return;
     if (r.name === "협동 공격" && count < 5) return;
+    if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
     if (s.atk_f) atkF += s.atk_f;
     if (s.atk_p) atkP += s.atk_p;
     if (r.name === "치명타 확률") cRate += s.prob;

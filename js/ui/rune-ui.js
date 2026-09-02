@@ -8,10 +8,10 @@ function getImgUrl(id) {
 }
 
 const RUNE_STYLE_CONFIG = {
-  "#ba0000": ["atk_f", "atk_p", "burst_p", "area_burst_p", "crit_d"],
-  "#66bb6a": ["hp_f", "hp_p", "rec_p", "value"],
+  "#ba0000": ["atk_f", "atk_p", "atk_p1", "atk_p2", "burst_p", "area_burst_p", "crit_d"],
+  "#66bb6a": ["hp_f", "hp_p", "hp_p1", "hp_p2", "rec_p", "rec_f", "value"],
   "#eb5f0e": ["red_f", "red_p"],
-  "#ff9800": ["prob", "turn", "count", "insta_prob"],
+  "#ff9800": ["prob", "turn", "count", "insta_prob", "side_tile_count"],
   "#29b6f6": ["insta_hp"]
 };
 const RUNE_COLOR_MAP = {};

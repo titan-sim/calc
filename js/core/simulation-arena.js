@@ -24,6 +24,7 @@ function pseudoSideFor(side, slot) {
     baseHp: side.baseHp,
     constellation: side.constellation,
     bonusPercent: side.bonusPercent,
+    currentHpPercent: side.currentHpPercent,
     runes: slot.runes
   };
 }
@@ -45,7 +46,7 @@ function buildArenaSideRunes(profile, slotRunesList, key) {
       slotIndex,
       row: slotIndex < 2 ? "front" : "back",
       runes,
-      vampBaseAtk: computeVampBaseAtk(inputs.baseAtk, runes, inputs.constellation, inputs.bonusPercent),
+      vampBaseAtk: computeVampBaseAtk(inputs.baseAtk, runes, inputs.constellation, inputs.bonusPercent, inputs.currentHpPercent),
       hp: 0, maxHp: 0,
       giftAtk: 0, giftSteps: 0,       // 마지막 선물
       warCryAtkP: 0, warCrySteps: 0,  // 승리의 함성
@@ -60,6 +61,7 @@ function buildArenaSideRunes(profile, slotRunesList, key) {
     baseHp: inputs.baseHp,
     constellation: inputs.constellation,
     bonusPercent: inputs.bonusPercent,
+    currentHpPercent: inputs.currentHpPercent != null ? inputs.currentHpPercent : 100,
     slots
   };
 }
@@ -116,7 +118,9 @@ function initSlotHp(side, tileCfg) {
   side.slots.forEach((slot) => {
     const vals = computeSideCombatValues(pseudoSideFor(side, slot), aliveCount, tileCfg);
     slot.maxHp = vals.maxHp;
-    slot.hp = vals.maxHp;
+    // currentHpPercent는 "전투 시작을 최대 체력의 몇 %로 할지"(사용자 확정) - 광전사의 분노 자체는
+    // 이후 실시간 체력을 따름(simulation-dino-battle.js의 makeDinoSide와 동일한 원리)
+    slot.hp = vals.maxHp * ((side.currentHpPercent != null ? side.currentHpPercent : 100) / 100);
     slot.shieldSteps = shieldTurnOf(pseudoSideFor(side, slot));
   });
 }
@@ -185,7 +189,7 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
       turn,
       attackerSide: attackerKey, attackerSlot: attacker.slotIndex,
       defenderSide: defenderKey, defenderSlot: defender.slotIndex,
-      hits: [], heals: [], aoe: null, deaths: [],
+      hits: [], heals: [], aoeList: [], deaths: [],
       mySlots: null, oppSlots: null, myAliveCount: 0, oppAliveCount: 0
     };
 
@@ -214,13 +218,16 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
     defender.runes.forEach((r) => {
       if (r.name === "힐" && rand() * 100 < r.s.prob) {
         const before = defender.hp;
-        defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
+        defender.hp = Math.min(defender.maxHp, defender.hp + r.s.rec_f);
         if (defender.hp > before) event.heals.push({ side: defenderKey, slot: defender.slotIndex, amount: defender.hp - before, cause: "힐" });
       }
     });
 
-    // 평타
-    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
+    // 평타. 광전사의 분노는 지금 공격하는 그 슬롯의 실시간 체력 비율로 판정(사용자 확정 -
+    // "현재 체력 설정"은 시작 체력%일 뿐, 룬 자체는 전투 중 실시간 체력을 따름)
+    const berserkerRune = attacker.runes.find((r) => r.name === "광전사의 분노");
+    const berserkerBonus = berserkerRune ? computeBerserkerAtkBonus((attacker.hp / attackerVals.maxHp) * 100, berserkerRune.s) : 0;
+    const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100) * (1 + berserkerBonus / 100);
     const basicHit = rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg, rand);
     hitDefender(basicHit.dmg, basicHit.isCrit, "평타", defender, defenderKey);
 
@@ -242,19 +249,22 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
           }
         }
       }
-      // 메테오: 5마리가 항상 "한 타일"이라 방어측 살아있는 슬롯 전원(전열+후열)이 다 맞음. 광역기라
+      // 메테오/가시: 5마리가 항상 "한 타일"이라 방어측 살아있는 슬롯 전원(전열+후열)이 다 맞음. 광역기라
       // 여러 마리가 한 번에 맞지만 크리티컬은 맞는 슬롯마다 독립적으로 판정됨(한 마리가 크리 떴다고
       // 나머지도 전부 크리 대미지를 받으면 안 됨). 스킬 피해라 단단한 피부/피해 저항 적용 안 함.
-      if (r.name === "메테오" && rand() * 100 < r.s.prob) {
+      // 가시는 다이노 배틀에선 "주위 6개 타일 중 일부"에 추가 피해를 주는 룬이지만, 아레나는
+      // 애초에 5마리가 전부 "하나의 타일"이라(사용자 확정 "아레나는 그냥 전체가 하나의 타일로
+      // 치니까") 그 "주변 타일" 개념 자체가 없음 - 메테오와 완전히 동일하게 전원에게 한 번만 적용
+      if ((r.name === "메테오" || r.name === "가시") && rand() * 100 < r.s.prob) {
         const targets = [];
         aliveSlots(defenderSide).forEach((d) => {
-          const meteorHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
-          const dmg = Math.max(0, meteorHit.dmg);
+          const aoeHit = rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg, rand);
+          const dmg = Math.max(0, aoeHit.dmg);
           const before = d.hp;
           d.hp = Math.max(0, d.hp - dmg);
-          targets.push({ slot: d.slotIndex, before, after: d.hp, isTarget: d === defender, isCrit: meteorHit.isCrit });
+          targets.push({ slot: d.slotIndex, before, after: d.hp, isTarget: d === defender, isCrit: aoeHit.isCrit });
         });
-        event.aoe = { label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets };
+        event.aoeList.push({ label: r.name === "메테오" ? "메테오(광역)" : "가시", isCrit: targets.some((t) => t.isCrit), targets });
       }
       if (r.name === "흡혈" && rand() * 100 < r.s.prob) {
         const before = attacker.hp;
@@ -272,7 +282,7 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
         if (r.name === "희생" && rand() * 100 < r.s.prob) {
           stillAlive.forEach((target) => {
             const before = target.hp;
-            target.hp = Math.min(target.maxHp, target.hp + (target.maxHp * r.s.rec_p) / 100);
+            target.hp = Math.min(target.maxHp, target.hp + r.s.rec_f);
             if (target.hp > before) event.heals.push({ side: dyingKey, slot: target.slotIndex, amount: target.hp - before, cause: "희생" });
           });
         }
@@ -351,7 +361,7 @@ function arenaQuickProcessDeath(dyingSlot, dyingSide, dyingVals, otherSlot) {
   dyingSlot.runes.forEach((r) => {
     if (r.name === "희생" && Math.random() * 100 < r.s.prob) {
       stillAlive.forEach((target) => {
-        target.hp = Math.min(target.maxHp, target.hp + (target.maxHp * r.s.rec_p) / 100);
+        target.hp = Math.min(target.maxHp, target.hp + r.s.rec_f);
       });
     }
     if (r.name === "죽을 준비" && Math.random() * 100 < r.s.prob) {
@@ -428,11 +438,13 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
 
       defender.runes.forEach((r) => {
         if (r.name === "힐" && Math.random() * 100 < r.s.prob) {
-          defender.hp = Math.min(defender.maxHp, defender.hp + (defender.maxHp * r.s.rec_p) / 100);
+          defender.hp = Math.min(defender.maxHp, defender.hp + r.s.rec_f);
         }
       });
 
-      const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100);
+      const berserkerRune = attacker.runes.find((r) => r.name === "광전사의 분노");
+      const berserkerBonus = berserkerRune ? computeBerserkerAtkBonus((attacker.hp / attackerVals.maxHp) * 100, berserkerRune.s) : 0;
+      const finalAtk = (attackerVals.atk + attacker.giftAtk) * (1 + attacker.warCryAtkP / 100) * (1 + berserkerBonus / 100);
       arenaQuickHitDefender(rollCritHit(finalAtk, attackerVals.cRate, attackerVals.cDmg).dmg, "평타", defender);
 
       attacker.runes.forEach((r) => {
@@ -447,7 +459,7 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
             if (hpPct < r.s.insta_hp && Math.random() * 100 < r.s.insta_prob) defender.hp = 0;
           }
         }
-        if (r.name === "메테오" && Math.random() * 100 < r.s.prob) {
+        if ((r.name === "메테오" || r.name === "가시") && Math.random() * 100 < r.s.prob) {
           aliveSlots(defenderSide).forEach((d) => {
             const dmg = Math.max(0, rollCritHit(finalAtk * (r.s.burst_p / 100), attackerVals.cRate, attackerVals.cDmg).dmg);
             d.hp = Math.max(0, d.hp - dmg);
