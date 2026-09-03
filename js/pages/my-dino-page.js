@@ -367,9 +367,8 @@ function vipToDinoCount(vip) {
   if (vip <= 7) return 6;
   if (vip <= 10) return 7;
   if (vip <= 12) return 8;
-  return 9; // VIP 13(최고 등급) = 부족 유닛 +4 -> 5+4=9(전체 최대치, 사용자 확정). 예전엔 13을
-  // 그대로 반환하는 오타가 있어서 VIP12(8마리)에서 VIP13으로 한 단계 올렸을 뿐인데 공룡 수가
-  // 13마리로 급증하는 버그였음(사용자 제보 - "왜 공룡수가 갑자기 최대 13마리가 되었는지는 모르겠는데")
+  return 9; // VIP 13(최고 등급) = 부족 유닛 +4 -> 5+4=9. 여기에 공룡 수 증가 패키지(구매 시 +4)를
+  // 더하면 전체 최대치가 13까지 올라감(사용자 확인) - DINO_COUNT_MAX 참고
 }
 
 // VIP 레벨 -> 드롭다운에 쓸 배지 이미지 (없음~4는 0번, 5~7은 1번, 8~10은 2번, 11~13은 3번)
@@ -704,10 +703,9 @@ function initMyDinoPage(profile, options = {}, container) {
     markChanged(dinoCountSelectedValue, count !== 5);
   }
 
-  // 실제 게임의 절대 최대치는 9마리(VIP13 - 부족 유닛 +4, vipToDinoCount 참고) - 예전엔 13까지
-  // 수동 선택 가능했는데(vipToDinoCount의 VIP13 오타와 같은 값을 그대로 상한으로 썼던 것) 게임상
-  // 존재하지 않는 10~13마리를 고를 수 있었음(사용자 제보로 발견)
-  for (let i = 1; i <= 9; i++) {
+  // 실제 게임의 절대 최대치는 13마리(VIP13 부족 유닛 +4 = 9, 여기에 공룡 수 증가 패키지 +4를
+  // 더한 값 - 사용자 확인, 패키지 출시 전엔 9가 상한이었음)
+  for (let i = 1; i <= 13; i++) {
     const li = document.createElement("li");
     li.textContent = t("my_dino.stat.dinoCountValue", { count: i });
     on(li, "onclick", () => {
