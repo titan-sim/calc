@@ -82,6 +82,15 @@ function computeSideCombatValues(side, aliveCount, tileCfg) {
   const hpTowerLv = tileCfg[`${side.key}HpTowerLevel`];
   if (hpTowerLv !== null && hpTowerLv !== undefined) hpP += BUFF_TOWER_PERCENTS[hpTowerLv];
 
+  // 협동 공격/고독한 분노는 "같은 타일에 내 유닛이 몇 마리"가 기준인데, 전투 자체는 항상 앞장
+  // 1마리씩 맞붙고 나머지는 대기함(이 파일의 근본 전제) - "다른 타일" 배치면 대기 공룡이 애초에
+  // 이 전투 타일에 없으므로 앞장은 항상 혼자(고독한 분노 상시 발동, 협동 공격은 성립 자체가
+  // 불가능), "한 타일" 배치면 대기 공룡도 같은 타일에 물리적으로 같이 있는 것이므로 로스터
+  // 잔여수가 곧 "이 타일에 있는 마릿수"와 같음(기존 aliveCount 기준 그대로) - 사용자 확정
+  // ("나는 계속 다른 타일로 하고 있었어... 대기 공룡은 전부 대기 상태이고 1:1로만 한 타일에서
+  // 전투를 하니까 고독한 분노의 온전한 능력을 다 쓸 수 있어")
+  const separateTile = tileCfg[`${side.key}TileArrangement`] === "separate";
+
   side.runes.forEach((r) => {
     if (r.name === "마지막 선물") return; // 상시 스탯 아님(사망 시 임시 버프로 별도 처리)
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
@@ -90,7 +99,9 @@ function computeSideCombatValues(side, aliveCount, tileCfg) {
     // 알아야만 판정 가능해서 finalAtk를 계산하는 지점(attacker 객체가 있는 곳)에서 따로 처리함
     if (r.name === "광전사의 분노") return;
 
-    const active = r.name === "협동 공격" ? aliveCount >= 5 : r.name === "고독한 분노" ? aliveCount === 1 : true;
+    const active = r.name === "협동 공격" ? (!separateTile && aliveCount >= 5)
+      : r.name === "고독한 분노" ? (separateTile || aliveCount === 1)
+      : true;
     if (active) {
       if (r.s.atk_f) atkF += r.s.atk_f;
       if (r.s.atk_p) atkP += r.s.atk_p;
@@ -142,8 +153,13 @@ function shieldTurnOf(side) {
   return shieldRune ? shieldRune.s.turn : 0;
 }
 
+// side.dinos는 죽은 개체가 생기는 즉시 processFrontDeath에서 splice로 바로 제거되므로(이 파일 안의
+// 모든 호출부가 그 splice 이후 시점에만 aliveDinos를 부름), 이 시점엔 배열 자체가 이미 "살아있는
+// 개체만" 들어있는 상태임 - 그래서 매번 필터링(O(N))할 필요 없이 그대로 반환해도 됨. 로스터가 큰
+// 최적화용 라운드로빈(공룡 수를 인위적으로 크게 잡는 경우)에서 이 필터가 턴마다 여러 번 불려
+// 체감될 만큼 느려지는 게 확인돼서 제거함 - 반환값을 밖에서 변형하면 안 됨(그대로 side.dinos 참조).
 function aliveDinos(side) {
-  return side.dinos.filter((d) => d.hp > 0);
+  return side.dinos;
 }
 
 // seed가 주어지면(친구 세션의 "이번 라운드" 시드) 그 시드로 고정된 PRNG를 쓰고, 없으면(빠른 계산이
@@ -157,7 +173,12 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
 
   const events = [];
   let turn = 0;
-  const MAX_TURNS = 3000;
+  // 실제 배틀(공룡 5~13마리)만 염두에 두고 넉넉하게 잡아뒀던 고정값(3000) - 그 범위에선 300턴
+  // 넘기는 것도 드물어서 충분했지만, 최적화용으로 공룡 수를 인위적으로 크게 돌리면(로스터가 클수록
+  // 다 죽을 때까지 필요한 턴 수도 그만큼 늘어남) 승부가 나기도 전에 여기 걸려 "무승부"로 잘리는
+  // 문제가 실측 확인됨(공룡 100마리로도 2700턴 넘게 씀). 로스터 크기(양쪽 합)에 비례해서 같이
+  // 늘림 - 실제로 그만큼 턴을 다 쓰는 경우에만 비용이 들고, 짧게 끝나는 전투엔 영향 없음.
+  const MAX_TURNS = Math.max(3000, (my.count + opp.count) * 200);
   // 방어력/힐이 지나치게 강해 서로 못 죽이는 무한 교착을 막기 위한 실제 게임 규칙: 같은 앞장 쌍이
   // 평타를 각자 100번씩(총 200회) 주고받으면 남은 체력과 무관하게 양쪽이 동시사망. 앞장이 바뀌면
   // (둘 중 하나라도 죽으면) 0부터 다시 셈.
