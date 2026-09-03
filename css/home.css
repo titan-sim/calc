@@ -129,7 +129,13 @@
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   opacity: 0;
-  animation: home-tile-in 0.45s ease forwards;
+  /* opacity/transform을 하나로 묶은 animation에 forwards를 걸면, 애니메이션이 끝난 뒤에도 그
+     transform(translateY(0))이 CSS 우선순위상 계속 남아서(애니메이션이 인라인 스타일보다 위)
+     home.js가 매 프레임 tile.style.transform으로 넣는 틸트 값을 완전히 무시해버림 - getComputedStyle로
+     확인해보면 항상 matrix(1,0,0,1,0,0)(무회전)이었음. opacity는 forwards로 계속 1을 유지해야
+     하지만(안 그러면 애니메이션 끝나자마자 위의 기본값 opacity:0으로 되돌아가 카드가 사라짐)
+     transform은 애니메이션이 끝나면 그 즉시 손을 떼야 함 - 그래서 둘을 별도 animation으로 쪼갬 */
+  animation: home-tile-fade-in 0.45s ease forwards, home-tile-slide-in 0.45s ease;
   animation-delay: calc(var(--i) * 0.06s);
 }
 
@@ -138,31 +144,37 @@
   overflow: hidden;
 }
 
-@keyframes home-tile-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes home-tile-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* 진짜 3D 슬랩(두께가 있는 유리판): .home-tile-main 자체를 preserve-3d로 두고, 실제 옆면
-   4개(.home-tile-edge-*)를 각자 90도 회전시켜 앞면 가장자리에 이어붙임(표준 "CSS 큐브" 만드는
-   방식과 동일) - JS(initHomeTileTilt)가 거는 perspective+rotateX/rotateY가 이 앞면+옆면 전체를
-   하나의 강체로 같이 돌리기 때문에, 기울일 때 실제로 원근 왜곡(사각형이 사다리꼴로 찌그러짐)과
-   함께 어느 쪽으로 기울었는지에 따라 그 방향 옆면이 실제로 드러나 보임 - box-shadow 등으로
-   흉내내던 가짜 두께가 아니라 진짜 기하학적 두께. */
+@keyframes home-tile-slide-in {
+  from { transform: translateY(10px); }
+  to { transform: translateY(0); }
+}
+
+/* 진짜 3D 유리판: perspective+rotateX/rotateY(js/pages/home.js의 applyHomeTileTilt)를 카드
+   자체에 걸어서, 카드 하나에 커서가 있을 때만 반응하던 예전과 달리 화면 어디서 포인터/터치가
+   움직이든 홈의 카드 전부가 그 좌표를 향해 동시에 기울어짐(Pointer Events로 터치도 지원) -
+   회전값이 그대로 사각형을 사다리꼴로 찌그러뜨리는 진짜 원근 왜곡이라 가짜 rotateX/Y가 아님.
+   (묶음3 6차 재작업) 이전 5차 시도는 옆면 4개를 90도로 접어 붙여 실제 두께를 만드는
+   "CSS 큐브" 방식이었는데, 실측해보니(getBoundingClientRect) 각도를 60도까지 줘도 옆면 투영
+   폭이 정확히 0px로 나와 브라우저에서 전혀 안 보이는 버그가 있었음(3D 중첩 합성 관련 문제로
+   추정, 지금까지 "안 된다"고 느껴진 근본 원인). 실제 두께를 세우는 대신, 기울어진 방향의
+   모서리 쪽에 은은한 그라데이션이 몰리는 2D 인셋 글로우(.home-tile-edge-*, 아래)로 대체 -
+   광원이 그 방향에 있는 것처럼 보이는 효과 자체는 동일하게 내면서 훨씬 안정적으로 렌더링됨. */
 .home-tile-main {
   --shadow-x: 0px;
   --shadow-y: 10px;
-  --thickness: 12px;
-  transform-style: preserve-3d;
-  background: linear-gradient(155deg, color-mix(in srgb, var(--input-bg) 78%, transparent), color-mix(in srgb, var(--accent) 10%, var(--input-bg) 65%));
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  position: relative;
+  overflow: hidden; /* 모서리 글로우를 둥근 모서리 안에 가둠 */
+  /* 불투명 비율을 낮춰서(78%/65% -> 35%/28%) backdrop-filter의 블러 통과가 더 잘 드러나게 함 -
+     "반사가 과하다, 유리의 투명함을 강조하고 싶었다"는 피드백으로 채도(saturate)도 낮춤(과채도가
+     반사처럼 읽혔음) */
+  background: linear-gradient(155deg, color-mix(in srgb, var(--input-bg) 35%, transparent), color-mix(in srgb, var(--accent) 6%, var(--input-bg) 28%));
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
   border: 1.5px solid color-mix(in srgb, white 16%, var(--border-color));
   box-shadow:
     var(--shadow-x) var(--shadow-y) 26px rgba(0, 0, 0, 0.22),
@@ -171,53 +183,56 @@
   will-change: transform;
 }
 
-.home-tile-main:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+/* 실제로 포인터/터치가 그 카드 위에 있을 때만 켜짐 - :hover는 마우스 실물체 위에 있을 때만
+   자연히 잡히고(터치는 신뢰 안 됨), .home-tile-focused는 js/pages/home.js의
+   applyHomeTileTilt()가 포인터 좌표가 그 카드의 rect 안에 들어왔는지 직접 판정해서 붙여줌 -
+   둘 다 같은 강조를 받도록 묶음. 예전엔 border-color만 옅게 섞여 잘 안 보였다는 피드백으로
+   accent 원색 테두리 + 링 + 바깥 글로우로 확실하게 강조함(채우기는 그대로 둬서 1번의 투명함과
+   안 부딪힘) */
+.home-tile-main:hover,
+.home-tile-main.home-tile-focused {
+  border-color: var(--accent);
   box-shadow:
     var(--shadow-x) var(--shadow-y) 34px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 color-mix(in srgb, white 35%, transparent);
+    inset 0 1px 0 color-mix(in srgb, white 35%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 26px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+/* 포인터가 있는 방향의 변(들)만 안쪽으로 아주 옅게 번지는 골드빛 글로우 - 인접한 두 변(예:
+   위+왼쪽)이 동시에 켜지면 그 사이 모서리가 자연히 가장 밝아져서 "그 모서리가 빛난다"는 인상을
+   줌. js/pages/home.js가 포인터 방향과 일치하는 변의 --edge-glow-r/l/t/b만 0보다 크게 채우고
+   나머지는 0으로 둠. "반사가 과하다, 유리의 투명함을 강조하고 싶었다"는 피드백으로 곱하는
+   값(0.7->0.25)과 퍼지는 폭(55%->40%)을 둘 다 줄여 이 글로우가 카드 인상을 지배하지 않게 함 -
+   .home-tile-main:hover/.home-tile-focused의 테두리 강조가 이제 "지금 가리키는 카드"를 훨씬
+   또렷하게 표시하므로, 이 모서리 글로우는 정말 있는 듯 없는 듯한 마감 정도로만 남김 */
 .home-tile-edge {
   position: absolute;
-  background: linear-gradient(color-mix(in srgb, var(--accent) 20%, var(--input-bg) 40%), color-mix(in srgb, black 45%, var(--input-bg) 40%));
   pointer-events: none;
 }
 
 .home-tile-edge-r {
-  top: 0;
-  left: 100%;
-  width: var(--thickness);
-  height: 100%;
-  transform-origin: 0% 50%;
-  transform: rotateY(90deg);
+  top: 0; right: 0; width: 40%; height: 100%;
+  background: linear-gradient(to right, transparent, color-mix(in srgb, white 82%, var(--accent) 18%));
+  opacity: calc(var(--edge-glow-r, 0) * 0.25);
 }
 
 .home-tile-edge-l {
-  top: 0;
-  right: 100%;
-  width: var(--thickness);
-  height: 100%;
-  transform-origin: 100% 50%;
-  transform: rotateY(-90deg);
+  top: 0; left: 0; width: 40%; height: 100%;
+  background: linear-gradient(to left, transparent, color-mix(in srgb, white 82%, var(--accent) 18%));
+  opacity: calc(var(--edge-glow-l, 0) * 0.25);
 }
 
 .home-tile-edge-b {
-  left: 0;
-  top: 100%;
-  width: 100%;
-  height: var(--thickness);
-  transform-origin: 50% 0%;
-  transform: rotateX(-90deg);
+  left: 0; bottom: 0; width: 100%; height: 40%;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, white 82%, var(--accent) 18%));
+  opacity: calc(var(--edge-glow-b, 0) * 0.25);
 }
 
 .home-tile-edge-t {
-  left: 0;
-  bottom: 100%;
-  width: 100%;
-  height: var(--thickness);
-  transform-origin: 50% 100%;
-  transform: rotateX(90deg);
+  left: 0; top: 0; width: 100%; height: 40%;
+  background: linear-gradient(to top, transparent, color-mix(in srgb, white 82%, var(--accent) 18%));
+  opacity: calc(var(--edge-glow-t, 0) * 0.25);
 }
 
 
