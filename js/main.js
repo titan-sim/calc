@@ -1,4 +1,7 @@
 window.addEventListener("DOMContentLoaded", async () => {
+  document.getElementById("menuBtn").onclick = toggleMenu;
+  document.getElementById("closeMenuBtn").onclick = toggleMenu;
+  document.getElementById("menuOverlay").onclick = toggleMenu;
   await initI18n();
   initSettingsDrawer();
   initRouter();
