@@ -228,5 +228,41 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     $("removeBtn").onclick = removeRuneFromSlot;
   }
 
-  return { mount, getSelectedRunes, setSelectedRunes, renderSlots };
+  // getSelectedRunes()는 이 안에서만 씀(applyRuneToSlot/removeRuneFromSlot이 onChange에 넘길 때) -
+  // 바깥에서 부르는 곳이 없어서(항상 onChange 콜백으로만 결과를 받음) 반환 객체엔 안 담음
+  return { mount, setSelectedRunes, renderSlots };
+}
+
+// 조합 찾기가 있는 4개 페이지(타이탄/허수아비/건물/공룡 대전)의 "보유 룬 레벨 입력 그리드"(적합 룬
+// 전부를 나열하고 각각 레벨을 입력받는 표) - 룬 이름에 공백이 들어있어서(예: "압축된 힘") id
+// 속성에 그대로 쓰면 CSS 선택자가 깨지므로 data-rune 속성으로만 식별함. 4페이지가 그리드/결과
+// 엘리먼트 id와 적합 룬 목록·불러오기·저장 함수만 다를 뿐 나머지 로직이 완전히 같아서 공용화함
+// (사이트 전체 점검에서 발견 - createRuneUI와 같은 이유로 이 파일에 둠. combinationsOf처럼 순수
+// 계산이 아니라 DOM을 직접 건드리는 함수라 js/core/stat-calc.js가 아니라 여기에 둠).
+function initOwnedRuneGrid({ gridId, resultElId, suitableNames, loadLevels, saveLevels }) {
+  const levels = loadLevels();
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = suitableNames().map((name) => `
+    <div class="dummy-owned-rune-row">
+      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
+      <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
+    </div>
+  `).join("");
+
+  grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
+    input.oninput = () => { input.value = input.value.replace(/[^0-9]/g, ""); };
+    // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
+    // 사용자 지적) - blur()를 호출하면 아래 onblur 핸들러가 그대로 실행됨
+    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+    input.onblur = () => {
+      const name = input.dataset.rune;
+      const v = Math.max(0, Math.min(31, Number(input.value) || 0));
+      input.value = v || "";
+      const current = loadLevels();
+      current[name] = v;
+      saveLevels(current);
+      const resultEl = document.getElementById(resultElId);
+      if (resultEl) resultEl.innerHTML = "";
+    };
+  });
 }

@@ -124,17 +124,8 @@ function titanDeathCountsStatisticallyTied(countA, nA, countB, nB) {
 
 const TITAN_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
 
-function titanRuneSortKey(name) {
-  const r = RUNES_DATA[name];
-  const gradeRank = TITAN_GRADE_ORDER.indexOf(r.grade);
-  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
-  return gradeRank * 10000 + idNum;
-}
-
 function titanSuitableRuneNames() {
-  return Object.keys(RUNES_DATA)
-    .filter((n) => !UNSUITABLE_RUNE_LIST.includes(n))
-    .sort((a, b) => titanRuneSortKey(b) - titanRuneSortKey(a));
+  return standardSuitableRuneNames(UNSUITABLE_RUNE_LIST, TITAN_GRADE_ORDER);
 }
 
 function defaultTitanTileSettings() {
@@ -156,18 +147,7 @@ function saveTitanTileSettings(settings) {
 }
 
 function loadTitanOwnedLevels() {
-  const levels = {};
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(TITAN_OWNED_LEVELS_KEY)) || {};
-  } catch (e) {
-    saved = {};
-  }
-  titanSuitableRuneNames().forEach((name) => {
-    const v = saved[name];
-    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
-  });
-  return levels;
+  return loadOwnedRuneLevels(TITAN_OWNED_LEVELS_KEY, titanSuitableRuneNames());
 }
 
 function saveTitanOwnedLevels(levels) {
@@ -198,7 +178,7 @@ function renderTitanPage(container) {
     ])}
 
     <div class="card battle-main-card" id="titanMainCard">
-      <div class="battle-mode-tabs titan-mode-tabs-4" id="titanModeTabs" data-active-idx="0">
+      <div class="battle-mode-tabs battle-mode-tabs-4" id="titanModeTabs" data-active-idx="0">
         <span class="battle-mode-indicator" id="titanModeIndicator"></span>
         <button class="battle-mode-tab active" data-mode="settings" id="titanModeTabSettings"><span>${t("titan.tab.settings")}</span></button>
         <button class="battle-mode-tab" data-mode="quick" id="titanModeTabQuick"><span>${t("titan.tab.quick")}</span></button>
@@ -1471,29 +1451,12 @@ function initTitanPage() {
   // 생존 시간은 실제로 얼마나 버티는지를 알아야 해서 runTitanSimulation을 회차를 낮춰서 돌림(그래도
   // 조합 수가 많으면 오래 걸릴 수 있음 - 사이트에서 제일 무거운 연산) =====
   function titanInitOwnedRuneGrid() {
-    const levels = loadTitanOwnedLevels();
-    const grid = document.getElementById("titanOwnedRuneGrid");
-    grid.innerHTML = titanSuitableRuneNames().map((name) => `
-      <div class="dummy-owned-rune-row">
-        <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
-        <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
-      </div>
-    `).join("");
-
-    grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
-      input.oninput = () => { input.value = input.value.replace(/[^0-9]/g, ""); };
-      input.onblur = () => {
-        const name = input.dataset.rune;
-        let v = Math.max(0, Math.min(31, Number(input.value) || 0));
-        input.value = v || "";
-        const current = loadTitanOwnedLevels();
-        current[name] = v;
-        saveTitanOwnedLevels(current);
-        document.getElementById("titanOptimizeResult").innerHTML = "";
-      };
-      // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
-      // 사용자 지적) - blur()를 호출하면 위 onblur 핸들러가 그대로 실행됨
-      input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+    initOwnedRuneGrid({
+      gridId: "titanOwnedRuneGrid",
+      resultElId: "titanOptimizeResult",
+      suitableNames: titanSuitableRuneNames,
+      loadLevels: loadTitanOwnedLevels,
+      saveLevels: saveTitanOwnedLevels
     });
   }
 
@@ -1810,7 +1773,7 @@ function initTitanPage() {
     // 수십 회짜리 후보보다 무조건 안전하다고 과신하지 않게 됨). 이 동률 안에서는 딜이 제일
     // 높은 걸 우선함 - 단, 방어형 룬 하나만 다른 조합끼리는 dps도 완전히 똑같아서(방어는 화력에
     // 영향 없음) 이 비교도 무승부가 되고, 그러면 reduce가 그냥 배열에 먼저 나온 쪽을 반환해버림.
-    // 그 배열 순서는 titanRuneSortKey()의 imgId(그림 카탈로그 번호, 게임 밸런스와 무관) 내림차순이라
+    // 그 배열 순서는 standardRuneSortKey()의 imgId(그림 카탈로그 번호, 게임 밸런스와 무관) 내림차순이라
     // "동률이면 무조건 이 순서가 이긴다"는 우연적인 결과가 나옴(실측 확인 - 단단한 피부 1/피해
     // 저항 1을 둘 다 31레벨 보유한 경우, avgDeadCount·dps가 완전히 같은데도 imgId가 더 큰 피해
     // 저항 1이 항상 선택됨). 사용자 확정 - "사망수가 0이면(동률이면) 그다음은 딜이 잘 나오는 쪽을

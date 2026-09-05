@@ -713,32 +713,12 @@ function initModeTabs() {
 // 통계적으로 애매한 후보만 고비용 정밀검증" 구조를 재사용함 - 특히 통계적 동률 판정
 // (dinoBattleRateStatisticallyTied)은 titanDeathCountsStatisticallyTied와 완전히 같은 공식.
 
-function dinoBattleRuneSortKey(name) {
-  const r = RUNES_DATA[name];
-  const gradeRank = DINO_BATTLE_GRADE_ORDER.indexOf(r.grade);
-  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
-  return gradeRank * 10000 + idNum;
-}
-
 function dinoBattleSuitableRuneNames() {
-  return Object.keys(RUNES_DATA)
-    .filter((n) => !DINO_BATTLE_UNSUITABLE_RUNE_LIST.includes(n))
-    .sort((a, b) => dinoBattleRuneSortKey(b) - dinoBattleRuneSortKey(a));
+  return standardSuitableRuneNames(DINO_BATTLE_UNSUITABLE_RUNE_LIST, DINO_BATTLE_GRADE_ORDER);
 }
 
 function loadDinoBattleOwnedLevels() {
-  const levels = {};
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(DINO_BATTLE_OWNED_LEVELS_KEY)) || {};
-  } catch (e) {
-    saved = {};
-  }
-  dinoBattleSuitableRuneNames().forEach((name) => {
-    const v = saved[name];
-    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
-  });
-  return levels;
+  return loadOwnedRuneLevels(DINO_BATTLE_OWNED_LEVELS_KEY, dinoBattleSuitableRuneNames());
 }
 
 function saveDinoBattleOwnedLevels(levels) {
@@ -746,27 +726,12 @@ function saveDinoBattleOwnedLevels(levels) {
 }
 
 function dinoBattleInitOwnedRuneGrid() {
-  const levels = loadDinoBattleOwnedLevels();
-  const grid = document.getElementById("dinoOwnedRuneGrid");
-  grid.innerHTML = dinoBattleSuitableRuneNames().map((name) => `
-    <div class="dummy-owned-rune-row">
-      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
-      <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
-    </div>
-  `).join("");
-
-  grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
-    input.oninput = () => { input.value = input.value.replace(/[^0-9]/g, ""); };
-    input.onblur = () => {
-      const name = input.dataset.rune;
-      const v = Math.max(0, Math.min(31, Number(input.value) || 0));
-      input.value = v || "";
-      const current = loadDinoBattleOwnedLevels();
-      current[name] = v;
-      saveDinoBattleOwnedLevels(current);
-      document.getElementById("dinoOptimizeResult").innerHTML = "";
-    };
-    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+  initOwnedRuneGrid({
+    gridId: "dinoOwnedRuneGrid",
+    resultElId: "dinoOptimizeResult",
+    suitableNames: dinoBattleSuitableRuneNames,
+    loadLevels: loadDinoBattleOwnedLevels,
+    saveLevels: saveDinoBattleOwnedLevels
   });
 }
 

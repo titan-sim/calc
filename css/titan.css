@@ -139,28 +139,8 @@
   padding: 6px 0;
 }
 
-/* ===== 타이탄: 전투 설정 / 빠른 계산 / 실전 시뮬레이션 / 조합 찾기 4개 모드를 정확히 4등분 -
-   탭 폭이 전부 같아서 인디케이터도 순수 CSS 퍼센트로 처리(JS 픽셀 측정 방식은 창 폭이 좁아질 때
-   재계산이 안 돼서 옆 탭을 침범하는 버그가 있었음 - %는 항상 컨테이너와 같이 줄어들어 안전함).
-   이동은 #titanModeTabs의 data-active-idx 속성으로 표시(titanInitModeTabs, titan-page.js) =====*/
-.titan-mode-tabs-4 .battle-mode-indicator {
-  width: calc(25% - 5px);
-}
-
-.titan-mode-tabs-4[data-active-idx="1"] .battle-mode-indicator { transform: translateX(calc(100% + 4px)); }
-.titan-mode-tabs-4[data-active-idx="2"] .battle-mode-indicator { transform: translateX(calc(200% + 8px)); }
-.titan-mode-tabs-4[data-active-idx="3"] .battle-mode-indicator { transform: translateX(calc(300% + 12px)); }
-
-/* 전투 설정 탭(idx 0)만 나머지 모드와 구분되게 하늘색(#3cb4be)으로 표시 - 나머지 3개(빠른 계산/
-   실전 시뮬레이션/조합 찾기)는 기본 골드 그라디언트 그대로 유지 */
-.titan-mode-tabs-4[data-active-idx="0"] .battle-mode-indicator {
-  background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
-  box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
-}
-
-.titan-mode-tabs-4[data-active-idx="0"] #titanModeTabSettings.active {
-  color: #eef4ff;
-}
+/* 타이탄의 전투 설정/빠른 계산/실전 시뮬레이션/조합 찾기 4탭 인디케이터 CSS는 건물 페이지와
+   완전히 같아서(둘 다 같은 클래스 .battle-mode-tabs-4를 씀) css/combat-shared.css로 공용화됨 */
 
 /* 전투 설정 8칸(자연/부족/공버프/체버프/레벨/시간/거리/연속전투)을 전부 "라벨 왼쪽 - 조작 오른쪽"
    행으로 통일해서 2열 grid에 정확히 4행씩 배치 - 줄바꿈 대신 글자 크기를 줄여서 한 줄에 들어가게 함 */

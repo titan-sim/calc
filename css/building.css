@@ -14,29 +14,9 @@
   container-type: inline-size;
 }
 
-/* ===== 건물: 전투 설정 / 빠른 계산 / 시뮬레이션 / 조합 찾기 4탭(사용자 확정 - "타이탄처럼 해달라고"
-   - titan.css의 .titan-mode-tabs-4와 완전히 같은 방식). 탭 폭이 전부 같아서 인디케이터도 순수
-   CSS %로 처리하고, 이동은 #buildingModeTabs의 data-active-idx로 표시(buildingInitModeTabs,
-   building-page.js) ===== */
-.building-mode-tabs-4 .battle-mode-indicator {
-  width: calc(25% - 5px);
-}
-
-.building-mode-tabs-4[data-active-idx="1"] .battle-mode-indicator { transform: translateX(calc(100% + 4px)); }
-.building-mode-tabs-4[data-active-idx="2"] .battle-mode-indicator { transform: translateX(calc(200% + 8px)); }
-.building-mode-tabs-4[data-active-idx="3"] .battle-mode-indicator { transform: translateX(calc(300% + 12px)); }
-
-/* 전투 설정 탭(idx 0)만 파란색으로 표시(사용자 확정 - "전투 설정의 색깔은 파란색으로(타이탄 css
-   참고)") - 타이탄의 #3cb4be를 그대로 씀. 나머지 3개(빠른 계산/시뮬레이션/조합 찾기)는 기본 골드
-   그라디언트 그대로 유지 */
-.building-mode-tabs-4[data-active-idx="0"] .battle-mode-indicator {
-  background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
-  box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
-}
-
-.building-mode-tabs-4[data-active-idx="0"] #buildingModeTabSettings.active {
-  color: #eef4ff;
-}
+/* 건물의 전투 설정/빠른 계산/시뮬레이션/조합 찾기 4탭(사용자 확정 - "타이탄처럼 해달라고") 인디케이터
+   CSS는 타이탄 페이지와 완전히 같아서(둘 다 같은 클래스 .battle-mode-tabs-4를 씀) css/combat-shared.css로
+   공용화됨 */
 
 #buildingLiveModeCard .battle-controls {
   margin-top: 14px;

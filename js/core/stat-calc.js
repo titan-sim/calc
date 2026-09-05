@@ -33,6 +33,44 @@ function combinationsOf(arr, k) {
   return results;
 }
 
+// 조합 찾기가 있는 4개 페이지(타이탄/허수아비/건물/공룡 대전)가 "적합 룬 목록 -> 등급/이미지 id
+// 순으로 정렬"을 각자 똑같은 공식으로 구현해뒀던 걸 공용화(위 combinationsOf와 같은 이유로 발견).
+// gradeOrder를 인자로 받는 이유: 페이지마다 실제 등급 배열이 다름(타이탄/허수아비/건물은
+// 4단계이지만 공룡 대전은 "전설"까지 5단계) - 로직 자체는 완전히 같아서 그 차이만 인자로 흡수함.
+// 각 페이지는 여전히 자기 상수를 미리 채운 얇은 xRuneSortKey()/xSuitableRuneNames() 래퍼를
+// 그대로 갖고 있고(그 함수를 부르는 기존 호출부들은 안 바뀜), 그 래퍼의 몸통만 이 두 함수를
+// 부르도록 정리함.
+function standardRuneSortKey(name, gradeOrder) {
+  const r = RUNES_DATA[name];
+  const gradeRank = gradeOrder.indexOf(r.grade);
+  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
+  return gradeRank * 10000 + idNum;
+}
+
+function standardSuitableRuneNames(unsuitableList, gradeOrder) {
+  return Object.keys(RUNES_DATA)
+    .filter((n) => !unsuitableList.includes(n))
+    .sort((a, b) => standardRuneSortKey(b, gradeOrder) - standardRuneSortKey(a, gradeOrder));
+}
+
+// 조합 찾기의 "보유 레벨" 저장값 로드 - 저장된 적 없는(또는 0~31 범위를 벗어난, 예: 수동
+// localStorage 편집으로 꼬인) 룬은 0으로 취급. suitableNames는 호출자가 이미 계산해 넘김(어차피
+// 다른 용도로도 다시 쓰는 배열이라 이 함수 안에서 다시 계산하지 않음)
+function loadOwnedRuneLevels(storageKey, suitableNames) {
+  const levels = {};
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+  } catch (e) {
+    saved = {};
+  }
+  suitableNames.forEach((name) => {
+    const v = saved[name];
+    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
+  });
+  return levels;
+}
+
 // 치명타 굴림 - "치확 확률로 cDmg%, 아니면 100% 대미지"라는 동일한 계산이 타이탄/건물/허수아비/
 // 다이노배틀/아레나 5개 엔진에 전부 각자 구현돼있던 걸 공용화(사용자 지적 - "4개 페이지 모두
 // 각각 따로따로 체력이나 공격력을 계산했던거야? 그건 너무 비효율적인 코드 작성"). rand를 인자로

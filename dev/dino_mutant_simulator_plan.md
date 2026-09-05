@@ -1937,8 +1937,64 @@ localStorage 키·DOM id가 실제로 다 달라서(예: 공룡 대전은 등급
 2388자, 허수아비 816자, 건물 798자의 결과 HTML이 정상 렌더링됨) 콘솔 에러 0건으로 회귀 없음을
 확인.
 
-**남은 항목(범위 밖, 추후 처리 예정).** 이번 라운드는 "심각한거 먼저"에 해당하는 게임 계산
-정확도·사이트 크래시급 버그 위주로 처리함. 아직 안 고친 항목: 위 17번에서 범위 밖으로 남긴 나머지
-조합 찾기 헬퍼 중복(등급 정렬/적합 룬 목록/보유 레벨 로드/입력 그리드 초기화), 슬라이드 인디케이터
-CSS 중복(titan.css/building.css), 그 외 사소한 항목들(`dropdown-ui.js`의 `overflow:auto|scroll`
-미처리, `rune-ui.js`의 미사용 export 등).
+### ✅ 완료 — 묶음 44: 전수조사에서 범위 밖으로 남겨뒀던 나머지 코드 정리 항목 마무리
+
+사용자가 "모든 문제가 해결된거야?"라고 재확인 - 실제 버그는 다 고쳤지만 묶음43 17번에서 위험 대비
+이득이 낮다고 판단해 범위 밖으로 남겨둔 순수 코드 정리 항목들이 있다고 답하자, "일단 그것도
+정리해줘"라고 확정. 버그가 아니라 전부 중복 제거/사소한 정리라 사용자 경험에 영향은 없음.
+
+**1) 조합 찾기 헬퍼 중복(등급 정렬/적합 룬 목록/보유 레벨 로드/입력 그리드 초기화) 4페이지 공용화.**
+묶음43 17번에서 `combinationsOf` 하나만 공용화하고 남겨뒀던 나머지 - 다시 보니 로직 자체는 4개
+페이지(타이탄/허수아비/건물/공룡 대전) 전부 완전히 같고, 실제로 다른 건 등급 배열·제외 룬 목록·
+localStorage 키·DOM id뿐이라 이 값들만 인자로 받게 하면 안전하게 공용화할 수 있음을 확인함(각
+페이지가 이미 갖고 있던 얇은 `xSuitableRuneNames()`/`loadXOwnedLevels()` 등 호출부는 그대로 두고,
+그 몸통만 공용 함수를 부르게 바꿔서 기존 호출부 전부(4페이지 합쳐 2~5곳씩) 안 건드림):
+- `js/core/stat-calc.js`에 `standardRuneSortKey(name, gradeOrder)`/`standardSuitableRuneNames(unsuitableList, gradeOrder)`/
+  `loadOwnedRuneLevels(storageKey, suitableNames)` 추가(순수 계산이라 combinationsOf와 같은 파일).
+  `gradeOrder`를 인자로 받아서 공룡 대전만 등급이 5단계("전설" 포함)인 차이도 그대로 흡수함.
+- `js/ui/rune-ui.js`(룬 슬롯 장착 UI가 있던 파일 - DOM을 직접 건드리는 함수라 stat-calc.js가 아니라
+  여기 둠)에 `initOwnedRuneGrid({gridId, resultElId, suitableNames, loadLevels, saveLevels})` 추가.
+- 4페이지 각각의 `xRuneSortKey`(다른 곳에서 안 쓰여서 완전히 삭제하고 `xSuitableRuneNames`가
+  `standardSuitableRuneNames`를 직접 부름)/`xSuitableRuneNames`/`loadXOwnedLevels`/
+  `xInitOwnedRuneGrid`를 각자 상수를 미리 채운 얇은 래퍼로 교체.
+
+**2) titan.css/building.css의 중복 4탭 슬라이드 인디케이터 CSS를 combat-shared.css로 공용화.**
+두 페이지의 `.titan-mode-tabs-4`/`.building-mode-tabs-4` 블록이 클래스 접두사만 다를 뿐 완전히
+같아서(색상까지 동일한 #3cb4be), 공용 클래스 `.battle-mode-tabs-4`로 합쳐 `combat-shared.css`로
+옮김(허수아비의 `.dummy-mode-tabs-3`가 이미 그렇게 공용화돼 있던 것과 같은 패턴). "설정" 탭 강조
+규칙은 페이지마다 다른 id(`#titanModeTabSettings`/`#buildingModeTabSettings`) 대신 두 페이지 다
+이미 갖고 있던 공용 `data-mode="settings"` 속성으로 다시 씀 - 그래서 HTML은 클래스명 교체
+(`titan-mode-tabs-4`/`building-mode-tabs-4` -> `battle-mode-tabs-4`)만 필요했음. 공룡 대전
+페이지의 `.dino-mode-tabs-4`는 탭 순서상 "실전 대전"이 2번째가 아니라 3번째 자리라 공용
+`.mode-live` 규칙을 못 쓰고 원래부터 다른 방식(클래스 토글 기반)으로 구현돼 있던 것이라 - 이건
+진짜 다른 로직이라 공용화 대상이 아니었음(그대로 둠, 이 페이지의 낡은 상호 참조 주석만 정정).
+
+**3) `dropdown-ui.js`의 `findClippingAncestorRect`가 `overflow:auto/scroll`을 못 잡던 버그.**
+`hidden`/`clip`만 확인하고 있었는데, 실제로 사이드 메뉴의 스크롤 컨테이너(`.menu-content`)가
+`overflow-y:auto`라서 이 함수가 그 경계를 아예 못 찾고 있었음(`overflow`/`overflowY`의 개별 값이
+다를 때 나오는 압축 문자열 "hidden auto"가 옛 코드의 "hidden" 문자열 완전 일치 검사에 걸리지도
+않았음) - 실측해보니 메뉴 안의 언어 드롭다운이 우연히 눈에 띄는 버그로 이어지진 않았지만("당장은
+무해"), `auto`/`scroll`도 판정에 포함하도록 고침. Playwright로 확인 - 메뉴를 열고 언어 드롭다운을
+누르면 이제 `.menu-content`(진짜 스크롤 경계)를 정확히 찾아서, 목록이 그 경계 안에 맞게(위로
+열리는 방향까지) 배치됨. 다른 페이지의 기존 드롭다운(타이탄 재생 속도, 건물 투석기 레벨/속도 등)은
+전부 hidden/clip 경계라 결과가 그대로임(회귀 없음).
+
+**4) `js/ui/rune-ui.js`의 `createRuneUI` 반환 객체에서 안 쓰던 `getSelectedRunes` 제거.**
+함수 자체는 내부에서 계속 쓰지만(장착/해제 시 `onChange`에 넘길 값을 만드는 용도), 바깥에서
+`.getSelectedRunes()`로 부르는 곳이 실제로 없어서(모든 호출부가 `onChange` 콜백으로만 결과를 받음)
+반환 객체 목록에서만 뺌 - 함수 정의 자체나 내부 호출은 그대로 둠.
+
+**5) `js/data/rune-data.js`의 허수아비 적합 룬 개수 주석이 낡아있던 버그.** "14개"라고 적혀있고
+목록에도 "광전사의 분노"가 빠져 있었는데, 실제로 `dummySuitableRuneNames()`를 돌려보면 15개(광전사의
+분노 포함)임을 확인 - 언젠가 광전사의 분노가 허수아비 적합 목록에 추가됐는데 이 주석만 안 갱신된
+것으로 보임. "15개"로, 목록에 광전사의 분노도 추가해 정정.
+
+**검증.** 4페이지(타이탄/허수아비/건물/공룡 대전) 모두 보유 룬 그리드 렌더링(행 수가 적합 룬
+개수와 정확히 일치)·정렬 순서(등급 내림차순 유지)·레벨 입력 저장·전체 조합 찾기 실행까지 실제
+UI로 끝까지 돌려서 회귀 없음 확인(콘솔 에러 0건). 타이탄/건물 탭 전환 시 슬라이드 인디케이터 폭/
+이동/설정탭 강조색까지 전부 기존과 동일하게 동작함을 확인(색이 안 바뀐 것처럼 보였던 순간은
+실제로는 CSS transition 도중 캡처한 값이었고, 충분히 기다리면 정확한 색으로 안착함 확인). 사이드
+메뉴의 언어 드롭다운/룬 장착 UI(슬롯 클릭 -> 룬 선택 -> 장착까지)도 실제 UI로 끝까지 돌려 정상
+동작 확인.
+
+**남은 항목.** 없음 - 전수조사(묶음43~44)로 발견된 23건 전부 처리 완료.

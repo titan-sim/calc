@@ -238,6 +238,31 @@
   transform: translateX(calc(200% + 8px));
 }
 
+/* 타이탄/건물 페이지의 전투 설정/빠른 계산/실전 시뮬레이션(또는 대전)/조합 찾기 4탭 - 두 페이지가
+   완전히 같은 CSS를 titan.css/building.css에 각각 갖고 있던 걸 공용화(사이트 전체 점검에서 발견,
+   위 .dummy-mode-tabs-3와 같은 이유). 탭 폭이 전부 같아서 인디케이터도 순수 CSS %로 처리하고,
+   이동은 각 페이지의 xModeTabs 엘리먼트의 data-active-idx 속성으로 표시(titanInitModeTabs/
+   buildingInitModeTabs). "설정" 탭 판정은 페이지마다 다른 id(#titanModeTabSettings/
+   #buildingModeTabSettings) 대신 두 페이지 다 이미 갖고 있던 공용 data-mode="settings" 속성으로 함 */
+.battle-mode-tabs-4 .battle-mode-indicator {
+  width: calc(25% - 5px);
+}
+
+.battle-mode-tabs-4[data-active-idx="1"] .battle-mode-indicator { transform: translateX(calc(100% + 4px)); }
+.battle-mode-tabs-4[data-active-idx="2"] .battle-mode-indicator { transform: translateX(calc(200% + 8px)); }
+.battle-mode-tabs-4[data-active-idx="3"] .battle-mode-indicator { transform: translateX(calc(300% + 12px)); }
+
+/* 전투 설정 탭(idx 0)만 나머지 모드와 구분되게 하늘색(#3cb4be)으로 표시(사용자 확정) - 나머지
+   3개는 기본 골드 그라디언트 그대로 유지 */
+.battle-mode-tabs-4[data-active-idx="0"] .battle-mode-indicator {
+  background: linear-gradient(135deg, #3cb4be, color-mix(in srgb, #3cb4be 78%, black));
+  box-shadow: 0 3px 10px color-mix(in srgb, #3cb4be 40%, transparent);
+}
+
+.battle-mode-tabs-4[data-active-idx="0"] [data-mode="settings"].active {
+  color: #eef4ff;
+}
+
 .battle-mode-panel {
   position: relative;
   z-index: 1;

@@ -8,11 +8,19 @@ const DROPDOWN_LIST_MAX_HEIGHT = 250; // css의 기본 max-height와 맞춤
 // 뷰포트 여백만 보면 안 됨: .battle-main-card처럼 위쪽 글로우 장식을 가두려고 overflow:hidden을
 // 쓰는 카드가 있어서, 뷰포트에는 공간이 남아도 그 카드 경계에서 목록이 잘릴 수 있음 - 트리거의
 // 조상 중 실제로 잘라내는(overflow가 hidden/clip인) 첫 번째 요소를 찾아서 그 경계를 기준으로 삼음
+// hidden/clip뿐 아니라 auto/scroll도 스크롤바가 생기는 것만 다를 뿐 내용을 시각적으로 자르는 건
+// 똑같음 - 지금 있는 스크롤 가능 조상들은 전부 hidden/clip이라 지금까지는 무해했지만(사이트 전체
+// 점검에서 발견), 나중에 auto/scroll을 쓰는 조상이 생기면 그 경계를 못 찾아 드롭다운이 그 조상
+// 밖으로 삐져나가는 버그가 될 수 있어 미리 두 값도 같이 봄
+function isClippingOverflow(value) {
+  return value === "hidden" || value === "clip" || value === "auto" || value === "scroll";
+}
+
 function findClippingAncestorRect(el) {
   let node = el.parentElement;
   while (node && node !== document.body) {
     const style = getComputedStyle(node);
-    if (style.overflow === "hidden" || style.overflowY === "hidden" || style.overflow === "clip" || style.overflowY === "clip") {
+    if (isClippingOverflow(style.overflow) || isClippingOverflow(style.overflowY)) {
       return node.getBoundingClientRect();
     }
     node = node.parentElement;

@@ -25,32 +25,12 @@ function dummyDinoInputs(profile) {
 // 내림차순 - 목록/최적 조합 결과 어디서든 이 순서 그대로 씀
 const DUMMY_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
 
-function dummyRuneSortKey(name) {
-  const r = RUNES_DATA[name];
-  const gradeRank = DUMMY_GRADE_ORDER.indexOf(r.grade);
-  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
-  return gradeRank * 10000 + idNum;
-}
-
 function dummySuitableRuneNames() {
-  return Object.keys(RUNES_DATA)
-    .filter((n) => !DUMMY_UNSUITABLE_RUNE_LIST.includes(n))
-    .sort((a, b) => dummyRuneSortKey(b) - dummyRuneSortKey(a));
+  return standardSuitableRuneNames(DUMMY_UNSUITABLE_RUNE_LIST, DUMMY_GRADE_ORDER);
 }
 
 function loadDummyOwnedLevels() {
-  const levels = {};
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(DUMMY_OWNED_LEVELS_KEY)) || {};
-  } catch (e) {
-    saved = {};
-  }
-  dummySuitableRuneNames().forEach((name) => {
-    const v = saved[name];
-    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
-  });
-  return levels;
+  return loadOwnedRuneLevels(DUMMY_OWNED_LEVELS_KEY, dummySuitableRuneNames());
 }
 
 function saveDummyOwnedLevels(levels) {
@@ -416,33 +396,12 @@ function dummyResetQuickCalc() {
 // 계산해서 가장 대미지가 높은 걸 찾아줌(14개 중 5개 = 2,002가지라 브라우저에서도 순식간에 끝남) =====
 
 function dummyInitOwnedRuneGrid() {
-  const levels = loadDummyOwnedLevels();
-  const grid = document.getElementById("dummyOwnedRuneGrid");
-  // 룬 이름에 공백이 들어있어서(예: "압축된 힘") id 속성에 그대로 쓰면 CSS 선택자가 깨짐 - data-rune
-  // 속성으로만 식별하고, DOM 조회도 data-rune 기준 attribute selector로 함
-  grid.innerHTML = dummySuitableRuneNames().map((name) => `
-    <div class="dummy-owned-rune-row">
-      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
-      <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
-    </div>
-  `).join("");
-
-  grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
-    input.oninput = () => {
-      input.value = input.value.replace(/[^0-9]/g, "");
-    };
-    input.onblur = () => {
-      const name = input.dataset.rune;
-      let v = Math.max(0, Math.min(31, Number(input.value) || 0));
-      input.value = v || "";
-      const current = loadDummyOwnedLevels();
-      current[name] = v;
-      saveDummyOwnedLevels(current);
-      document.getElementById("dummyOptimizeResult").innerHTML = "";
-    };
-    // 엔터 키로도 커밋되게(예전엔 마우스로 다른 빈 공간을 눌러 포커스를 잃어야만 반영됐음 -
-    // 사용자 지적) - blur()를 호출하면 위 onblur 핸들러가 그대로 실행됨
-    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+  initOwnedRuneGrid({
+    gridId: "dummyOwnedRuneGrid",
+    resultElId: "dummyOptimizeResult",
+    suitableNames: dummySuitableRuneNames,
+    loadLevels: loadDummyOwnedLevels,
+    saveLevels: saveDummyOwnedLevels
   });
 }
 

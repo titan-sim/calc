@@ -92,32 +92,12 @@ function buildingTypeDisplayLabel(id) {
 
 const BUILDING_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크"];
 
-function buildingRuneSortKey(name) {
-  const r = RUNES_DATA[name];
-  const gradeRank = BUILDING_GRADE_ORDER.indexOf(r.grade);
-  const idNum = Number((r.imgId.match(/\d+/) || [0])[0]);
-  return gradeRank * 10000 + idNum;
-}
-
 function buildingSuitableRuneNames() {
-  return Object.keys(RUNES_DATA)
-    .filter((n) => !BUILDING_UNSUITABLE_RUNE_LIST.includes(n))
-    .sort((a, b) => buildingRuneSortKey(b) - buildingRuneSortKey(a));
+  return standardSuitableRuneNames(BUILDING_UNSUITABLE_RUNE_LIST, BUILDING_GRADE_ORDER);
 }
 
 function loadBuildingOwnedLevels() {
-  const levels = {};
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(BUILDING_OWNED_LEVELS_KEY)) || {};
-  } catch (e) {
-    saved = {};
-  }
-  buildingSuitableRuneNames().forEach((name) => {
-    const v = saved[name];
-    levels[name] = Number.isInteger(v) && v >= 0 && v <= 31 ? v : 0;
-  });
-  return levels;
+  return loadOwnedRuneLevels(BUILDING_OWNED_LEVELS_KEY, buildingSuitableRuneNames());
 }
 
 function saveBuildingOwnedLevels(levels) {
@@ -363,7 +343,7 @@ function renderBuildingPage(container) {
     ])}
 
     <div class="card battle-main-card building-field-card" id="buildingMainCard">
-      <div class="battle-mode-tabs building-mode-tabs-4" id="buildingModeTabs" data-active-idx="0">
+      <div class="battle-mode-tabs battle-mode-tabs-4" id="buildingModeTabs" data-active-idx="0">
         <span class="battle-mode-indicator"></span>
         <button class="battle-mode-tab active" data-mode="settings" id="buildingModeTabSettings"><span>${t("building.tab.settings")}</span></button>
         <button class="battle-mode-tab" data-mode="quick" id="buildingModeTabQuick"><span>${t("building.tab.quick")}</span></button>
@@ -1207,7 +1187,7 @@ function buildingUpdateStartButtonState() {
 
 // 타이탄과 같은 4탭 구조(사용자 확정 - "타이탄처럼 해달라고"): 전투 설정/빠른 계산/시뮬레이션/
 // 조합 찾기. 탭 밑줄 위치는 titan-page.js의 TITAN_MODES/titanInitModeTabs와 동일하게
-// data-active-idx로 표시(building.css의 .building-mode-tabs-4가 이 속성을 읽어서 %로 이동)
+// data-active-idx로 표시(combat-shared.css의 .battle-mode-tabs-4가 이 속성을 읽어서 %로 이동)
 const BUILDING_MODES = [
   { mode: "settings", tabId: "buildingModeTabSettings", cardId: "buildingSettingsModeCard" },
   { mode: "quick", tabId: "buildingModeTabQuick", cardId: "buildingQuickModeCard" },
@@ -1357,29 +1337,12 @@ function buildingResetQuickCalc() {
 // ===== 최적 조합 찾기 - 허수아비와 완전히 같은 방식(적합 룬 중 보유분으로 5개 조합 전수 탐색) =====
 
 function buildingInitOwnedRuneGrid() {
-  const levels = loadBuildingOwnedLevels();
-  const grid = document.getElementById("buildingOwnedRuneGrid");
-  grid.innerHTML = buildingSuitableRuneNames().map((name) => `
-    <div class="dummy-owned-rune-row">
-      <span class="dummy-owned-rune-name">${ruleDisplayName(name)}</span>
-      <input type="tel" inputmode="numeric" class="dummy-owned-rune-level" data-rune="${name}" value="${levels[name] || ""}" placeholder="0">
-    </div>
-  `).join("");
-
-  grid.querySelectorAll(".dummy-owned-rune-level").forEach((input) => {
-    input.oninput = () => {
-      input.value = input.value.replace(/[^0-9]/g, "");
-    };
-    input.onblur = () => {
-      const name = input.dataset.rune;
-      let v = Math.max(0, Math.min(31, Number(input.value) || 0));
-      input.value = v || "";
-      const current = loadBuildingOwnedLevels();
-      current[name] = v;
-      saveBuildingOwnedLevels(current);
-      document.getElementById("buildingOptimizeResult").innerHTML = "";
-    };
-    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
+  initOwnedRuneGrid({
+    gridId: "buildingOwnedRuneGrid",
+    resultElId: "buildingOptimizeResult",
+    suitableNames: buildingSuitableRuneNames,
+    loadLevels: loadBuildingOwnedLevels,
+    saveLevels: saveBuildingOwnedLevels
   });
 }
 
