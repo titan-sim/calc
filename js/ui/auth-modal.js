@@ -116,6 +116,7 @@ function openAuthModal(mode = "login") {
   setAuthMode(mode);
   document.getElementById("authModalOverlay").style.display = "block";
   document.getElementById("authModalPanel").classList.add("open");
+  lockBodyScroll();
 }
 
 function closeAuthModal() {
@@ -124,6 +125,7 @@ function closeAuthModal() {
   if (!overlay || !panel) return;
   overlay.style.display = "none";
   panel.classList.remove("open");
+  unlockBodyScroll();
 }
 
 const AUTH_MODE_TITLE_KEYS = { login: "common.auth.title.login", signup: "common.auth.title.signup", forgot: "common.auth.title.forgot" };

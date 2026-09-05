@@ -1091,6 +1091,7 @@ function buildingInitSelectModal() {
   });
   document.getElementById("buildingSelectClose").onclick = () => {
     document.getElementById("buildingSelectOverlay").style.display = "none";
+    unlockBodyScroll();
   };
 }
 
@@ -1133,8 +1134,10 @@ function buildingOpenSelectModalGeneric(currentId, onChoose, emptyLabel) {
   buildingRenderSelectGrid(list, currentId, (id) => {
     onChoose(id);
     document.getElementById("buildingSelectOverlay").style.display = "none";
+    unlockBodyScroll();
   }, emptyLabel);
   document.getElementById("buildingSelectOverlay").style.display = "flex";
+  lockBodyScroll();
 }
 
 function buildingOpenSelectModal(slotIdx) {
@@ -1380,19 +1383,6 @@ function buildingInitOwnedRuneGrid() {
   });
 }
 
-function buildingCombinations(arr, k) {
-  const results = [];
-  function pick(start, combo) {
-    if (combo.length === k) { results.push(combo.slice()); return; }
-    for (let i = start; i < arr.length; i++) {
-      combo.push(arr[i]);
-      pick(i + 1, combo);
-      combo.pop();
-    }
-  }
-  pick(0, []);
-  return results;
-}
 
 // 조합 하나의 최종 결과를 한 줄로 요약 - 부순 조합은 걸린 시간, 못 부순 조합은 총 대미지(사용자
 // 확정 - "우리의 목적은 적의 건물을 최대한 빨리 깨는 것" 하나뿐이라 두 표시 모두 결국 "그 조합이
@@ -1434,7 +1424,7 @@ async function buildingRunOptimizer() {
   }
 
   const slotCount = Math.min(5, owned.length);
-  const combos = buildingCombinations(owned, slotCount);
+  const combos = combinationsOf(owned, slotCount);
   const profile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
   const inputs = buildingDinoInputs(profile);
   const tileCfg = loadBuildingTileSettings();

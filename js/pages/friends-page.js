@@ -86,6 +86,7 @@ function initFriendsPage(myId) {
   document.getElementById("friendStatClose").onclick = () => {
     document.getElementById("friendStatOverlay").style.display = "none";
     sessionStorage.removeItem(FRIEND_STAT_REOPEN_KEY);
+    unlockBodyScroll();
   };
 
   // 친구 페이지를 보고 있는 동안 새 요청이 오면 새로고침 없이 바로 목록을 다시 불러옴
@@ -247,6 +248,7 @@ async function showFriendStats(row, myId, nicknameOf) {
   document.getElementById("friendStatTitle").textContent = t("friends.statModal.titleWithName", { nickname });
   body.innerHTML = `<div class="friend-picker-empty">${t("friends.statModal.loading")}</div>`;
   overlay.style.display = "flex";
+  lockBodyScroll();
   sessionStorage.setItem(FRIEND_STAT_REOPEN_KEY, friendId);
 
   const { data, error } = await supabaseClient.rpc("get_friend_dino_profile", { p_friend_id: friendId, p_purpose: "view" });

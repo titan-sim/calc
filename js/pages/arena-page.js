@@ -389,6 +389,7 @@ async function arenaOpenFriendPicker(mode) {
   title.textContent = mode === "invite" ? t("arena.friendPicker.inviteTitle") : t("arena.friendPicker.snapshotTitle");
   list.innerHTML = `<div class="friend-picker-empty">${t("arena.friendPicker.loading")}</div>`;
   overlay.style.display = "flex";
+  lockBodyScroll();
 
   const friends = await getAcceptedFriends(arenaMyUserId);
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
@@ -403,6 +404,7 @@ async function arenaOpenFriendPicker(mode) {
   list.querySelectorAll(".friend-picker-item").forEach((item) => {
     item.onclick = () => {
       overlay.style.display = "none";
+      unlockBodyScroll();
       const friendId = item.dataset.id;
       const friendNickname = item.dataset.nickname;
       if (mode === "invite") {
@@ -666,9 +668,11 @@ function initArenaPage() {
 
   document.getElementById("arenaFriendPickerClose").onclick = () => {
     document.getElementById("arenaFriendPickerOverlay").style.display = "none";
+    unlockBodyScroll();
   };
   document.getElementById("arenaSlotEditClose").onclick = () => {
     document.getElementById("arenaSlotEditOverlay").style.display = "none";
+    unlockBodyScroll();
   };
 
   // 로그인 상태면 친구 초대/불러오기 버튼을 쓸 수 있게 내 uid/닉네임을 채움
@@ -1012,6 +1016,7 @@ function arenaOpenSlotEditor(sideKey, slotIndex) {
   arenaLoadSlotEditPresetIntoRuneUI();
   arenaRenderSlotEditPresetRow();
   document.getElementById("arenaSlotEditOverlay").style.display = "flex";
+  lockBodyScroll();
 }
 
 function arenaLoadSlotEditPresetIntoRuneUI() {
@@ -1083,6 +1088,7 @@ function arenaConfirmSlotEditPreset(idx) {
   arenaResetDisplay();
 
   document.getElementById("arenaSlotEditOverlay").style.display = "none";
+  unlockBodyScroll();
 }
 
 // ===== 전투 표시/재생 =====

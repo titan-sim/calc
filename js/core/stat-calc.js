@@ -14,6 +14,25 @@ function getRespawnDelaySec(moveSpeed, distanceTiles) {
   return 1.5 + distanceTiles * getTileMoveSeconds(moveSpeed);
 }
 
+// arr에서 k개를 고르는 모든 조합(순서 무관) - 조합 찾기(타이탄/허수아비/건물 페이지)가 "적합 룬
+// 중 5개를 고르는 모든 경우의 수"를 셀 때 씀. 세 페이지 모두 똑같은 재귀 구현을 각자 갖고 있던 걸
+// 공용화(사이트 전체 점검에서 발견 - getRespawnDelaySec/rollCrit과 같은 이유). 공룡 대전 페이지의
+// dinoBattleCombinations는 압축된 힘/매머드의 힘처럼 동시 장착 불가능한 룬 쌍을 걸러내는 추가 조건이
+// 있어서 이 함수와 다르게 그 페이지에 그대로 남겨둠(진짜 다른 로직이라 공용화 대상이 아님)
+function combinationsOf(arr, k) {
+  const results = [];
+  function pick(start, combo) {
+    if (combo.length === k) { results.push(combo.slice()); return; }
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      pick(i + 1, combo);
+      combo.pop();
+    }
+  }
+  pick(0, []);
+  return results;
+}
+
 // 치명타 굴림 - "치확 확률로 cDmg%, 아니면 100% 대미지"라는 동일한 계산이 타이탄/건물/허수아비/
 // 다이노배틀/아레나 5개 엔진에 전부 각자 구현돼있던 걸 공용화(사용자 지적 - "4개 페이지 모두
 // 각각 따로따로 체력이나 공격력을 계산했던거야? 그건 너무 비효율적인 코드 작성"). rand를 인자로

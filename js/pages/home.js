@@ -63,9 +63,9 @@ function renderHome(container) {
   initHomeTileTilt();
 
   const overlay = document.getElementById("gameInfoOverlay");
-  document.getElementById("homeHeroBtn").onclick = () => { overlay.style.display = "flex"; };
-  document.getElementById("gameInfoClose").onclick = () => { overlay.style.display = "none"; };
-  overlay.onclick = (e) => { if (e.target === overlay) overlay.style.display = "none"; };
+  document.getElementById("homeHeroBtn").onclick = () => { overlay.style.display = "flex"; lockBodyScroll(); };
+  document.getElementById("gameInfoClose").onclick = () => { overlay.style.display = "none"; unlockBodyScroll(); };
+  overlay.onclick = (e) => { if (e.target === overlay) { overlay.style.display = "none"; unlockBodyScroll(); } };
 }
 
 // 유리판 3D 틸트 - 카드 위에 커서가 있을 때만 그 카드 하나가 반응하던 예전 방식과 달리, 화면 어디서

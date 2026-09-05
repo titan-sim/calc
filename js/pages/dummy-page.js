@@ -446,21 +446,6 @@ function dummyInitOwnedRuneGrid() {
   });
 }
 
-// k개를 고르는 모든 조합(순서 무관) - 후보가 14개뿐이라 재귀로 짜도 충분히 빠름
-function dummyCombinations(arr, k) {
-  const results = [];
-  function pick(start, combo) {
-    if (combo.length === k) { results.push(combo.slice()); return; }
-    for (let i = start; i < arr.length; i++) {
-      combo.push(arr[i]);
-      pick(i + 1, combo);
-      combo.pop();
-    }
-  }
-  pick(0, []);
-  return results;
-}
-
 function dummyRunOptimizer() {
   const levels = loadDummyOwnedLevels();
   const owned = dummySuitableRuneNames().filter((name) => levels[name] > 0);
@@ -476,7 +461,7 @@ function dummyRunOptimizer() {
   const inputs = dummyDinoInputs(profile);
   const tileCfg = loadDummyTileSettings();
 
-  const scored = dummyCombinations(owned, slotCount).map((names) => {
+  const scored = combinationsOf(owned, slotCount).map((names) => {
     const selectedRunes = names.map((name) => ({ name, lv: levels[name] }));
     const values = computeDummyCombatValues({ ...inputs, selectedRunes }, tileCfg);
     return { names, dps: computeDummyExpectedDps(values) };

@@ -565,6 +565,7 @@ function initDinoBattlePage() {
 
   document.getElementById("friendPickerClose").onclick = () => {
     document.getElementById("friendPickerOverlay").style.display = "none";
+    unlockBodyScroll();
   };
 
   // 로그인 상태면 친구 초대/불러오기 버튼을 쓸 수 있게 내 uid/닉네임을 채움. 이 페이지는 uid도
@@ -1150,6 +1151,7 @@ function dinoOptimizeOpenApplyPresetModal(runes) {
   dinoOptimizeRenderApplyPresetList();
   document.getElementById("dinoOptimizeApplyPresetConfirmBtn").disabled = true;
   document.getElementById("dinoOptimizeApplyPresetOverlay").style.display = "flex";
+  lockBodyScroll();
 }
 
 function dinoOptimizeRenderApplyPresetList() {
@@ -1173,6 +1175,7 @@ function dinoOptimizeCloseApplyPresetModal() {
   document.getElementById("dinoOptimizeApplyPresetOverlay").style.display = "none";
   dinoOptimizeApplyPresetPendingRunes = null;
   dinoOptimizeApplyPresetSelectedIdx = null;
+  unlockBodyScroll();
 }
 
 function dinoOptimizeConfirmApplyPreset() {
@@ -1703,6 +1706,7 @@ async function openFriendPicker(mode) {
   title.textContent = mode === "invite" ? t("dino_battle.friendPicker.inviteTitle") : t("dino_battle.friendPicker.snapshotTitle");
   list.innerHTML = `<div class="friend-picker-empty">${t("dino_battle.friendPicker.loading")}</div>`;
   overlay.style.display = "flex";
+  lockBodyScroll();
 
   const friends = await getAcceptedFriends(myUserId);
   if (overlay.style.display === "none") return; // 그새 닫혔으면 무시
@@ -1717,6 +1721,7 @@ async function openFriendPicker(mode) {
   list.querySelectorAll(".friend-picker-item").forEach((item) => {
     item.onclick = () => {
       overlay.style.display = "none";
+      unlockBodyScroll();
       const friendId = item.dataset.id;
       const friendNickname = item.dataset.nickname;
       if (mode === "invite") {

@@ -180,20 +180,6 @@ function titanGetSpeedMs() {
   return BATTLE_SPEED_OPTIONS.some((o) => o.ms === saved) ? saved : 350;
 }
 
-// k개를 고르는 모든 조합(순서 무관)
-function titanCombinations(arr, k) {
-  const results = [];
-  function pick(start, combo) {
-    if (combo.length === k) { results.push(combo.slice()); return; }
-    for (let i = start; i < arr.length; i++) {
-      combo.push(arr[i]);
-      pick(i + 1, combo);
-      combo.pop();
-    }
-  }
-  pick(0, []);
-  return results;
-}
 
 function renderTitanPage(container) {
   container.innerHTML = `
@@ -436,6 +422,7 @@ function initTitanPage() {
     titanRenderApplyPresetList();
     document.getElementById("titanApplyPresetConfirmBtn").disabled = true;
     document.getElementById("titanApplyPresetOverlay").style.display = "flex";
+    lockBodyScroll();
   }
 
   function titanRenderApplyPresetList() {
@@ -459,6 +446,7 @@ function initTitanPage() {
     document.getElementById("titanApplyPresetOverlay").style.display = "none";
     applyPresetPendingRunes = null;
     applyPresetSelectedIdx = null;
+    unlockBodyScroll();
   }
 
   function titanConfirmApplyPreset() {
@@ -1521,7 +1509,7 @@ function initTitanPage() {
     }
 
     const slotCount = Math.min(5, owned.length);
-    const combos = titanCombinations(owned, slotCount);
+    const combos = combinationsOf(owned, slotCount);
     const dino = titanDinoInputs();
     const tileCfg = loadTitanTileSettings();
     btn.disabled = true;
