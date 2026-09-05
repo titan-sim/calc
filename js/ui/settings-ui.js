@@ -3,11 +3,18 @@
 
 const AppSettings = { isLogEnabled: false };
 
+// 메뉴가 열려 있는 동안 배경 페이지 스크롤을 잠금 - 안 잠그면 오버레이 뒤 배경 콘텐츠가 여전히
+// 스크롤 가능한 상태로 남아있어서, 화면이 짧아 스크롤할 내용이 많은 경우 터치/휠로 배경을 스크롤할
+// 때마다 스크롤바(모바일은 OS 자체 스크롤 인디케이터)가 잠깐 나타남 - 화면 크기에 따라 스크롤할
+// 여백이 다르니 "화면 크기에 따라 생겼다 안 생겼다" 하는 것처럼 보였던 원인(사용자 지적).
+// body는 이미 CSS로 overflow-x:hidden이 걸려있는데, 인라인 스타일 제거(""로 복귀)만으로 그
+// 원래 규칙이 그대로 되살아나므로 서로 안 부딪힘
 function toggleMenu() {
   const menu = document.getElementById("sideMenu");
   const overlay = document.getElementById("menuOverlay");
   const isOpen = menu.classList.toggle("open");
   overlay.style.display = isOpen ? "block" : "none";
+  document.body.style.overflow = isOpen ? "hidden" : "";
 }
 
 function applyThemeState(isLight) {
