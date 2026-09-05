@@ -111,7 +111,8 @@ function getBattleStats({
   selectedRunes,
   constellation = { atk: 0, hp: 0, critRate: 0, critDmg: 0 },
   bonusPercent = { atk: 0, hp: 0 },
-  currentHpPercent = 100
+  currentHpPercent = 100,
+  tileCfg = null
 }) {
   let atkF = 0, atkP = 0, hpF = 0, hpP = 0;
   let cRate = 3, cDmg = 105;
@@ -126,6 +127,19 @@ function getBattleStats({
 
     // 마지막 선물의 atk_f는 사망한 아군이 남은 아군에게 넘겨주는 임시 버프량이지 상시 스탯이 아님
     if (r.name === "마지막 선물") return;
+
+    // 자연의 포옹/부족의 축복은 타일 조건부 룬 - getTitanCombatMetrics/simulation-dino-battle.js
+    // 등 다른 계산 경로는 전부 이 조건을 걸어두는데 이 함수만 빠져 있어서, 조건이 실제로 안 맞을
+    // 때도(자연 인접 아님/부족 미점령) 공격력·체력이 그 보너스만큼 항상 부풀려져 있었음(사이트
+    // 전체 점검에서 발견) - my-dino-page.js의 "관련 스탯" 요약 카드와 공룡 대전 조합 찾기 숏리스트
+    // 점수 둘 다 이 함수를 씀. tileCfg를 안 넘기는 기존 호출부(있다면)는 조건 자체를 평가할 수
+    // 없으니 안전하게 "조건 충족 안 함"으로 처리(기존처럼 항상 켜져 있던 것보다 덜 부풀려지는
+    // 쪽이 안전한 기본값). tribeControl 값의 형태는 호출부마다 다름(공룡 대전 계열은 "mine"/
+    // "opponent"/"none" 문자열, 타이탄/허수아비/건물 계열은 boolean) - 이 함수는 지금 공룡 대전
+    // 쪽에서만 tileCfg를 실제로 넘기므로 "mine" 문자열 기준으로 판정함(호출부가 늘어나면 이 부분도
+    // 같이 넓혀야 함)
+    if (r.name === "자연의 포옹" && !(tileCfg && tileCfg.natureAdjacent)) return;
+    if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && !(tileCfg && tileCfg.tribeControl === "mine")) return;
 
     if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
 
@@ -245,7 +259,11 @@ function getTitanCombatMetrics({
     if (r.name === "트리플 임팩트") {
       skillHits.push({ name: r.name, triggerRate: 1 / 3, burstP: s.burst_p });
     }
-    if (r.name === "낙뢰" || r.name === "메테오") {
+    // 가시도 낙뢰/메테오와 완전히 같은 "확률 발동, burst_p%만큼 스킬 추가 피해" 구조라(사용자
+    // 확정 "메테오랑 완전히 똑같다", simulation-titan.js도 셋을 동일하게 취급함) 여기서 빠져있으면
+    // 안 됨 - 빠져 있으면 이 함수를 쓰는 "관련 수치" 카드와 조합 찾기가 가시의 스킬 대미지를 계속
+    // 누락한 채로 계산하게 됨(사이트 전체 점검에서 발견)
+    if (r.name === "낙뢰" || r.name === "메테오" || r.name === "가시") {
       skillHits.push({ name: r.name, triggerRate: s.prob / 100, burstP: s.burst_p, prob: s.prob });
     }
 

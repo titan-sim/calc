@@ -1728,3 +1728,157 @@ vs 피해저항1 케이스) `expectedDeathCount`로 가르도록 수정(`titan-p
 
 **검증.** Playwright로 (1) 메뉴 연 상태에서 마우스 휠을 크게 굴려도 `scrollY`가 전혀 안 움직이는 것
 (2) 메뉴 닫으면 다시 정상적으로 스크롤되는 것 (3) 콘솔 에러 없는 것까지 확인.
+
+### ✅ 완료 — 묶음 43: 전수조사(사이트 전체 코드 점검) 및 심각도 상위 버그 일괄 수정
+
+사용자 요청: "처음부터 끝까지 모든 코드를 확인하고 최적화나 오류 있으면 찾아서 정리하기... 전수조사
+실시." - 시간 제한 없이 최대한 꼼꼼히 봐달라는 명시적 요청. `code-review` 스킬은 최신 커밋 diff만
+보는 용도라 이 요청과 안 맞아, 대신 파일 그룹별로 나눈 병렬 서브에이전트 6개(타이탄/아레나/더미/
+건물 페이지, 핵심 시뮬레이션 엔진, 남은 핵심 유틸, 내 공룡·공룡 대전 페이지, UI·데이터·라우터·메인,
+전체 CSS)를 직접 띄워 전수조사를 수행하고, `ReportFindings`로 심각도순 23건을 정리해 보고함.
+사용자가 "심각한거 먼저 고치자"고 확정해 그중 게임 계산 정확도에 직접 영향을 주는 버그와 사이트가
+깨질 수 있는 버그부터 아래와 같이 수정함.
+
+**1) 공룡 대전 - `tribeControl` 문자열 불일치로 부족의 축복 1/2가 실전투에서 항상 무효였던 버그
+(가장 심각).** `dino-battle-page.js`(설정 UI/저장소)는 `tileCfg.tribeControl`을 `"none"/"mine"/
+"opponent"` 문자열로 저장하는데, `simulation-dino-battle.js`의 `computeSideCombatValues`는 이를
+엔진 내부 진영 키인 `"my"/"opp"`와 직접 비교(`tileCfg.tribeControl !== side.key`)하고 있었음 -
+이 두 값 집합은 절대 같아질 수 없는 서로 다른 문자열이라, 부족의 축복 1/2 룬이 실제 전투 시뮬레이션에서
+구현 이후 단 한 번도 발동한 적이 없었던 것으로 확인됨(타이탄/더미/건물 페이지는 이 룬을 아예 룬
+후보에서 제외하는 페이지라 이 버그의 영향을 안 받음). `tribeControlMatchesSide(tribeControl, key)`
+헬퍼를 새로 추가해 `"mine"`↔`"my"`, `"opponent"`↔`"opp"` 매핑을 명시적으로 처리하고
+`computeSideCombatValues`의 기존 비교를 이걸로 교체. Playwright로 직접 검증 - 타일을 내 진영이
+차지한 경우와 상대/무소유인 경우의 실측 공격력이 이제 정확히 갈라짐(1020 vs 1000) 확인.
+
+**2) 공룡 대전 - 흡혈(`computeVampBaseAtk`) 계산에 공격 타워 보너스/타일 조건부 룬이 누락돼 있던
+버그.** 흡혈 기여도를 계산하는 별도 경로(`vampBaseAtk`, 협동공격 등 카운트/타일 조건부 룬은 제외하는
+`VAMP_EXCLUSION_LIST` 기반)가 `atkTowerLv` 버프타워 보너스를 아예 안 더하고, 자연의 포옹/부족의
+축복처럼 타일 조건이 걸린 룬도 무조건 걸러내고 있었음(제외 목적이 "카운트/타일 조건부라서"가 아니라
+"흡혈 기여 자체가 이상해지는 룬"인데, 자연의 포옹/부족의 축복은 애초에 `VAMP_EXCLUSION_LIST`
+대상이 아니었음). `computeVampBaseAtk`에 `tileCfg`/`key` 파라미터를 추가해
+`computeSideCombatValues`와 똑같은 방식으로 타워 보너스를 더하고 위 1번 헬퍼로 타일 조건을 게이팅하도록
+수정. `simulation-arena.js`의 대응 함수(`buildArenaSideRunes`/`buildArenaSide`)도 일관성을 위해
+같은 파라미터를 추가(아레나는 이 두 룬이 애초에 `ARENA_UNSUITABLE_RUNE_LIST`라 실질적 영향은 없음 -
+공룡 대전에만 실제 영향).
+
+**3) 공룡 대전 - 광역기(메테오/가시)에 죽은 비전방 공룡이 "좀비"로 남아 다음 턴에도 계속 공격하던
+버그.** 같은 타일/광역 피해로 전방이 아닌 예비 공룡의 체력이 0이 됐을 때, 기존 코드는 전방 사망
+처리(`processFrontDeath` - 죽음 통계 집계, 새 전방 소환, 관련 룬 재계산 등)를 전방 공룡 사망 시에만
+호출해서 이 "부수 사망"은 아예 처리되지 않고 배열에서 빠지지도 않은 채 남아있었음 - 이후 턴에 0
+HP인 채로 여전히 "공격"에 참여할 수 있는 좀비 유닛 버그. `nonFrontAoeDeaths` 배열을 새로 도입해 4개
+광역 피해 분기(메테오/가시 × 같은 타일/광역) 모두에서 새로 0 HP가 된 비전방 공룡을 여기 담고, 턴
+끝에 `processFrontDeath(d, ..., false)`(전방 사망이 아님을 표시하는 신규 4번째 인자 `isFrontDeath`
+추가 - 전방 소환 이벤트가 잘못 안 뜨게)로 일괄 처리하도록 수정. **구현 중 자체 발견한 버그**: 처음엔
+이 배열 선언을 `processFrontDeath` 함수 정의 "다음"에 뒀는데, 같은 턴 안에서 그보다 먼저 실행되는
+룬 처리 블록이 이 배열에 push해야 해서 `const`의 일시적 사각지대로 인해 `ReferenceError`가 날 뻔함 -
+테스트 실행 전에 코드 구조를 다시 읽다가 스스로 발견해 선언을 턴 최상단(`event` 객체 생성 직후)으로
+옮겨 수정. 200회 연속 시뮬레이션으로 좀비 유닛이 전혀 안 남는지 재확인.
+
+**4) 공룡 대전 - 죽을 준비(반격) 한 방에 공격자가 죽었을 때도 좀비로 남던 버그, 양쪽 동시 사망
+집계 누락.** 방어자의 "죽을 준비" 반격으로 공격자가 그 자리에서 즉사하는 경우, 기존 코드는 이
+공격자 사망을 전혀 처리하지 않아 위 3번과 같은 종류의 좀비 유닛이 됨 - 3번 수정과 같은 흐름으로
+`if (attacker.hp <= 0) processFrontDeath(...)`를 추가. 별도로 `runDinoQuickCalc`(빠른 계산 경로)에서
+`bothDied`(양쪽이 같은 턴에 동시 사망)를 감지는 하면서도 공격자를 부활시키지도, 사망/킬 통계에
+반영하지도 않던 부분도 같이 발견해 공격자 리스폰(체력/버프/보호막 초기화) 및 사망·킬 카운트 반영을
+추가.
+
+**5) 더미(훈련용 표적) 계산 - 고독한 분노가 카운트==1일 때 잘못 기여하던 버그.** 고독한 분노는
+`DUMMY_UNSUITABLE_RUNE_LIST`(더미전엔 의미 없는 룬 목록)에 명시적으로 포함돼 있는데도, 공격력/체력
+계수(`atk_f`/`hp_f`)를 가진 몇 안 되는 예외 룬이라 다른 25개(계수 자체가 없어 자동으로 무해한
+룬)와 달리 명시적으로 걸러주지 않으면 실제로 기여해버림 - `simulation-dummy.js`에 무조건적
+제외(`if (r.name === "고독한 분노") return;`)를 추가. **1차 시도 오류**: 처음엔 "카운트==1일 때만
+기여"(공룡 대전에서의 동작을 그대로 옮김)로 구현했다가, `DUMMY_UNSUITABLE_RUNE_LIST`에 이미
+포함돼 있다는 걸 grep으로 재확인하고 "무조건 제외"가 맞다는 걸 깨달아 수정.
+
+**6) 타이탄 - DPS 카드/조합 찾기가 가시(스킬 피해 룬)를 누락해 저평가하던 버그.**
+`stat-calc.js`의 `getTitanCombatMetrics`가 스킬 히트 판정에서 낙뢰/메테오만 체크하고 가시를 빠뜨려,
+가시가 낀 조합의 실제 DPS가 과소평가되고 있었음 - 조건에 `"가시"` 추가.
+
+**7) `stat-calc.js`의 `getBattleStats`에 타일 조건부 룬(자연의 포옹/부족의 축복) 게이팅 추가.**
+공룡 대전 페이지의 조합 찾기(Mode A/B/C)가 후보 스코어링에 쓰는 해석적 전투력 함수
+(`dinoBattleAnalyticPowerScore`)가 이 두 룬을 타일 조건과 무관하게 항상 유효한 것처럼 계산하고
+있었음 - `getBattleStats`에 `tileCfg` 파라미터를 추가해 게이팅하고, 두 호출부(Mode A/B용 숏리스트
+스코어링, Mode C용 스코어링)에서 이미 스코프에 있던 `tileSettings`를 전달하도록 수정.
+
+**8) `js/core/hex-scene3d.js` - Three.js 머티리얼/텍스처 GPU 메모리 누수.** 타일 색을 다시
+구울 때(`rebakeColors`)와 씬을 정리할 때(`dispose`) 모두 텍스처/머티리얼에 대해 `.dispose()`를
+전혀 호출하지 않고 있었음 - JS 가비지 컬렉션만으로는 GPU 메모리가 해제되지 않아, 씬을 반복
+재생성하는 페이지(타이탄/공룡 대전/건물/더미, 페이지 이동·설정 변경마다 재생성)에서 방문할수록
+GPU 메모리가 계속 쌓이는 누수였음. `rebakeColors`/`dispose` 양쪽에 텍스처·머티리얼 dispose 호출을
+추가(공유 지오메트리 `hexSceneSharedGeometry`는 모듈 전역 상수라 그대로 둠)하고, 각 페이지의 씬
+재생성 함수가 기존 씬 변수를 덮어쓰기 전에 `.dispose()`를 먼저 호출하도록 수정(타이탄 페이지는
+씬 변수가 함수 지역 변수라 매 방문마다 리셋돼 dispose가 무의미했던 부분도 모듈 전역으로 끌어올림).
+몽키패치로 dispose 호출 횟수를 세는 Playwright 테스트로 검증.
+
+**9) `js/core/i18n.js` - 번역 파일 로드 실패 시 사이트 전체가 빈 화면이 되던 버그.**
+`i18nLoadLang`이 fetch 실패/비정상 응답/JSON 파싱 실패 시 그대로 reject해버려서, 이를 `await`하는
+`initI18n()`의 실패가 `main.js`의 `DOMContentLoaded` 핸들러 체인 전체를 중단시킬 수 있었음(라우터/
+메뉴/설정 초기화가 전부 안 됨) - try/catch로 감싸 실패 시 빈 객체 `{}`로 resolve하도록 수정. 번역
+파일 요청을 전부 404로 강제하는 Playwright 테스트로 나머지 부트 시퀀스(메뉴 열기 등)가 정상 동작함을
+확인.
+
+**10) `js/router.js` - 존재하지 않는 해시로 진입 시 CSS 스코프가 어긋나던 버그.** 매칭 안 되는
+해시는 `renderHome`으로 대체 렌더링되는데, `body.dataset.page`엔 실제로 그려진 라우트가 아니라
+원본(미매칭) 해시를 그대로 심고 있었음 - 실제로 그려진 홈 화면이 `body[data-page="home"]` 스코프
+CSS를 하나도 못 받는 버그. `resolvedHash`(실제로 렌더링된 라우트)를 기준으로 통일. 가짜 해시로
+진입시켜 `data-page`가 정확히 "home"으로 찍히는지 Playwright로 확인.
+
+**11) `js/pages/my-dino-page.js` - 요약 카드(`updateSummary`)가 서버 레벨캡/별자리캡을 반영하지
+않던 버그.** 타이탄/더미/건물/공룡 대전 페이지는 전투 계산에 들어가는 입력을
+`applyLowLevelConstellationBlock(applyConstellationCap(applyServerLevelCap(...)))` 체인을 거쳐
+캡을 반영하는데, "내 공룡" 페이지의 요약 카드는 이 체인 중 "레벨캡 40% 이하면 별자리 자체 차단"
+규칙만 자체 구현해뒀을 뿐 `applyServerLevelCap`(공격력/체력을 캡에 맞춰 비례 재조정)과
+`applyConstellationCap`(별자리 각 스탯을 캡 레벨의 표값으로 제한)은 전혀 거치지 않아, 서버 레벨캡/
+별자리캡이 걸린 계정은 요약 카드에 실제 전투보다 부풀려진 공격력/체력/레벨이 표시되고 있었음.
+`updateSummary` 안에서 `getBattleStats` 호출 직전에 `applyConstellationCap(applyServerLevelCap({
+baseAtk, baseHp, moveSpeed, constellation }))`을 거쳐 캡이 반영된 값을 쓰도록 수정, 표시되는
+"레벨" 숫자도 이 캡 적용 후 값 기준으로 재계산(캡을 넘겨 재조정된 계정은 재조정 후 레벨이 정확히
+cap 값과 같아지는 `applyServerLevelCap`의 자기일관성 덕분에, 기존 "레벨캡 40% 이하 별자리 차단"
+판정 자체는 원본/재조정 레벨 어느 쪽을 써도 결과가 같아 그대로 둬도 무방함을 확인). Playwright로
+검증 - 서버 레벨캡 1300/별자리캡 10 설정 후 원본 스탯(레벨 2600 상당)을 넣었을 때, 요약 카드가
+정확히 캡 재조정 후 값(공격력 960, 체력 2400, 레벨 1300)을 표시함을 확인.
+
+**12) `js/pages/dino-battle-page.js` - 조합 찾기(Mode A/B/C) 실행 중 페이지 이동 시 콘솔 에러.**
+`dinoBattleRunModeAOrB`/`dinoBattleRunModeC`는 1·2단계 라운드로빈 사이 `await`로 이벤트 루프에
+여러 번 양보하는 긴 비동기 작업인데, 그동안 다른 페이지로 이동해도(SPA 라우터는 teardown 없이
+`#app`만 새로 그림) 이 체인이 끝난 뒤 `dinoBattleRenderOptimizeResults`가 이미 사라진
+`#dinoOptimizeResult`를 `document.getElementById`로 다시 찾다가 null을 만나
+`TypeError: Cannot set properties of null`을 던질 수 있었음 - 실시간 전투 재생에 이미 쓰던
+`battleToken`(다른 페이지로 이동하면 hashchange 리스너가 증가시킴) 패턴을 그대로 재사용, 두 함수
+모두 시작 시점의 토큰을 캡처해 1·2단계 `await` 직후 무효화 여부를 확인하고 무효화됐으면 그 자리에서
+조용히 중단하도록 수정. Playwright로 검증 - 조합 찾기를 시작하고 30ms 뒤(첫 청크가 끝나기 전) 다른
+페이지로 이동시켜도 콘솔 에러 0건, 정상 완료 시나리오(이동 없음)도 결과 카드가 그대로 렌더링됨을
+재확인.
+
+**13) `js/pages/building-page.js` - 전투 설정 4개 항목이 빠른 계산 결과 초기화를 안 부르던 버그.**
+전투 설정 탭의 6개 항목(직접 때리는 건물/뒤 건물/투석기 레벨/투석기 속도/거리/연속 전투 여부) 중
+뒤 건물과 연속 전투 여부 핸들러만 값이 바뀔 때 `buildingResetQuickCalc()`를 불러 이전 빠른 계산
+결과를 지웠고, 나머지 4개(직접 때리는 건물, 투석기 레벨, 투석기 속도, 거리)는 이 호출이 빠져있어
+값을 바꿔도 화면엔 이전 설정 기준으로 계산된 낡은 결과가 그대로 남아있었음 - 4곳 모두 값 반영 직후
+`buildingResetQuickCalc()` 호출을 추가(뒤 건물 핸들러와 동일한 패턴). Playwright로 4개 항목 각각을
+바꿨을 때 낡은 결과 카드(`#buildingQcResult`)가 정확히 사라지는지 확인, 콘솔 에러 0건.
+
+**14) `js/pages/dummy-page.js` - 탭 전환 시 실전 대전(공격) 루프가 안 멈추던 버그 + 이펙트 정리
+쿼리 위치 오류.** 더미 페이지는 설정/빠른 계산/실전 대전/조합 찾기가 아니라 "빠른 계산/실전 대전/
+조합 찾기" 3탭 구조(`DUMMY_MODES`)인데, 타이탄 페이지(`titanInitModeTabs`의
+`if (m.mode !== "live" && titanReplayRunning) titanLiveReset()`)와 달리 실전 대전 탭이 재생 중일
+때 다른 탭으로 전환해도 `dummyAttackTimer`가 멈추지 않고 계속 돎 - 카드가 `display:none`이 된
+채로 공격 틱이 계속 발생해 `dummySpawnHitEffect`가 숨겨진 `#dummyTarget`의
+`getBoundingClientRect()`(전부 0)를 기준으로 이펙트를 띄워 화면 좌측 상단(0,0)에 계속 튀어나오고,
+대미지/경과 시간 카운터도 안 보이는 곳에서 계속 누적되는 버그였음. 타이탄과 같은 패턴으로 탭 전환
+핸들러에 `if (m.mode !== "live" && dummyRunning) dummyResetDisplay();`를 추가. **검증 중 별도로
+발견한 버그**: `dummyResetDisplay()`의 히트 이펙트 정리 코드가 `#dummyTarget` 안에서만
+`.dummy-hit-effect`를 찾고 있었는데, 실제 `dummySpawnHitEffect()`는 이 엘리먼트를
+`document.body`에 직접 붙임(허수아비의 3D 빌보드 컨텍스트를 우회하려고 `position:fixed`로 화면
+좌표에 띄우는 방식, 주석에 이유가 명시돼 있음) - 그래서 이 정리 코드는 사실상 아무것도 못 지우고
+있었음(각 이펙트 자신의 `animationend` 자동 제거에만 의존, 리셋 시점엔 즉시 안 사라짐). 정리
+쿼리를 `document.querySelectorAll(".dummy-hit-effect")`로 수정. Playwright로 검증 - 실전 대전 탭에서
+공격을 시작해 몇 틱 진행시킨 뒤 다른 탭으로 전환하면 `dummyRunning`이 즉시 false로, 경과 시간/누적
+대미지가 0으로, 화면의 히트 이펙트가 0개로 즉시 정리되고 1초 더 기다려도 카운터가 그대로임(타이머가
+실제로 멈췄음)을 확인 - 탭 전환 없이 정상 진행/일시정지 버튼 동작에는 회귀가 없음도 재확인.
+
+**남은 항목(범위 밖, 추후 처리 예정).** 이번 라운드는 "심각한거 먼저"에 해당하는 게임 계산
+정확도·사이트 크래시급 버그 위주로 처리함. 아직 안 고친 항목: `data-sync.js`의 로그인 시점
+서버→로컬 풀과 로컬→서버 푸시 간 경합, 사이드 메뉴 스크롤 잠금이 다른 전체화면 오버레이(인증 모달,
+친구 선택기 등)로 일반화되지 않은 점 및 개인정보처리방침 링크가 메뉴를 안 닫는 점, 그 외 CSS/JS
+중복 코드 정리 항목들(3페이지에 거의 동일하게 중복된 조합 찾기 헬퍼 함수 등).

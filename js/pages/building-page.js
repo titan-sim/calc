@@ -230,6 +230,10 @@ function buildingInitScene3d() {
   // 안 붙어 바닥이 통째로 안 보였음)
   if (buildingScene3d && mountEl.querySelector("canvas")) { buildingScene3d.resize(); return; }
   if (typeof createHexFloorScene !== "function") return;
+  // 위 가드를 통과했다는 건 새 mountEl에 새 씬을 만들어야 한다는 뜻 - buildingScene3d가 이미
+  // 채워져 있다면(재방문) 그건 직전 방문에서 만든, 이제 화면엔 없지만 WebGL 리소스는 아직 살아있는
+  // 예전 씬임 - dispose 없이 그냥 덮어쓰면 그 리소스가 영영 안 풀림(사이트 전체 점검에서 발견)
+  if (buildingScene3d) buildingScene3d.dispose();
   buildingScene3d = createHexFloorScene({
     // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
     // 맞으면 됨
@@ -955,6 +959,9 @@ function buildingInitCombatConfig() {
       config.targetBuildingId = id;
       saveBuildingCombatConfig(config);
       targetSelectedValue.textContent = buildingTypeDisplayLabel(id);
+      // 직접 때리는 건물이 바뀌면 체력/방어 등이 통째로 바뀌어 빠른 계산 결과가 낡아지므로,
+      // 뒤 건물(behindSelectedValue)과 같은 이유로 재계산 전까지 이전 결과를 지움
+      buildingResetQuickCalc();
       buildingRenderOptimizeSummary();
     });
   };
@@ -993,6 +1000,7 @@ function buildingInitCombatConfig() {
       catapultSelectedValue.innerHTML = catapultOptionHtml(opt);
       catapultList.style.display = "none";
       saveBuildingCombatConfig(config);
+      buildingResetQuickCalc();
       buildingRenderOptimizeSummary();
     };
     catapultList.appendChild(li);
@@ -1010,6 +1018,7 @@ function buildingInitCombatConfig() {
       speedSelectedValue.textContent = buildingCatapultSpeedLabel(opt.value);
       speedList.style.display = "none";
       saveBuildingCombatConfig(config);
+      buildingResetQuickCalc();
       buildingRenderOptimizeSummary();
     };
     speedList.appendChild(li);
@@ -1023,6 +1032,7 @@ function buildingInitCombatConfig() {
     distanceInput.value = v;
     config.distanceTiles = v;
     saveBuildingCombatConfig(config);
+    buildingResetQuickCalc();
     buildingRenderOptimizeSummary();
   };
   distanceInput.onblur = commitDistance;

@@ -1020,16 +1020,31 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
   const id = (name) => idPrefix + name;
   // 레벨 = 기본 공격력 + (기본 체력 / 10) + 이동속도 (룬 등으로 증폭되지 않은 순수 기본 스탯 기준)
   // 검증: 체력 7810, 공격력 886, 이동속도 150 -> 886 + 781 + 150 = 1817
-  const level = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
+  const rawLevel = profile.baseAtk + Math.floor(profile.baseHp / 10) + profile.moveSpeed;
   // 서버 레벨캡의 40% 이하면 별자리가 적용되지 않는 신규 규칙 - 요약 카드도 실제 전투 계산과 같은
-  // 결과를 보여줘야 하므로 여기서도 반영(아레나는 서버 레벨캡 자체를 안 쓰는 페이지라 이 경고를 끔)
-  const constellationBlocked = showConstellationCapWarning && isConstellationBlockedByLevelCap(level);
+  // 결과를 보여줘야 하므로 여기서도 반영(아레나는 서버 레벨캡 자체를 안 쓰는 페이지라 이 경고를 끔).
+  // 레벨캡을 넘겨서 재조정된 뒤의 레벨은 항상 딱 cap 값이 되므로(applyServerLevelCap의 자기일관성,
+  // my-dino-page.js 주석 참고) cap*0.4보다 항상 크고, cap 이하인(재조정 자체가 없는) 경우엔
+  // rawLevel과 재조정 후 레벨이 애초에 같음 - 그래서 이 판정 자체는 원본/재조정 레벨 어느 쪽을
+  // 써도 결과가 같음(재조정이 걸리는 계정은 이 판정에서 항상 "차단 아님"으로 나옴)
+  const constellationBlocked = showConstellationCapWarning && isConstellationBlockedByLevelCap(rawLevel);
+  // 실제 전투 계산(getSideInputs = applyLowLevelConstellationBlock(applyConstellationCap(
+  // applyServerLevelCap(...)))))과 똑같은 체인을 거쳐야 함 - 안 거치면 서버 레벨캡/별자리캡이 걸린
+  // 계정은 이 요약 카드에 캡 적용 전(실제보다 부풀려진) 공격력/체력/레벨이 보이는데, 실제 전투는
+  // 캡 적용 후(더 낮은) 스탯으로 계산되어 서로 어긋남(사이트 전체 점검에서 발견). showConstellationCapWarning
+  // =false(아레나)면 애초에 서버 레벨캡 개념 자체를 안 쓰는 페이지라는 뜻이지만, 두 cap 함수 모두
+  // "설정된 캡이 없으면 원본을 그대로 반환"하므로 그냥 항상 거쳐도 무해함(캡이 실제로 걸려있지
+  // 않은 한 아무 변화 없음)
+  const capped = applyConstellationCap(applyServerLevelCap({
+    baseAtk: profile.baseAtk, baseHp: profile.baseHp, moveSpeed: profile.moveSpeed, constellation: profile.constellation
+  }));
+  const level = capped.baseAtk + Math.floor(capped.baseHp / 10) + profile.moveSpeed;
   const stats = getBattleStats({
-    baseAtk: profile.baseAtk,
-    baseHp: profile.baseHp,
+    baseAtk: capped.baseAtk,
+    baseHp: capped.baseHp,
     count: profile.dinoCount,
     selectedRunes: profile.runes,
-    constellation: constellationBlocked ? {} : profile.constellation,
+    constellation: constellationBlocked ? {} : capped.constellation,
     bonusPercent: getEffectiveBonusPercent(profile),
     currentHpPercent: profile.currentHpPercent
   });

@@ -246,6 +246,12 @@ function dummyInitScene3d() {
   if (typeof createHexFloorScene !== "function") return;
   const mountEl = document.getElementById("dummyHexagonMount");
   if (!mountEl) return;
+  // 이 함수는 재진입 가드 없이 방문마다 무조건 다시 불림(위 dummyThemeChangeHandler 주석 참고) -
+  // 새 씬을 만들기 전에 직전 방문에서 만든 예전 씬을 반드시 dispose해야 함. mount() 안에도
+  // dispose() 호출이 있지만 그건 "지금 만드는 이 새 씬 객체 자신"의 이전 마운트만 정리하는 것이라
+  // (매번 새로 만드므로 사실상 no-op) 예전(별개) 씬 객체의 WebGL 리소스는 안 풀림(사이트 전체
+  // 점검에서 발견)
+  if (dummyScene3d) dummyScene3d.dispose();
   dummyScene3d = createHexFloorScene({
     worldW: 100,
     worldH: 86.6,
@@ -372,6 +378,11 @@ function dummyInitModeTabs() {
         document.getElementById(other.cardId).style.display = other.mode === m.mode ? "block" : "none";
         tabsEl.classList.toggle(`mode-${other.mode}`, other.mode === m.mode);
       });
+      // 실전 대전 탭이 재생 중일 때 다른 탭(설정/조합 찾기 등)으로 넘어가면 화면엔 안 보이는 채로
+      // 공격 루프가 계속 돌아서(다음 히트 이펙트가 안 보이는 곳에서 계속 쌓이고 대미지/시간 카운터도
+      // 계속 누적됨) - 타이탄 페이지의 titanLiveReset과 같은 이유로, 탭을 벗어나면 자동으로 멈추고
+      // 처음 상태로 되돌림(사이트 전체 점검에서 발견)
+      if (m.mode !== "live" && dummyRunning) dummyResetDisplay();
     };
   });
 
@@ -561,8 +572,10 @@ function dummyResetDisplay() {
   dummyTotalDmg = 0;
   document.getElementById("dummyStartBtn").textContent = t("dummy.startBtnIdle");
   document.getElementById("dummyRestartBtn").disabled = true;
-  const target = document.getElementById("dummyTarget");
-  if (target) target.querySelectorAll(".dummy-hit-effect").forEach((el) => el.remove());
+  // dummySpawnHitEffect가 fx를 #dummyTarget 안이 아니라 document.body에 직접 붙임(3D 빌보드
+  // 컨텍스트를 우회하기 위해 position:fixed로 화면 좌표에 띄우는 방식이라, 여기서도 body 기준으로
+  // 찾아야 실제로 지워짐 - #dummyTarget 안에서만 찾던 예전 코드는 아무것도 못 지웠음)
+  document.querySelectorAll(".dummy-hit-effect").forEach((el) => el.remove());
   const scarecrow = document.querySelector(".dummy-scarecrow");
   if (scarecrow) scarecrow.classList.remove("dummy-shaking");
   const popupLayer = document.getElementById("dummyPopupLayer");

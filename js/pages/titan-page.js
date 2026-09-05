@@ -12,6 +12,15 @@ const TITAN_TILE_KEY = "dino_titan_tile_settings"; // {natureAdjacent, tribeCont
 const TITAN_OWNED_LEVELS_KEY = "dino_titan_owned_rune_levels";
 const TITAN_SPEED_KEY = "dino_titan_speed_ms";
 
+// "live" 탭을 처음 열 때 titanInitScene3d()가 마운트함(titanInitModeTabs 참고) - 그 전엔
+// #titanLiveModeCard가 display:none이라 캔버스가 0x0이라서 로드 시점엔 안 만듦(실측 확인). 이
+// 페이지 전체를 감싸는 renderTitanPage() 안이 아니라 반드시 여기(모듈 최상단)에 둬야 함 - 안
+// 그러면 페이지를 나갔다가 재방문할 때마다 renderTitanPage()가 통째로 다시 실행되면서 이 변수도
+// 매번 fresh null로 리셋돼서, 직전 방문에서 만든 씬(및 그 WebGL 렌더러/머티리얼/텍스처)을 dispose할
+// 방법 자체가 없어져 버림(참조가 완전히 끊김) - 아래 titanInitScene3d()에서 재방문 시 이전 씬을
+// 먼저 dispose하고 나서 새로 만들도록 함(사이트 전체 점검에서 발견)
+let titanScene3d = null;
+
 // 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - getMyDinoBattleInputs()를 직접 쓰던
 // 모든 곳을 이걸로 교체
 function titanDinoInputs() {
@@ -974,10 +983,6 @@ function initTitanPage() {
   ];
   const TITAN_R3 = 22;
 
-  // "live" 탭을 처음 열 때 titanInitScene3d()가 마운트함(titanInitModeTabs 참고) - 그 전엔
-  // #titanLiveModeCard가 display:none이라 캔버스가 0x0이라서 로드 시점엔 안 만듦(실측 확인)
-  let titanScene3d = null;
-
   function titanInitScene3d() {
     const mountEl = document.getElementById("titanDuelFloorMount");
     if (!mountEl) return;
@@ -985,11 +990,13 @@ function initTitanPage() {
     // 리사이즈만 하고 끝 - titanScene3d(안 null)만 보고 판단하면 안 됨(건물/다이노 배틀 페이지에서
     // 실측으로 발견한 버그: 페이지를 나갔다 재방문하면 mountEl은 라우터가 완전히 새로 만든
     // 엘리먼트인데 씬 변수는 예전 인스턴스를 그대로 들고 있어서, "이미 마운트됨"으로 착각해 새
-    // mountEl엔 캔버스를 영영 안 붙이는 바람에 바닥이 안 보였음 - 타이탄은 initTitanPage()가
-    // 방문마다 통째로 다시 실행돼서 titanScene3d가 매번 fresh null이라 우연히 이 버그를 안
-    // 겪었지만, 그 "우연"에 기대지 않고 다른 페이지와 같은 방식으로 명시적으로 확인함)
+    // mountEl엔 캔버스를 영영 안 붙이는 바람에 바닥이 안 보였음)
     if (titanScene3d && mountEl.querySelector("canvas")) { titanScene3d.resize(); return; }
     if (typeof createHexFloorScene !== "function") return;
+    // 위 가드를 통과했다는 건 새 mountEl에 새 씬을 만들어야 한다는 뜻 - 그런데 titanScene3d가 이미
+    // 채워져 있다면(재방문) 그건 직전 방문에서 만든, 이제 화면엔 없지만 WebGL 리소스는 아직 살아있는
+    // 예전 씬임 - dispose 없이 그냥 덮어쓰면 그 리소스가 영영 안 풀림(사이트 전체 점검에서 발견)
+    if (titanScene3d) titanScene3d.dispose();
     titanScene3d = createHexFloorScene({
       // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
       // 맞으면 됨(육각형 크기 상수에서 유도 - SVG 시절 절대좌표 아님)

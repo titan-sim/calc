@@ -58,11 +58,29 @@ function buildDinoSideRunes(selectedRunes, unsuitableList) {
     .map((r) => ({ ...r, s: RUNES_DATA[r.name].levels[r.lv] }));
 }
 
-// 흡혈 기준 공격력(VAMP_EXCLUSION_LIST 적용된 별도 바구니)은 인원수 조건에 안 흔들려서 한 번만 계산
-function computeVampBaseAtk(baseAtk, runes, constellation, bonusPercent, currentHpPercent = 100) {
+// tileCfg.tribeControl은 dino-battle-page.js가 저장하는 값 그대로 "none"/"mine"/"opponent"
+// 문자열인데(TRIBE_LABEL_KEYS 참고), side.key는 이 엔진 내부용 "my"/"opp" 문자열이라 서로 다른
+// 이름 체계임 - 예전엔 이 둘을 직접(tileCfg.tribeControl !== side.key) 비교하고 있어서 "mine"과
+// "my"가 절대 같아질 수 없어 부족의 축복 1/2이 실제 시뮬레이션에서 사실상 항상 꺼져 있는 버그가
+// 있었음(사이트 전체 점검에서 발견) - 이 헬퍼로 두 이름 체계를 맞춰서 비교함
+function tribeControlMatchesSide(tribeControl, key) {
+  return tribeControl === (key === "my" ? "mine" : "opponent");
+}
+
+// 흡혈 기준 공격력(VAMP_EXCLUSION_LIST 적용된 별도 바구니)은 인원수 조건부 룬(협동 공격/고독한
+// 분노, VAMP_EXCLUSION_LIST에 있음)엔 안 흔들려서 한 번만 계산하지만, 타일 조건부 룬(자연의
+// 포옹/부족의 축복 - 이 목록엔 없음)과 공격력 버프 타워는 computeSideCombatValues(실제 공격력
+// 계산)와 똑같이 반영해야 함 - 안 그러면 타일 조건이 안 맞을 때 실제 공격력엔 안 붙는 보너스가
+// 흡혈 회복량에만 계속 붙어 있거나, 버프 타워가 켜져 있어도 흡혈량엔 그 증가분이 안 실리는 불일치가
+// 생김(사이트 전체 점검에서 발견)
+function computeVampBaseAtk(baseAtk, runes, constellation, bonusPercent, currentHpPercent = 100, tileCfg = {}, key = null) {
   let atkF = constellation.atk || 0, atkP = bonusPercent.atk || 0;
+  const atkTowerLv = key !== null ? tileCfg[`${key}AtkTowerLevel`] : null;
+  if (atkTowerLv !== null && atkTowerLv !== undefined) atkP += BUFF_TOWER_PERCENTS[atkTowerLv];
   runes.forEach((r) => {
     if (VAMP_EXCLUSION_LIST.includes(r.name)) return;
+    if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
+    if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && !tribeControlMatchesSide(tileCfg.tribeControl, key)) return;
     if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, r.s); return; }
     if (r.s.atk_f) atkF += r.s.atk_f;
     if (r.s.atk_p) atkP += r.s.atk_p;
@@ -94,7 +112,7 @@ function computeSideCombatValues(side, aliveCount, tileCfg) {
   side.runes.forEach((r) => {
     if (r.name === "마지막 선물") return; // 상시 스탯 아님(사망 시 임시 버프로 별도 처리)
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
-    if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && tileCfg.tribeControl !== side.key) return;
+    if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && !tribeControlMatchesSide(tileCfg.tribeControl, side.key)) return;
     // 광전사의 분노는 이 함수(진영 단위 공용 수치)가 아니라, 실제 공격하는 그 개체의 실시간 체력을
     // 알아야만 판정 가능해서 finalAtk를 계산하는 지점(attacker 객체가 있는 곳)에서 따로 처리함
     if (r.name === "광전사의 분노") return;
@@ -130,7 +148,7 @@ function makeDinoSide(inputs, key, tileCfg) {
     runes: buildDinoSideRunes(inputs.selectedRunes, DINO_BATTLE_UNSUITABLE_RUNE_LIST),
     count: inputs.count
   };
-  side.vampBaseAtk = computeVampBaseAtk(side.baseAtk, side.runes, side.constellation, side.bonusPercent, side.currentHpPercent);
+  side.vampBaseAtk = computeVampBaseAtk(side.baseAtk, side.runes, side.constellation, side.bonusPercent, side.currentHpPercent, tileCfg, key);
 
   const initVals = computeSideCombatValues(side, side.count, tileCfg);
   // currentHpPercent는 "전투 중 실시간 체력"이 아니라 "전투 시작을 최대 체력의 몇 %로 할지"(사용자
@@ -240,6 +258,10 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
       deaths: [], // { side }
       spawn: null // { side } - 이번 턴에 새 앞장이 등장했는지
     };
+    // 메테오/가시 광역 피해로 대기 중인(앞장이 아닌) 공룡이 죽으면 이 배열에 모아뒀다가, forEach
+    // 순회가 끝난 뒤 한꺼번에 처리함(순회 도중 dyingSide.dinos를 바로 splice하면 forEach가 그
+    // 변경된 배열 위에서 계속 도는 도중이라 다음 원소를 건너뛸 수 있어서 위험함)
+    const nonFrontAoeDeaths = [];
 
     function hitDefender(rawDmg, isCrit, label) {
       let dmg = rawDmg;
@@ -320,6 +342,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
             const before = d.hp;
             d.hp = Math.max(0, d.hp - dmg);
             targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: meteorAoeHit.isCrit });
+            if (d !== defender && d.hp <= 0) nonFrontAoeDeaths.push(d);
           });
           event.aoeList.push({ label: "메테오(광역)", isCrit: targets.some((t) => t.isCrit), targets });
         } else {
@@ -334,6 +357,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
               const before = d.hp;
               d.hp = Math.max(0, d.hp - dmg);
               areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: meteorAreaHit.isCrit });
+              if (d.hp <= 0) nonFrontAoeDeaths.push(d);
             });
             if (areaTargets.length > 0) {
               event.aoeList.push({ label: "메테오(주변 타일)", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets });
@@ -357,6 +381,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
             const before = d.hp;
             d.hp = Math.max(0, d.hp - dmg);
             targets.push({ index: idx, before, after: d.hp, isFront: d === defender, isCrit: spikeAoeHit.isCrit });
+            if (d !== defender && d.hp <= 0) nonFrontAoeDeaths.push(d);
           });
           event.aoeList.push({ label: "가시", isCrit: targets.some((t) => t.isCrit), targets });
         } else {
@@ -371,6 +396,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
               const before = d.hp;
               d.hp = Math.max(0, d.hp - dmg);
               areaTargets.push({ index: idx, before, after: d.hp, isFront: false, isCrit: spikeAreaHit.isCrit });
+              if (d.hp <= 0) nonFrontAoeDeaths.push(d);
             });
             if (areaTargets.length > 0) {
               event.aoeList.push({ label: "가시", isCrit: areaTargets.some((t) => t.isCrit), targets: areaTargets });
@@ -386,8 +412,14 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
     });
 
     // 앞장 사망 처리(평타/스킬/광역까지 다 반영된 최종 hp 기준). dyingSide/dyingKey가 죽는 쪽,
-    // otherDino/otherKey가 반대쪽 - 100회 교환 동시사망 때는 양쪽에 대해 이 함수를 각각 한 번씩 호출함
-    function processFrontDeath(dyingDino, dyingSide, dyingKey, dyingVals, otherDino, otherKey) {
+    // otherDino/otherKey가 반대쪽 - 100회 교환 동시사망 때는 양쪽에 대해 이 함수를 각각 한 번씩 호출함.
+    // isFrontDeath=false는 메테오/가시 광역 피해로 "앞장이 아닌" 대기 공룡이 죽은 경우(아래 광역
+    // 피해 처리부에서 호출) - 희생/마지막 선물/죽을 준비는 룬 자체가 팀 전체 공용이라 대기 공룡의
+    // 죽음에도 그대로 발동해야 하지만(사이트 전체 점검에서 발견 - 예전엔 대기 공룡이 광역으로
+    // 죽어도 로스터에서 안 빠지고 0HP 상태로 계속 앞장 대기열에 남아있다가, 그 좀비가 다음 앞장으로
+    // 뽑히면 0HP인 채로 공격까지 하는 버그가 있었음), event.spawn(=새 앞장 등장 애니메이션 트리거)만은
+    // 앞장이 실제로 바뀐 경우에만 의미가 있어서 이 파라미터로 구분함
+    function processFrontDeath(dyingDino, dyingSide, dyingKey, dyingVals, otherDino, otherKey, isFrontDeath = true) {
       event.deaths.push({ side: dyingKey });
       const stillAlive = dyingSide.dinos.filter((d) => d !== dyingDino && d.hp > 0);
       dyingSide.runes.forEach((r) => {
@@ -412,7 +444,7 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
       });
       const idx = dyingSide.dinos.indexOf(dyingDino);
       if (idx !== -1) dyingSide.dinos.splice(idx, 1);
-      if (stillAlive.length > 0) event.spawn = { side: dyingKey };
+      if (isFrontDeath && stillAlive.length > 0) event.spawn = { side: dyingKey };
     }
 
     if (defender.hp <= 0) {
@@ -425,6 +457,20 @@ function runDinoBattleSimulation({ my, opp, tileSettings, seed, collectLog = tru
           attacker.warCrySteps = r.s.turn;
         }
       });
+    }
+
+    // 메테오/가시 광역 피해로 이번 턴에 죽은 대기 공룡들을 이제 안전하게 처리(로스터에서 제거 +
+    // 희생/마지막 선물/죽을 준비 발동) - forEach 순회 도중엔 못 건드렸던 것들
+    nonFrontAoeDeaths.forEach((d) => {
+      processFrontDeath(d, defenderSide, defenderKey, defenderVals, attacker, attackerKey, false);
+    });
+
+    // 방어측의 "죽을 준비" 반격(위 processFrontDeath 안에서 처리됨)으로 공격측 앞장이 같은 턴에
+    // 같이 죽을 수 있음 - 기존엔 이 경우를 아무도 처리하지 않아서 좀비(로스터엔 남아있는 0HP
+    // 개체)가 생기고, 그 좀비가 다음 앞장으로 뽑히면 0HP인 채로 계속 공격하는 버그가 있었음
+    // (사이트 전체 점검에서 발견) - 100회 교환 강제 동시사망과 똑같이 앞장 사망으로 처리함
+    if (attacker.hp <= 0) {
+      processFrontDeath(attacker, attackerSide, attackerKey, attackerVals, defender, defenderKey);
     }
 
     // 100회 교환(각자 100번씩) 동안 서로 못 죽였으면 실제 게임 규칙대로 남은 체력과 무관하게
@@ -621,7 +667,6 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
           if (attackerKey === "my") { oppDmgDealt += burst; oppHitCount++; } else { myDmgDealt += burst; myHitCount++; }
         }
       });
-      if (attacker.hp <= 0) bothDied = true;
       // 대기 공룡이 없는 단순화 모드라 죽는 즉시 그 자리에서 풀피로 부활(이동/딜레이 없음)
       defender.hp = defender.maxHp;
       defender.giftAtk = 0;
@@ -630,6 +675,22 @@ function runDinoQuickCalc({ my, opp, tileSettings, totalDeaths = 500 }) {
       defender.warCrySteps = 0;
       defender.attackCount = 0;
       defender.shieldSteps = shieldTurnOf(defenderSide);
+      // 위 죽을 준비 반격으로 공격측도 같은 턴에 죽을 수 있음 - 기존엔 이 경우를 감지만 하고(bothDied)
+      // 정작 attacker를 부활시키지도, 사망/처치 집계에 반영하지도 않아서 공격측이 0HP인 채로 계속
+      // "살아있는" 것처럼 다음 턴을 진행하는 버그가 있었음(사이트 전체 점검에서 발견) - defender와
+      // 완전히 대칭으로 처리함(사망 집계 +1, 반격한 defenderSide에 처치 +1, 즉시 풀피 부활)
+      if (attacker.hp <= 0) {
+        bothDied = true;
+        deaths++;
+        if (defenderKey === "my") myKills++; else oppKills++;
+        attacker.hp = attacker.maxHp;
+        attacker.giftAtk = 0;
+        attacker.giftSteps = 0;
+        attacker.warCryAtkP = 0;
+        attacker.warCrySteps = 0;
+        attacker.attackCount = 0;
+        attacker.shieldSteps = shieldTurnOf(attackerSide);
+      }
     }
 
     // 100회 교환 동안 서로 못 죽였으면 동시사망 - 무승부 교환이라 양쪽 다 1킬씩 잡힘(어느 한쪽에

@@ -23,12 +23,18 @@ let routerRenderSeq = 0;
 async function renderRoute() {
   const mySeq = ++routerRenderSeq;
   const hash = location.hash || "#home";
-  const renderFn = ROUTES[hash] || renderHome;
+  // 존재하지 않는 해시(오타/삭제된 라우트/잘못된 링크)는 renderHome으로 대체 렌더링되는데, 예전엔
+  // 이 대체 사실을 안 반영하고 화면엔 없는 원본(미매칭) 해시를 그대로 body[data-page]에 심어버려서
+  // 실제로 그려진 홈 화면 콘텐츠가 body[data-page="home"] 스코프 CSS(css/home.css의 .container
+  // 등)를 하나도 못 받는 버그가 있었음(사이트 전체 점검에서 발견) - "실제로 어떤 라우트가
+  // 그려졌는지" 기준으로 통일함
+  const resolvedHash = ROUTES[hash] ? hash : "#home";
+  const renderFn = ROUTES[resolvedHash] || renderHome;
   const app = document.getElementById("app");
   await renderFn(app);
   if (mySeq !== routerRenderSeq) return; // 기다리는 동안 다른 곳으로 또 이동했으면 이 결과는 무시
-  updateActiveNavLink(hash === "" ? "#home" : hash);
-  document.body.dataset.page = (hash === "" ? "#home" : hash).replace("#", "");
+  updateActiveNavLink(resolvedHash);
+  document.body.dataset.page = resolvedHash.replace("#", "");
   window.scrollTo(0, 0);
 }
 

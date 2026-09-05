@@ -38,7 +38,7 @@ function pseudoSideFor(side, slot) {
 // 초기화"(resetArenaSideMutableState, 매 트라이얼)를 분리함. runArenaSimulation(실전 1회용)과
 // arena-page.js의 다른 호출자들은 원래처럼 이 함수(buildArenaSide) 그대로 씀 - 매 트라이얼
 // 반복 호출이 아니라서 분리할 이유가 없음
-function buildArenaSideRunes(profile, slotRunesList, key) {
+function buildArenaSideRunes(profile, slotRunesList, key, tileCfg) {
   const inputs = dinoProfileToBattleInputs(profile);
   const slots = slotRunesList.map((runesRaw, slotIndex) => {
     const runes = buildDinoSideRunes(runesRaw || [], ARENA_UNSUITABLE_RUNE_LIST);
@@ -46,7 +46,7 @@ function buildArenaSideRunes(profile, slotRunesList, key) {
       slotIndex,
       row: slotIndex < 2 ? "front" : "back",
       runes,
-      vampBaseAtk: computeVampBaseAtk(inputs.baseAtk, runes, inputs.constellation, inputs.bonusPercent, inputs.currentHpPercent),
+      vampBaseAtk: computeVampBaseAtk(inputs.baseAtk, runes, inputs.constellation, inputs.bonusPercent, inputs.currentHpPercent, tileCfg, key),
       hp: 0, maxHp: 0,
       giftAtk: 0, giftSteps: 0,       // 마지막 선물
       warCryAtkP: 0, warCrySteps: 0,  // 승리의 함성
@@ -66,8 +66,8 @@ function buildArenaSideRunes(profile, slotRunesList, key) {
   };
 }
 
-function buildArenaSide(profile, slotRunesList, key) {
-  return buildArenaSideRunes(profile, slotRunesList, key);
+function buildArenaSide(profile, slotRunesList, key, tileCfg) {
+  return buildArenaSideRunes(profile, slotRunesList, key, tileCfg);
 }
 
 // 트라이얼(또는 실전 1회) 시작 전에 룬/기본 스탯은 그대로 두고, 직전 트라이얼에서 전투 중 변했을
@@ -132,8 +132,8 @@ function runArenaSimulation({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, 
     myAtkTowerLevel: null, myHpTowerLevel: null, oppAtkTowerLevel: null, oppHpTowerLevel: null
   };
 
-  const mySide = buildArenaSide(myProfile, mySlotRunes, "my");
-  const oppSide = buildArenaSide(oppProfile, oppSlotRunes, "opp");
+  const mySide = buildArenaSide(myProfile, mySlotRunes, "my", tileCfg);
+  const oppSide = buildArenaSide(oppProfile, oppSlotRunes, "opp", tileCfg);
   initSlotHp(mySide, tileCfg);
   initSlotHp(oppSide, tileCfg);
 
@@ -383,8 +383,8 @@ function runArenaQuickCalc({ myProfile, oppProfile, mySlotRunes, oppSlotRunes, t
   let myWins = 0, oppWins = 0, draws = 0;
   let myFrontFirst = 0, oppFrontFirst = 0;
 
-  const mySide = buildArenaSideRunes(myProfile, mySlotRunes, "my");
-  const oppSide = buildArenaSideRunes(oppProfile, oppSlotRunes, "opp");
+  const mySide = buildArenaSideRunes(myProfile, mySlotRunes, "my", tileCfg);
+  const oppSide = buildArenaSideRunes(oppProfile, oppSlotRunes, "opp", tileCfg);
 
   for (let trial = 0; trial < trials; trial++) {
     resetArenaSideMutableState(mySide);

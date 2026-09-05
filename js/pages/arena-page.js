@@ -1112,8 +1112,8 @@ function arenaResetDisplay() {
   const myProfile = loadMyDinoProfile(MY_DINO_PROFILE_KEY);
   const oppProfile = arenaGetOppProfile();
   // buildArenaSide/initSlotHp는 js/core/simulation-arena.js의 전역 함수를 그대로 재사용
-  const mySide = buildArenaSide(myProfile, arenaGetActiveSlotRunes("my"), "my");
-  const oppSide = buildArenaSide(oppProfile, arenaGetActiveSlotRunes("opp"), "opp");
+  const mySide = buildArenaSide(myProfile, arenaGetActiveSlotRunes("my"), "my", ARENA_TILE_CFG);
+  const oppSide = buildArenaSide(oppProfile, arenaGetActiveSlotRunes("opp"), "opp", ARENA_TILE_CFG);
   initSlotHp(mySide, ARENA_TILE_CFG);
   initSlotHp(oppSide, ARENA_TILE_CFG);
 

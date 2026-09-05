@@ -32,6 +32,13 @@ function computeDummyCombatValues(inputs, tileCfg) {
     if (r.name === "자연의 포옹" && !tileCfg.natureAdjacent) return;
     if ((r.name === "부족의 축복 1" || r.name === "부족의 축복 2") && !tileCfg.tribeControl) return;
     if (r.name === "협동 공격" && count < 5) return;
+    // 고독한 분노는 DUMMY_UNSUITABLE_RUNE_LIST(js/data/rune-data.js)에 있는 "허수아비에 부적합한
+    // 룬" - 다른 부적합 룬들은 이 함수가 다루는 필드(atk_f/atk_p)가 아예 없어서(예: 체력 증가류는
+    // hp_f만 있음) 자연히 기여가 0이었는데, 고독한 분노는 특이하게 atk_f/hp_f를 같이 갖고 있어서
+    // 별도 제외 코드 없이는 count와 무관하게 atk_f가 그대로 더해져버림(사이트 전체 점검에서 발견) -
+    // 부적합 목록에 있는 만큼 다른 부적합 룬들과 똑같이 기여 0으로 맞춤(인원수 조건부로 되살리는 게
+    // 아님 - "부적합"이라는 분류 자체가 이미 사용자가 확정한 것이라 그대로 존중함)
+    if (r.name === "고독한 분노") return;
     if (r.name === "광전사의 분노") { atkP += computeBerserkerAtkBonus(currentHpPercent, s); return; }
     if (s.atk_f) atkF += s.atk_f;
     if (s.atk_p) atkP += s.atk_p;

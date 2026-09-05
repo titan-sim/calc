@@ -98,6 +98,10 @@ function dinoBattleInitScene3d() {
   // 바닥이 통째로 안 보였음)
   if (dinoBattleScene3d && mountEl.querySelector("canvas")) { dinoBattleScene3d.resize(); return; }
   if (typeof createHexFloorScene !== "function") return;
+  // 위 가드를 통과했다는 건 새 mountEl에 새 씬을 만들어야 한다는 뜻 - dinoBattleScene3d가 이미
+  // 채워져 있다면(재방문) 그건 직전 방문에서 만든, 이제 화면엔 없지만 WebGL 리소스는 아직 살아있는
+  // 예전 씬임 - dispose 없이 그냥 덮어쓰면 그 리소스가 영영 안 풀림(사이트 전체 점검에서 발견)
+  if (dinoBattleScene3d) dinoBattleScene3d.dispose();
   dinoBattleScene3d = createHexFloorScene({
     // 마운트 즉시 resize()가 실제 컨테이너 비율로 다시 잡아주므로 여기 값은 초기 종횡비 정도만
     // 맞으면 됨
@@ -981,6 +985,13 @@ async function dinoBattleRunModeAOrB(gradeFilter) {
   const baseProfile = getSideInputs(MY_DINO_PROFILE_KEY);
   const tileSettings = getEffectiveTileSettings();
 
+  // 조합 찾기(1·2단계 라운드로빈)는 청크마다 await로 이벤트 루프에 양보하는 긴 비동기 작업이라,
+  // 그동안 다른 페이지로 이동하면(SPA 라우터는 teardown 없이 #app만 새로 그림) 이 체인이 끝난 뒤
+  // 이미 사라진 #dinoOptimizeResult를 document.getElementById로 다시 찾다가 null을 만나 콘솔
+  // 에러가 남(사이트 전체 점검에서 발견) - 실시간 전투 재생에 이미 쓰던 battleToken(다른 페이지로
+  // 이동하면 hashchange 리스너가 증가시킴) 패턴을 그대로 재사용해 각 단계 이후 무효화됐는지 확인
+  const token = battleToken;
+
   btn.disabled = true;
   btn.classList.add("btn-progress");
   btn.style.setProperty("--progress", "0");
@@ -1000,8 +1011,10 @@ async function dinoBattleRunModeAOrB(gradeFilter) {
   };
 
   const stage1 = await dinoBattleRoundRobin(combos, baseProfile, levels, tileSettings, DINO_BATTLE_SCREEN_DINO_COUNT, 20, onProgress(0, 40));
+  if (token !== battleToken) return; // 기다리는 동안 다른 페이지로 이동함 - 이미 사라진 DOM은 안 건드림
   const contenders = dinoBattleSelectContenders(stage1, DINO_BATTLE_OPTIMIZER_VERIFY_TOP_N).map((r) => r.pick);
   const stage2 = await dinoBattleRoundRobin(contenders, baseProfile, levels, tileSettings, DINO_BATTLE_VERIFY_DINO_COUNT, 5, onProgress(40, 60));
+  if (token !== battleToken) return;
   const ranked = stage2.sort((a, b) => b.winRate - a.winRate);
 
   btn.disabled = false;
@@ -1047,6 +1060,9 @@ async function dinoBattleRunModeC() {
   const opp = getOppBattleInputs();
   const tileSettings = getEffectiveTileSettings();
 
+  // 모드 A/B와 같은 이유로 battleToken을 재사용해 페이지 이동 중 무효화를 감지함(위 dinoBattleRunModeAOrB 참고)
+  const token = battleToken;
+
   btn.disabled = true;
   btn.classList.add("btn-progress");
   btn.style.setProperty("--progress", "0");
@@ -1066,8 +1082,10 @@ async function dinoBattleRunModeC() {
   };
 
   const stage1 = await dinoBattleEvalAgainstOpp(combos, baseProfile, levels, opp, tileSettings, DINO_BATTLE_SCREEN_DINO_COUNT, 20, onProgress(0, 40));
+  if (token !== battleToken) return;
   const contenderPicks = dinoBattleSelectContenders(stage1, DINO_BATTLE_OPTIMIZER_VERIFY_TOP_N).map((r) => r.pick);
   const stage2 = await dinoBattleEvalAgainstOpp(contenderPicks, baseProfile, levels, opp, tileSettings, DINO_BATTLE_VERIFY_DINO_COUNT, 5, onProgress(40, 60));
+  if (token !== battleToken) return;
   const ranked = stage2.sort((a, b) => b.winRate - a.winRate);
 
   btn.disabled = false;

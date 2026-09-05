@@ -166,6 +166,12 @@ function createHexFloorScene(config) {
       const cardBg = hexSceneResolveColor("--card-bg", cs, "#141b2b");
       const border = tile.borderVar ? hexSceneResolveColor(tile.borderVar, cs, tint) : tint;
       const texture = hexSceneBakeTexture({ tintColor: tint, cardBgColor: cardBg, borderColor: border });
+      // 이 자리에서 새 텍스처로 바꿔 끼우기 전에 방금까지 쓰던 이전 텍스처를 반드시 dispose해야
+      // GPU 메모리가 해제됨(WebGLTexture는 JS 쪽 참조를 놓아도 자동 회수되지 않음) - 안 그러면
+      // 테마 전환마다, 그리고 setTileTint()로 타일 하나만 바꿀 때도 매번 "타일 개수"만큼의 텍스처가
+      // 계속 쌓임(사이트 전체 점검에서 발견 - 특히 건물 페이지는 타일 호버(mouseenter/leave)마다
+      // setTileTint->rebakeColors 전체 재굽기가 일어나서 가장 빠르게 누적됐음)
+      if (tileMeshes[i].material.map) tileMeshes[i].material.map.dispose();
       tileMeshes[i].material.map = texture;
       tileMeshes[i].material.needsUpdate = true;
     });
@@ -204,6 +210,16 @@ function createHexFloorScene(config) {
       renderer.dispose();
       if (canvasEl && canvasEl.parentNode) canvasEl.parentNode.removeChild(canvasEl);
     }
+    // renderer.dispose()는 렌더러 자체(WebGL 컨텍스트)만 해제하고, 타일마다 만든 머티리얼/텍스처는
+    // 안 건드림 - 지오메트리는 hexSceneSharedGeometry로 전 타일이 공유하는 값이라(전역 상수, 씬을
+    // 몇 번을 새로 만들어도 재사용됨) dispose 대상이 아니지만, 머티리얼과 그 위에 구운 텍스처는
+    // 씬(타일 세트)마다 새로 만든 것이라 여기서 반드시 해제해야 함 - 안 그러면 페이지를 오갈 때마다
+    // (라우터가 #app.innerHTML을 통째로 갈아치우기만 하고 별도 unmount 훅이 없어서) 이전 씬의
+    // 머티리얼/텍스처가 전부 GPU 메모리에 그대로 쌓여있게 됨(사이트 전체 점검에서 발견)
+    tileMeshes.forEach((mesh) => {
+      if (mesh.material.map) mesh.material.map.dispose();
+      mesh.material.dispose();
+    });
     renderer = null;
     canvasEl = null;
     mountedContainer = null;

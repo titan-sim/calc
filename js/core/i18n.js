@@ -33,14 +33,27 @@ function i18nFlatten(grouped) {
   return flat;
 }
 
+// fetch/파싱 실패(네트워크 문제, 배포 설정으로 인해 404가 HTML을 반환하는 경우 등)를 여기서
+// 잡아두지 않으면 initI18n()이 reject되고, main.js가 그걸 await하는 DOMContentLoaded 핸들러
+// 전체가 중단돼서 라우터/사이드메뉴/설정 드로어까지 아무것도 초기화 안 된 빈 화면이 됨(사이트
+// 전체 점검에서 발견 - update-check.js의 fetchAppVersion()은 이미 같은 이유로 try/catch가
+// 있었는데 이 부팅 경로 함수엔 없었음). 실패하면 빈 맵을 반환해서, t()의 기존 폴백(문자열이 없으면
+// 키 자체를 그대로 보여줌)이 작동하게 함 - 화면에 번역 대신 키가 보이는 건 볼썽사납지만 사이트
+// 자체가 완전히 죽는 것보다는 훨씬 나음
 async function i18nLoadLang(lang) {
   if (i18nLoadedCache[lang]) return i18nLoadedCache[lang];
   const path = I18N_FILE_MAP[lang] || I18N_FILE_MAP.ko;
-  const res = await fetch(path);
-  const grouped = await res.json();
-  const flat = i18nFlatten(grouped);
-  i18nLoadedCache[lang] = flat;
-  return flat;
+  try {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`${path} responded with ${res.status}`);
+    const grouped = await res.json();
+    const flat = i18nFlatten(grouped);
+    i18nLoadedCache[lang] = flat;
+    return flat;
+  } catch (e) {
+    console.error(`i18n: failed to load "${lang}" (${path}), falling back to raw keys`, e);
+    return {};
+  }
 }
 
 function i18nDetectBrowserLang() {
