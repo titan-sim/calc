@@ -54,7 +54,7 @@ function runTitanSimulation(cfg) {
     const batchSize = Math.max(1, batchSizeCfg);
     let completed = 0;
     const detailedLogs = [];
-    let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0, survivedCount = 0;
+    let totalTitanHp = 0, totalTime = 0, totalDead = 0, totalDmg = 0, survivedCount = 0, totalFightDuration = 0;
 
     const limitSec = timeLimitMinutes * 60;
     let timeSeriesHp = new Array(limitSec + 1).fill(0);
@@ -104,6 +104,7 @@ function runTitanSimulation(cfg) {
         let sessionTime = 0;
         let deathEventCount = 0;
         let firstDeathTick = null;
+        let titanDefeatedTick = null; // 타이탄 체력이 0이 된 틱(안 죽었으면 null) - "실제 전투 소요 시간"용
         let initialFullHp = 0;
         let prevMaxHp = 0; // 협동 공격/고독한 분노 등으로 최대 체력이 바뀔 때 비율 재조정용(직전 틱의 최대 체력)
         let tickEvents = []; // 1회차(i===0)에서만 채워지는 "주요 이벤트" 로그(치명타/사망/룬 발동/재소환)
@@ -235,7 +236,7 @@ function runTitanSimulation(cfg) {
               }
             });
 
-            if (tHp <= 0) { tHp = 0; titanDefeated = true; break; }
+            if (tHp <= 0) { tHp = 0; titanDefeated = true; titanDefeatedTick = t; break; }
             if (d.giftSteps > 0 && --d.giftSteps === 0) d.giftAtk = 0;
           }
 
@@ -332,7 +333,7 @@ function runTitanSimulation(cfg) {
                 }
               }
             }
-            if (tHp <= 0) titanDefeated = true;
+            if (tHp <= 0) { titanDefeated = true; titanDefeatedTick = t; }
           }
 
           if (collectLog && i === 0) {
@@ -377,6 +378,13 @@ function runTitanSimulation(cfg) {
         if (firstDeathTick === null) survivedCount++;
         totalDead += deathEventCount;
         totalDmg += targetTitan.hp - Math.max(0, tHp);
+        // "실제 전투 소요 시간"은 위 avgTimeSec(공룡이 처음 죽기까지 걸린 시간)와는 다른 개념 -
+        // "타이탄을 잡을 때까지, 못 잡았으면 제한 시간까지" 실제로 흐른 시간. avgTotalDmg를 이
+        // 값으로 나누면 타이탄을 빨리 잡을수록(분모가 작아짐) 높게, 못 잡는 조합끼리는 분모가
+        // 똑같이 제한 시간이라 딜 총량 그대로 비교되는 "실제 초당 대미지" 지표를 만들 수 있음
+        // (조합 찾기의 "최대 대미지"/"균형" 선정을 사망·재소환·이동시간 무시하는 정적 이론 dps
+        // 대신 이 실측 기반 지표로 바꾸기 위해 추가함)
+        totalFightDuration += titanDefeatedTick !== null ? titanDefeatedTick : limitSec;
       }
       completed = end;
       onProgress(completed, iterations);
@@ -424,6 +432,7 @@ function runTitanSimulation(cfg) {
         avgTotalDmg: totalDmg / iterations,
         avgRemainingTitanHp: Math.max(0, totalTitanHp / iterations),
         avgTimeSec: totalTime / iterations,
+        avgFightDurationSec: totalFightDuration / iterations,
         // 공룡이 한 마리도 안 죽은 시행의 비율(0~1). avgTimeSec는 평균이라 "가끔 죽는" 조합도
         // 대부분 시행에서 시간 제한을 채우면 평균이 크게 안 낮아져서 안정성 차이가 묻힘 -
         // 확률형 방어/회복 룬이 섞인 조합끼리 비교할 때는 이 값이 실제 "얼마나 믿을 만한지"를
