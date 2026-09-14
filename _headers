@@ -1,0 +1,9 @@
+# Cloudflare Workers 정적 에셋(wrangler.jsonc의 assets) 응답 헤더 커스터마이즈 - Pages와 같은
+# _headers 파일 문법을 그대로 지원함. version.json은 js/core/update-check.js가 배포 감지용으로
+# 폴링하는 파일이라 엣지에서 절대 캐시되면 안 되는데, 기본 응답 헤더(max-age=0, must-revalidate)
+# 만으로는 실제로 Cloudflare 엣지가 캐시된 응답을 그대로 내려주는 게 실측으로 확인됨(배포 직후
+# curl로 직접 확인 - cf-cache-status: HIT, 캐시 무효화용 쿼리스트링(?t=...)을 붙여도 무시됨.
+# 원인은 CF가 이 정적 에셋의 캐시 키에서 쿼리스트링을 무시하기 때문으로 보임) - no-store로 명시해서
+# 엣지가 아예 캐싱 자체를 하지 않게 강제함
+/version.json
+  Cache-Control: no-store
