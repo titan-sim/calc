@@ -23,10 +23,13 @@ const CONSTELLATION_FIELDS = [
 
 // 레벨표(CONSTELLATION_CAP_TABLES)가 있는 필드용 옵션 표시 문구 - "Lv. 33 (+270)"(사용자 확정)
 function constellationLevelOptionLabel(level, value, suffix) {
-  // "Lv. X"와 "(+수치)" 사이를 스페이스 3~4칸 정도로 넉넉히 띄움(사용자 확정) - 일반 스페이스는
-  // 여러 개 써도 브라우저가 하나로 붙여버리므로(white-space:normal 기본 동작), 줄어들지 않는
-  // 공백 문자(non-breaking space,  )를 대신 씀
-  return `Lv. ${level}    (+${value}${suffix || ""})`;
+  // "Lv. X"와 "(+수치)" 사이를 띄움(원래 사용자 확정값은 스페이스 4칸이었는데, 모바일 좁은 화면에서
+  // 레벨이 높아 수치가 길어지면(예: 치명타 피해 +135.07%) 박스 폭을 넘어 "Lv." 뒤에서 줄바꿈되는
+  // 버그가 5개 언어 전부에서(언어와 무관한 순수 폭 문제로) 재현됨 - 실사용 리포트 + 5개 언어
+  // 에이전트 병렬 조사로 확인. 시각적으로 구분되는 여백은 남기되 2칸으로 줄여 폭을 확보함 - 일반
+  // 스페이스는 여러 개 써도 브라우저가 하나로 붙여버리므로(white-space:normal 기본 동작), 줄어들지
+  // 않는 공백 문자(non-breaking space,  )를 씀
+  return `Lv. ${level}  (+${value}${suffix || ""})`;
 }
 
 // idFn: renderMyDinoPage 인스턴스별 id(name) 헬퍼(idPrefix 접두) 그대로 받아서 씀. 레벨표가 있는

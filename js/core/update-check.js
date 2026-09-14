@@ -34,16 +34,21 @@ function showUpdateBanner() {
 }
 
 async function initUpdateCheck() {
-  loadedAppVersion = await fetchAppVersion();
-  // version.json 자체가 없거나 네트워크 문제면 조용히 기능을 꺼둠(필수 기능이 아니라 사이트
-  // 이용에는 지장 없어야 함)
-  if (!loadedAppVersion) return;
-
+  // 최초 fetch가 일시적인 네트워크 문제로 실패하면(예: 페이지 로드 시점의 순간적인 끊김) 예전엔
+  // loadedAppVersion이 계속 null로 남아 이 세션 내내(재시도 한 번 없이) 기능 자체가 영구히
+  // 꺼져버렸음 - 실사용 리포트로 발견("가끔 알림이 안 뜬다"). 최초 실패는 그냥 "아직 기준 버전을
+  // 못 잡음" 상태로 두고, 이후 폴링/탭 복귀 때마다 계속 기준 버전 확보를 재시도하도록 바꿈
   const checkNow = async () => {
     const latest = await fetchAppVersion();
-    if (latest && latest !== loadedAppVersion) showUpdateBanner();
+    if (!latest) return; // version.json 자체가 없거나 네트워크 문제 - 이번엔 건너뛰고 다음 기회에 재시도
+    if (loadedAppVersion === null) {
+      loadedAppVersion = latest; // 아직 기준 버전이 없으면 이번 값을 기준으로 삼음
+      return;
+    }
+    if (latest !== loadedAppVersion) showUpdateBanner();
   };
 
+  await checkNow();
   setInterval(checkNow, UPDATE_CHECK_INTERVAL_MS);
   // 탭을 백그라운드에 오래 뒀다가 돌아왔을 때는 다음 폴링까지 기다리지 않고 바로 한 번 확인
   document.addEventListener("visibilitychange", () => {

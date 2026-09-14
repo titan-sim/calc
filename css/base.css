@@ -350,6 +350,13 @@ input:focus, select:focus {
   line-height: normal;
   text-align: center;
   cursor: pointer;
+  /* 이 배지는 아이콘+간격이 폭을 먼저 가져가고 화살표용 오른쪽 여백까지 있어서, 일반 드롭다운
+     (.selected-value의 공용 clamp(11px, 2.5cqw, 15px))보다 실제 쓸 수 있는 폭이 훨씬 좁음 -
+     별자리 레벨이 높아 수치가 길어지면(예: 치명타 피해 +135.07%) 모바일 폭에서 이 공용 하한선(11px)
+     으로도 못 들어가 "Lv." 뒤에서 줄바꿈되던 버그(실사용 리포트 + 5개 언어 에이전트 조사로 확인 -
+     언어 무관, 순수 폭 문제) - 이 배지에만 하한선을 더 낮춰서 좁은 화면에서도 한 줄에 들어가게 함
+     (다른 드롭다운들은 폭이 넉넉해 전혀 영향 없음) */
+  font-size: clamp(9.5px, 2.5cqw, 15px);
 }
 
 /* 화살표는 그대로 유지(사용자 확정 - "역삼각형 없으니까 드롭다운인지 모르겠다") - 다만 이 사각형
@@ -360,6 +367,9 @@ input:focus, select:focus {
 
 .const-badge-dropdown .dropdown-list li {
   text-align: center;
+  /* 위 .selected-value와 같은 이유 - 펼친 목록 쪽은 화살표 여백이 없어 덜 좁지만, 레벨이 아주
+     높은 옵션(목록 맨 끝)은 공용 하한선(11px)으로도 가끔 줄바꿈됨(실측 확인) */
+  font-size: clamp(9.5px, 2.33cqw, 14px);
 }
 
 /* "+" + 수치(+ 있으면 "%") - 실제 <input>은 박스 전체를 차지하지만 글자색을 투명하게 만들어

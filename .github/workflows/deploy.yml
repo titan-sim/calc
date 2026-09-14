@@ -14,6 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # version.json(js/core/update-check.js가 폴링하는 배포 버전 마커)을 커밋마다 손으로 바꿔주는
+      # 수동 절차였는데, 실제로는 이 저장소가 생긴 뒤 딱 한 번만 바뀌고 그 뒤 수십 번의 자동 배포
+      # 동안 한 번도 안 바뀜(git log로 확인) - 그래서 "새 배포 감지 배너"가 사실상 한 번도 못 뜬
+      # 것으로 보임(사용자 리포트로 발견). 사람이 기억해야 하는 절차 자체를 없애고, 배포마다 항상
+      # 달라지는 커밋 SHA로 매 배포 시점에 자동 생성함
+      - name: Write version.json
+        env:
+          APP_VERSION: ${{ github.sha }}
+        run: |
+          printf '{ "version": "%s" }\n' "$APP_VERSION" > version.json
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
