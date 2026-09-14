@@ -2084,3 +2084,28 @@ vi/zh-CN) 각각에 독립적인 조사 에이전트를 병렬로 띄움 - `.con
 개수 기준으로 바꿔 정확히 판정). 최악 필드(치명타 피해)의 펼친 목록도 51개 옵션(Lv.0~50) 전부
 한 줄임을 확인. 스크린샷으로 최종 시각 확인(6개 배지 전부 한 줄, "Lv. 50  (+135.07%)"까지 깨끗하게
 들어감), 콘솔 에러 0건.
+
+### ⚠️ 배포 후 발견 — 묶음 45-1번 후속: Cloudflare 엣지가 version.json을 계속 옛날 값으로 캐싱
+
+위 1번(배포 감지 배너) 수정을 실제로 푸시·배포한 직후, 자율 점검 중 프로덕션에서 직접 curl로
+검증하다가 발견함. `.github/workflows/deploy.yml`의 새 "Write version.json" 스텝과 wrangler
+배포 로그 둘 다 정상(`+ /version.json`이 변경 파일로 올라감, "Uploaded 7 files" 성공) - 그런데도
+실제 `https://dinomutant-sim.com/version.json`은 배포 후 여러 번(여러 PoP, SIN/HKG 등) 확인해도
+계속 옛날 값(`"2026-07-22.1"`)을 반환하고 `cf-cache-status: HIT`가 찍힘. 클라이언트가 쓰는
+캐시 무효화 쿼리스트링(`?t=Date.now()`)도, 직접 `Cache-Control: no-cache`/`Pragma: no-cache`
+요청 헤더를 붙여도 전혀 효과 없음 - Cloudflare 엣지가 이 정적 에셋의 캐시 키에서 쿼리스트링/
+요청 헤더를 아예 안 보는 것으로 보임(원본 응답 자체는 `max-age=0, must-revalidate`인데도).
+
+**적용한 수정.** Cloudflare Pages/Workers 에셋이 공용으로 지원하는 `_headers` 파일을 저장소
+루트에 새로 추가해서 `/version.json`에 `Cache-Control: no-store`를 명시적으로 강제함(쿼리스트링
+무효화에 의존하는 대신 엣지가 애초에 캐싱 자체를 안 하게 함). 배포까지 확인함(wrangler 로그에
+`_headers` 적용 확인).
+
+**미해결 - 사용자 확인/조치 필요.** `_headers` 배포 후에도 몇 분간 재확인했지만 일부 PoP는 여전히
+`cf-cache-status: HIT` + 옛날 값을 반환함(이미 캐시에 박혀있던 응답이 `_headers` 적용 이전에
+캐싱된 것이라 정책이 바뀌었다고 자동으로 무효화되지는 않는 것으로 보임) - Cloudflare API 토큰이
+GitHub Actions 시크릿에만 있고 이 환경엔 없어서 직접 캐시 퍼지(purge)를 못 함. **사용자가
+Cloudflare 대시보드에서 직접 한 번 캐시 퍼지(전체 또는 최소한 `/version.json` URL 하나만이라도)를
+해줘야 이번 수정이 실제로 반영됨** - 안 그러면 자연 만료될 때까지(보통 오래 걸리지 않지만 정확한
+시간은 불명) 배포 감지 배너가 계속 옛날 버전 기준으로 비교하게 됨. 퍼지 이후엔 별도 조치 없이도
+앞으로의 모든 배포에서 `_headers`의 `no-store` 덕분에 이 문제가 재발하지 않을 것으로 예상됨.
