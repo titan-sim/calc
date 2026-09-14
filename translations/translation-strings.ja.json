@@ -264,6 +264,8 @@
     "my_dino.field.moveSpeed": "移動速度",
     "my_dino.field.dinoCount": "恐竜数",
     "my_dino.field.currentHpPercent": "現在の体力設定",
+    "my_dino.field.stewAtk": "攻撃力シチュー",
+    "my_dino.field.stewHp": "体力シチュー",
     "my_dino.constellationCapWarning": "このレベルはレベルキャップの40%以下のため、星座効果が適用されません。",
     "my_dino.field.constHp": "体力",
     "my_dino.field.constAtk": "攻撃力",

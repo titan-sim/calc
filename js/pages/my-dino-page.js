@@ -109,6 +109,12 @@ function defaultMyDinoProfile() {
     vip: 0,
     dinoCount: 5,
     currentHpPercent: 100, // 광전사의 분노 판정용(전투 중 실시간이 아니라 직접 설정하는 고정값)
+    // 스튜(둥지 소환 시 추가 스탯을 주는 게임 내 기능, 별자리 "스튜 효과"가 이 값을 업그레이드함) -
+    // 일단은 켜고 끄는 토글만 있고 실제 계산 반영은 아직 안 함(수치가 정확히 어떻게 적용되는지
+    // 인게임 확인 전이라 계획 단계, dev 문서 참고). 기본값은 꺼짐 - 다른 온오프 토글들(연속 전투 등)과
+    // 같은 관례
+    stewAtkEnabled: false,
+    stewHpEnabled: false,
     constellation: {
       hp: 0, atk: 0, critRate: 0, critDmg: 0, buildingDmg: 0, stewEffect: 0,
       moveSpeed: 0, bossDmgReduction: 0, bossDmgIncrease: 0
@@ -515,6 +521,20 @@ function renderMyDinoPage(container, options = {}) {
               <ul class="dropdown-list" id="${id("currentHpPercentList")}"></ul>
             </div>
           </div>
+          <div>
+            <label>${t("my_dino.field.stewAtk")}</label>
+            <div class="field-icon-row">
+              <img class="field-icon" src="./assets/constellation/StewOfValor_Icon.png" alt="">
+              <label class="switch" style="margin-left:auto"><input type="checkbox" id="${id("stewAtkToggle")}"><span class="slider round"></span></label>
+            </div>
+          </div>
+          <div>
+            <label>${t("my_dino.field.stewHp")}</label>
+            <div class="field-icon-row">
+              <img class="field-icon" src="./assets/constellation/StewOfPatience_Icon.png" alt="">
+              <label class="switch" style="margin-left:auto"><input type="checkbox" id="${id("stewHpToggle")}"><span class="slider round"></span></label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -695,6 +715,22 @@ function initMyDinoPage(profile, options = {}, container) {
   // readOnly면 값은 그대로 잘 보이게 두고(불투명도 안 낮춤) 타이핑만 막음 - opacity로 흐리면
   // 정작 친구 스탯을 읽으러 온 화면의 목적과 어긋남
   if (readOnly) { fBaseAtk.readOnly = true; fBaseHp.readOnly = true; fMoveSpeed.readOnly = true; }
+
+  // 스튜(둥지 소환 시 추가 스탯) 온오프 토글 - 지금은 UI만(켜고 끄는 상태 저장) 구현, 실제 계산
+  // 반영은 인게임 수치 확인 후 별도 작업(dev 문서 참고, 사용자 확정 - "기능만 구현해줘")
+  const stewAtkToggle = $("stewAtkToggle");
+  const stewHpToggle = $("stewHpToggle");
+  stewAtkToggle.checked = profile.stewAtkEnabled;
+  stewHpToggle.checked = profile.stewHpEnabled;
+  if (readOnly) { stewAtkToggle.disabled = true; stewHpToggle.disabled = true; }
+  on(stewAtkToggle, "onchange", () => {
+    profile.stewAtkEnabled = stewAtkToggle.checked;
+    persistAndRefresh();
+  });
+  on(stewHpToggle, "onchange", () => {
+    profile.stewHpEnabled = stewHpToggle.checked;
+    persistAndRefresh();
+  });
 
   // 공룡 수: 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 스타일을 쓰기 위해 <select> 대신 직접 구현
   const dinoCountList = $("dinoCountList");
