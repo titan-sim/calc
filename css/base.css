@@ -320,6 +320,14 @@ input:focus, select:focus {
   object-fit: contain;
 }
 
+/* 스튜 아이콘은 원본 그림 자체가 사각형 여백 없이 꽉 차 있는데도 다른 아이콘과 같은 크기로
+   나오면 유독 작아 보임(사용자 지적) - field-icon-row 박스 크기(위 height)는 그대로 두고
+   아이콘만 그 안에서 거의 꽉 차게 키움 */
+.field-icon.stew-icon {
+  width: clamp(30px, 7.5cqw, 42px);
+  height: clamp(30px, 7.5cqw, 42px);
+}
+
 /* 기본 스탯처럼 접두사 없는 단독 입력(field-icon-row 바로 밑 input) */
 .field-icon-row > input {
   flex: 1 1 auto;

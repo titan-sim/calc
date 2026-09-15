@@ -15,7 +15,7 @@ const CONSTELLATION_FIELDS = [
   { key: "critRate", fieldId: "fConstCritRate", labelKey: "my_dino.field.constCritRate", decimal: true, suffix: "%", icon: "CriticalRate_Icon.png" },
   { key: "critDmg", fieldId: "fConstCritDmg", labelKey: "my_dino.field.constCritDmg", decimal: true, suffix: "%", icon: "CriticalDamage_Icon.png" },
   { key: "buildingDmg", fieldId: "fConstBuildingDmg", labelKey: "my_dino.field.constBuildingDmg", decimal: false, suffix: null, icon: "StructureDamageConst_Icon.png" },
-  { key: "stewEffect", fieldId: "fConstStewEffect", labelKey: "my_dino.field.constStewEffect", decimal: false, suffix: null, icon: "MutationRate_Icon.png" },
+  { key: "stewEffect", fieldId: "fConstStewEffect", labelKey: "my_dino.field.constStewEffect", decimal: false, suffix: null, icon: "WorkshopBuff_Icon.png" },
   { key: "moveSpeed", fieldId: "fConstMoveSpeed", labelKey: "my_dino.field.constMoveSpeed", decimal: false, suffix: null, icon: "Speed_Icon.png" },
   { key: "bossDmgReduction", fieldId: "fConstBossDmgReduction", labelKey: "my_dino.field.constBossDmgReduction", decimal: false, suffix: null, icon: "BossReduction_Icon.png" },
   { key: "bossDmgIncrease", fieldId: "fConstBossDmgIncrease", labelKey: "my_dino.field.constBossDmgIncrease", decimal: false, suffix: null, icon: "BossDamageConst_Icon.png" }
@@ -109,6 +109,11 @@ function defaultMyDinoProfile() {
     vip: 0,
     dinoCount: 5,
     currentHpPercent: 100, // 광전사의 분노 판정용(전투 중 실시간이 아니라 직접 설정하는 고정값)
+    // 스튜(둥지 소환 시 추가 스탯을 주는 게임 내 기능, 별자리 "스튜 효과"가 이 값을 업그레이드함) -
+    // 계산 반영은 stewBonusUnits()/dinoProfileToBattleInputs() 참고. 기본값은 꺼짐 - 다른
+    // 온오프 토글들(연속 전투 등)과 같은 관례
+    stewAtkEnabled: false,
+    stewHpEnabled: false,
     constellation: {
       hp: 0, atk: 0, critRate: 0, critDmg: 0, buildingDmg: 0, stewEffect: 0,
       moveSpeed: 0, bossDmgReduction: 0, bossDmgIncrease: 0
@@ -116,7 +121,10 @@ function defaultMyDinoProfile() {
     bonusPercent: { atk: 0, hp: 0 },
     runes: [null, null, null, null, null],
     runePresets: defaultRunePresets(),
-    activePresetIndex: 0
+    activePresetIndex: 0,
+    // 룬 이름 -> 보유 레벨(장착 여부와 무관). getOwnedRuneLevel/setOwnedRuneLevel
+    // (js/data/rune-data.js) 참고 - "룬 자체의 속성"이라는 확정된 모델의 진짜 원본
+    ownedRuneLevels: {}
   };
 }
 
@@ -178,10 +186,25 @@ function saveMyDinoProfile(profile, storageKey = MY_DINO_PROFILE_KEY) {
 // 저장된(혹은 친구에게서 받은) 원본 프로필 형태 -> 시뮬레이션 엔진에 바로 넣을 수 있는 형태로 변환.
 // localStorage를 거치지 않는 순수 변환이라, 친구 세션에서 받은 프로필(js/core/friend-session.js)도
 // 그대로 재사용할 수 있음.
+// 스튜(둥지 소환 시 추가 스탯) 보너스 계산 - 인게임 실측으로 역산한 공식(사용자 확정, 게임사
+// 공식 답변은 아직 없음 - dev 문서 "스튜 공식 실측 역산" 참고). "스튜 효과 증가 수치 1당 유닛의
+// 스탯 레벨 1로 계산됩니다"라는 별자리 설명 문구 그대로: 스튜 자체가 이미 "1유닛레벨"을 내장하고
+// 있고, 별자리 "스튜 효과" 표값(레벨이 아니라 CONSTELLATION_CUMULATIVE_STEW에서 조회한 누적
+// 수치 그 자체 - my-dino-page.js가 별자리 입력을 레벨이 아니라 이 누적값으로 저장하는 기존 방식
+// 그대로)이 그만큼 유닛레벨을 더 보탬. 유닛레벨 1 = 이 사이트가 이미 쓰는 "레벨" 정의(공격력1=
+// 체력10=이동속도1=레벨1, level = baseAtk + floor(baseHp/10) + moveSpeed)와 같은 교환비 -
+// 체력엔 ×10, 공격력엔 ×1로 환산. 실측 검증: 별자리 스튜 표값1(=1유닛+1)→체력+20/공격력+2,
+// 표값2(=1유닛+2)→체력+30/공격력+3, 둘 다 정확히 일치 확인됨.
+function stewBonusUnits(p) {
+  const stewTableValue = (p.constellation && p.constellation.stewEffect) || 0;
+  return 1 + stewTableValue;
+}
+
 function dinoProfileToBattleInputs(p) {
+  const stewUnits = stewBonusUnits(p);
   return {
-    baseAtk: p.baseAtk,
-    baseHp: p.baseHp,
+    baseAtk: p.baseAtk + (p.stewAtkEnabled ? stewUnits * 1 : 0),
+    baseHp: p.baseHp + (p.stewHpEnabled ? stewUnits * 10 : 0),
     count: p.dinoCount,
     moveSpeed: p.moveSpeed,
     selectedRunes: p.runes,
@@ -515,6 +538,20 @@ function renderMyDinoPage(container, options = {}) {
               <ul class="dropdown-list" id="${id("currentHpPercentList")}"></ul>
             </div>
           </div>
+          <div>
+            <label>${t("my_dino.field.stewAtk")}</label>
+            <div class="field-icon-row">
+              <img class="field-icon stew-icon" src="./assets/constellation/StewOfValor_Icon.png" alt="">
+              <label class="switch" style="margin-left:auto"><input type="checkbox" id="${id("stewAtkToggle")}"><span class="slider round"></span></label>
+            </div>
+          </div>
+          <div>
+            <label>${t("my_dino.field.stewHp")}</label>
+            <div class="field-icon-row">
+              <img class="field-icon stew-icon" src="./assets/constellation/StewOfPatience_Icon.png" alt="">
+              <label class="switch" style="margin-left:auto"><input type="checkbox" id="${id("stewHpToggle")}"><span class="slider round"></span></label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -695,6 +732,22 @@ function initMyDinoPage(profile, options = {}, container) {
   // readOnly면 값은 그대로 잘 보이게 두고(불투명도 안 낮춤) 타이핑만 막음 - opacity로 흐리면
   // 정작 친구 스탯을 읽으러 온 화면의 목적과 어긋남
   if (readOnly) { fBaseAtk.readOnly = true; fBaseHp.readOnly = true; fMoveSpeed.readOnly = true; }
+
+  // 스튜(둥지 소환 시 추가 스탯) 온오프 토글 - 지금은 UI만(켜고 끄는 상태 저장) 구현, 실제 계산
+  // 반영은 인게임 수치 확인 후 별도 작업(dev 문서 참고, 사용자 확정 - "기능만 구현해줘")
+  const stewAtkToggle = $("stewAtkToggle");
+  const stewHpToggle = $("stewHpToggle");
+  stewAtkToggle.checked = profile.stewAtkEnabled;
+  stewHpToggle.checked = profile.stewHpEnabled;
+  if (readOnly) { stewAtkToggle.disabled = true; stewHpToggle.disabled = true; }
+  on(stewAtkToggle, "onchange", () => {
+    profile.stewAtkEnabled = stewAtkToggle.checked;
+    persistAndRefresh();
+  });
+  on(stewHpToggle, "onchange", () => {
+    profile.stewHpEnabled = stewHpToggle.checked;
+    persistAndRefresh();
+  });
 
   // 공룡 수: 다른 커스텀 드롭다운(VIP, 타이탄 레벨 등)과 같은 스타일을 쓰기 위해 <select> 대신 직접 구현
   const dinoCountList = $("dinoCountList");
@@ -887,6 +940,15 @@ function initMyDinoPage(profile, options = {}, container) {
     idPrefix,
     unsuitableList: options.unsuitableList || [],
     unsuitableLabel: options.unsuitableLabel,
+    getSuggestedLevel: (name) => getOwnedRuneLevel(profile, name),
+    // 레벨 드롭다운에서 레벨을 고르는 즉시 호출됨(장착 확정 전에도) - 그 자리에서 바로 저장까지
+    // 해야 "적용"을 안 눌러도 방금 고친 레벨이 남아있음(사용자 확정, 위 rune-ui.js 주석 참고).
+    // 장착을 확정한 경우(applyRuneToSlot)에도 한 번 더 불리지만 같은 값이라 무해함(멱등).
+    // readOnly면 애초에 레벨 드롭다운/applyBtn이 비활성화라 여기까지 호출될 일이 없음
+    onRuneLevelChanged: (name, lv) => {
+      setOwnedRuneLevel(profile, name, lv);
+      persistAndRefresh();
+    },
     onChange: (runes) => {
       profile.runes = runes;
       profile.runePresets[profile.activePresetIndex].runes = runes.map((r) => (r ? { ...r } : null));
@@ -1038,8 +1100,14 @@ function updateSummary(profile, idPrefix = "", splitCrit = false, animate = fals
   // =false(아레나)면 애초에 서버 레벨캡 개념 자체를 안 쓰는 페이지라는 뜻이지만, 두 cap 함수 모두
   // "설정된 캡이 없으면 원본을 그대로 반환"하므로 그냥 항상 거쳐도 무해함(캡이 실제로 걸려있지
   // 않은 한 아무 변화 없음)
+  // 스튜 보너스도 실제 전투 계산(dinoProfileToBattleInputs)과 똑같이 캡 체인을 타기 전에 먼저
+  // 더함 - 안 그러면 스튜를 켰을 때 요약 카드와 실제 전투 결과가 어긋남(서버 레벨캡 반영 때와
+  // 같은 이유, 위 주석 참고)
+  const stewUnits = stewBonusUnits(profile);
   const capped = applyConstellationCap(applyServerLevelCap({
-    baseAtk: profile.baseAtk, baseHp: profile.baseHp, moveSpeed: profile.moveSpeed, constellation: profile.constellation
+    baseAtk: profile.baseAtk + (profile.stewAtkEnabled ? stewUnits * 1 : 0),
+    baseHp: profile.baseHp + (profile.stewHpEnabled ? stewUnits * 10 : 0),
+    moveSpeed: profile.moveSpeed, constellation: profile.constellation
   }));
   const level = capped.baseAtk + Math.floor(capped.baseHp / 10) + profile.moveSpeed;
   const stats = getBattleStats({

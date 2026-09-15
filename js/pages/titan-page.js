@@ -9,7 +9,6 @@
 
 const TITAN_CONFIG_KEY = "dino_sim_config_titan"; // {titanLevel, timeLimitMinutes, distanceTiles, continuousBattle} - 기존 키 그대로 유지
 const TITAN_TILE_KEY = "dino_titan_tile_settings"; // {natureAdjacent, tribeControl, atkTowerLevel, hpTowerLevel}
-const TITAN_OWNED_LEVELS_KEY = "dino_titan_owned_rune_levels";
 const TITAN_SPEED_KEY = "dino_titan_speed_ms";
 
 // "live" 탭을 처음 열 때 titanInitScene3d()가 마운트함(titanInitModeTabs 참고) - 그 전엔
@@ -146,13 +145,11 @@ function saveTitanTileSettings(settings) {
   if (typeof queueRemoteTitanSync === "function") queueRemoteTitanSync();
 }
 
+// 더 이상 이 페이지만의 별도 저장소가 아니라 "내 공룡" 프로필의 보유 룬 레벨을 그대로 읽음
+// (js/ui/rune-ui.js의 initOwnedRuneGrid, js/data/rune-data.js 참고) - 그 프로필 자체가 이미
+// 통째로 클라우드 동기화되므로 이 값을 위해 titan_config를 따로 동기화할 필요가 없어짐
 function loadTitanOwnedLevels() {
-  return loadOwnedRuneLevels(TITAN_OWNED_LEVELS_KEY, titanSuitableRuneNames());
-}
-
-function saveTitanOwnedLevels(levels) {
-  localStorage.setItem(TITAN_OWNED_LEVELS_KEY, JSON.stringify(levels));
-  if (typeof queueRemoteTitanSync === "function") queueRemoteTitanSync();
+  return loadOwnedRuneLevelsFromProfile(titanSuitableRuneNames());
 }
 
 function titanGetSpeedMs() {
@@ -1454,9 +1451,7 @@ function initTitanPage() {
     initOwnedRuneGrid({
       gridId: "titanOwnedRuneGrid",
       resultElId: "titanOptimizeResult",
-      suitableNames: titanSuitableRuneNames,
-      loadLevels: loadTitanOwnedLevels,
-      saveLevels: saveTitanOwnedLevels
+      suitableNames: titanSuitableRuneNames
     });
   }
 

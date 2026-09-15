@@ -20,7 +20,27 @@ for (const [color, keys] of Object.entries(RUNE_STYLE_CONFIG)) {
 }
 const RUNE_TAG_REGEX = /\{(\w+)\}/g;
 
-function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [], unsuitableLabel } = {}) {
+// 룬 레벨은 "슬롯/프리셋"이 아니라 "그 룬 자체"(=보유한 아이템)의 속성(사용자 확정) - 그래서
+// (1) 목록에 그 룬을 몇 레벨 보유했는지 항상 보여줘야 하고(getSuggestedLevel), (2) 레벨 드롭다운
+// 에서 레벨을 "고르는" 그 순간 바로 보유 레벨로 반영돼야 함 - "적용" 버튼으로 슬롯에 장착하는 것과
+// 별개 결정이라, 장착까지 안 가고 목록만 닫아도 방금 고친 레벨은 남아있어야 함(사용자 확정: "목록
+// 에서 레벨을 수정했을 때 반영이 되었으면 한다" - 예전엔 장착을 확정해야만 레벨이 반영되는 버그가
+// 있었음). 이 컴포넌트 자신은 지금 열려있는 5슬롯만 알 뿐 "보유 룬 레벨"이라는 더 큰 개념을 모르므로,
+// 조회(getSuggestedLevel)와 "이 레벨로 확정됐다"는 통지(onRuneLevelChanged - 레벨 드롭다운 선택
+// 시점과 장착 확정 시점 둘 다에서 호출됨)를 호출자(my-dino-page.js/arena-page.js)에게 위임함.
+// 기본값(no-op)은 항상 null/아무 일도 안 함이라 이 옵션을 안 넘기는 호출부(있다면)는 그냥
+// "제안 없음"으로 동작함
+function defaultGetSuggestedLevel() { return null; }
+function defaultOnRuneLevelChanged() {}
+
+function createRuneUI({
+  idPrefix = "",
+  onChange = () => {},
+  unsuitableList = [],
+  unsuitableLabel,
+  getSuggestedLevel = defaultGetSuggestedLevel,
+  onRuneLevelChanged = defaultOnRuneLevelChanged
+} = {}) {
   const id = (name) => idPrefix + name;
   const $ = (name) => document.getElementById(id(name));
   const resolvedUnsuitableLabel = unsuitableLabel || t("common.rune.defaultUnsuitableLabel");
@@ -80,9 +100,15 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     Object.keys(RUNES_DATA).forEach((name) => {
       const r = RUNES_DATA[name];
       const isUn = hasUnsuitable && unsuitableList.includes(name);
+      const suggestedLv = getSuggestedLevel(name);
+      // 레벨이 한 번도 설정된 적 없는 룬 = 아직 보유하지 않은 룬으로 취급(사용자 확정) - 부적합
+      // 룬 취급(.rune-item-dim)보다는 약하게 죽여서 "적합하지만 아직 없음"과 "이 컨텍스트엔 애초에
+      // 안 맞음"을 구분되게 보여줌. 레벨이 하나라도(1이라도) 설정되면 바로 원래 색으로 돌아옴
+      const isOwned = !!suggestedLv;
       const item = document.createElement("div");
-      item.className = "rune-item" + (isUn ? " rune-item-dim" : "");
-      item.innerHTML = `<div class="rune-img-container" style="border-color:var(--${r.grade})"><img src="${getImgUrl(r.imgId)}"></div><div class="rune-label">${ruleDisplayName(name)}</div>`;
+      item.className = "rune-item" + (isUn ? " rune-item-dim" : "") + (isOwned ? "" : " rune-item-unowned");
+      const lvTag = suggestedLv ? `<div class="slot-lv-tag ${getLvClass(suggestedLv)}">${suggestedLv}</div>` : "";
+      item.innerHTML = `<div class="rune-img-container" style="border-color:var(--${r.grade})"><img src="${getImgUrl(r.imgId)}">${lvTag}</div><div class="rune-label">${ruleDisplayName(name)}</div>`;
       item.onclick = () => showDetail(name);
       if (isUn) unsuitableGrid.appendChild(item);
       else mainGrid.appendChild(item);
@@ -105,6 +131,11 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
         setLevel(i);
         list.style.display = "none";
         updateDetail(tempName, currentLevel);
+        // 레벨을 고른 순간 바로 "보유 레벨"로 반영 - "적용" 버튼을 눌러 슬롯에 장착하지 않고
+        // 목록을 닫거나 다른 프리셋으로 이동해도 방금 고친 레벨 자체는 남아있어야 함(사용자 확정:
+        // "목록에서 레벨을 수정했을 때 반영이 되었으면 한다") - 장착 여부와 레벨 소유는 별개 결정
+        onRuneLevelChanged(tempName, i);
+        renderRuneGrid();
       };
       list.appendChild(li);
     }
@@ -151,6 +182,10 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
     $("detailName").innerText = ruleDisplayName(name);
     $("detailGrade").innerText = gradeDisplayName(r.grade);
     $("detailGrade").style.color = `var(--${r.grade})`;
+    // 이 룬이 다른 프리셋에 이미 있으면 그 레벨을 기본값으로 채움(위 getSuggestedLevel 참고) -
+    // 이미 장착된 슬롯을 다시 열 때는 openPicker가 이 호출 바로 다음에 실제 슬롯 레벨로 다시
+    // 덮어쓰므로("장착된 그대로" 우선), 여기서는 "새로 고르는 상황"의 기본값만 책임짐
+    setLevel(getSuggestedLevel(name) || 1);
     updateDetail(name, currentLevel);
     detailView.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
@@ -197,6 +232,10 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
 
     selectedRunes[activeSlotIdx] = { name: tempName, lv: lv };
     renderSlotContent(activeSlotIdx);
+    // 같은 룬을 쓰는 다른 프리셋들도 이 레벨로 맞춰달라고 호출자에게 통지(같은 아이템이니 레벨도
+    // 하나 - 위 getSuggestedLevel/onRuneLevelChanged 설명 참고), 목록의 레벨 배지도 바로 갱신
+    onRuneLevelChanged(tempName, lv);
+    renderRuneGrid();
 
     $("runePicker").style.display = "none";
     warnEl.style.display = "none";
@@ -239,8 +278,14 @@ function createRuneUI({ idPrefix = "", onChange = () => {}, unsuitableList = [],
 // 엘리먼트 id와 적합 룬 목록·불러오기·저장 함수만 다를 뿐 나머지 로직이 완전히 같아서 공용화함
 // (사이트 전체 점검에서 발견 - createRuneUI와 같은 이유로 이 파일에 둠. combinationsOf처럼 순수
 // 계산이 아니라 DOM을 직접 건드리는 함수라 js/core/stat-calc.js가 아니라 여기에 둠).
-function initOwnedRuneGrid({ gridId, resultElId, suitableNames, loadLevels, saveLevels }) {
-  const levels = loadLevels();
+// 이 그리드는 더 이상 페이지별 독립 저장소를 갖지 않음 - "내 공룡" 프로필의 보유 룬 레벨
+// (profile.ownedRuneLevels, getOwnedRuneLevel/setOwnedRuneLevel)을 그대로 읽고 쓰는 창일 뿐임
+// (사용자 확정: "그냥 목록에 되어있는 대로 보유한 룬과 해당 룬들의 레벨만 적용시켜" - "이미 값이
+// 있으면 안 건드린다"는 예전 프리필/보존 절충안은 여기서 직접 편집해도 룬 목록과 어긋날 일이
+// 없도록 폐기함). 그래서 이 그리드에서 입력을 바꾸면 룬 목록/다른 조합 찾기 페이지에도 즉시 같은
+// 값이 반영됨(같은 원본을 보는 것뿐이라 당연함)
+function initOwnedRuneGrid({ gridId, resultElId, suitableNames }) {
+  const levels = loadOwnedRuneLevelsFromProfile(suitableNames());
   const grid = document.getElementById(gridId);
   grid.innerHTML = suitableNames().map((name) => `
     <div class="dummy-owned-rune-row">
@@ -258,9 +303,15 @@ function initOwnedRuneGrid({ gridId, resultElId, suitableNames, loadLevels, save
       const name = input.dataset.rune;
       const v = Math.max(0, Math.min(31, Number(input.value) || 0));
       input.value = v || "";
-      const current = loadLevels();
-      current[name] = v;
-      saveLevels(current);
+      const profile = loadMyDinoProfile();
+      if (v > 0) {
+        setOwnedRuneLevel(profile, name, v);
+      } else if (profile.ownedRuneLevels) {
+        // 0으로 지움 = "여기서 직접 설정했던 값"을 취소 - 장착돼 있는 프리셋이 있으면 그쪽에서
+        // 다시 값을 가져옴(getOwnedRuneLevel의 프리셋 스캔 폴백), 없으면 완전히 미보유로 돌아감
+        delete profile.ownedRuneLevels[name];
+      }
+      saveMyDinoProfile(profile);
       const resultEl = document.getElementById(resultElId);
       if (resultEl) resultEl.innerHTML = "";
     };

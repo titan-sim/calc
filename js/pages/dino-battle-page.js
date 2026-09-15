@@ -17,7 +17,6 @@ const BATTLE_SPEED_OPTIONS = [
 ];
 
 // ===== 룬 조합 찾기 =====
-const DINO_BATTLE_OWNED_LEVELS_KEY = "dino_battle_owned_rune_levels";
 const DINO_BATTLE_GRADE_ORDER = ["일반", "희귀", "에픽", "유니크", "전설"];
 // 조합 찾기가 후보를 서로 붙일 때 쓰는 "판정 방식" 자체를 교체함(사용자 확정 + 실측 검증) - 예전엔
 // runDinoBattleTrials(공룡 dinoCount마리 로스터가 다 죽으면 그 배틀 승자 판정)를 여러 번 반복해서
@@ -717,21 +716,17 @@ function dinoBattleSuitableRuneNames() {
   return standardSuitableRuneNames(DINO_BATTLE_UNSUITABLE_RUNE_LIST, DINO_BATTLE_GRADE_ORDER);
 }
 
+// 더 이상 이 페이지만의 별도 저장소가 아니라 "내 공룡" 프로필의 보유 룬 레벨을 그대로 읽음
+// (js/ui/rune-ui.js의 initOwnedRuneGrid, js/data/rune-data.js 참고)
 function loadDinoBattleOwnedLevels() {
-  return loadOwnedRuneLevels(DINO_BATTLE_OWNED_LEVELS_KEY, dinoBattleSuitableRuneNames());
-}
-
-function saveDinoBattleOwnedLevels(levels) {
-  localStorage.setItem(DINO_BATTLE_OWNED_LEVELS_KEY, JSON.stringify(levels));
+  return loadOwnedRuneLevelsFromProfile(dinoBattleSuitableRuneNames());
 }
 
 function dinoBattleInitOwnedRuneGrid() {
   initOwnedRuneGrid({
     gridId: "dinoOwnedRuneGrid",
     resultElId: "dinoOptimizeResult",
-    suitableNames: dinoBattleSuitableRuneNames,
-    loadLevels: loadDinoBattleOwnedLevels,
-    saveLevels: saveDinoBattleOwnedLevels
+    suitableNames: dinoBattleSuitableRuneNames
   });
 }
 

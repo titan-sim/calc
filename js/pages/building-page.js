@@ -16,7 +16,6 @@
 
 const BUILDING_TILE_KEY = "dino_building_tile_settings";
 const BUILDING_SPEED_KEY = "dino_building_speed_ms";
-const BUILDING_OWNED_LEVELS_KEY = "dino_building_owned_rune_levels";
 const BUILDING_SLOTS_KEY = "dino_building_slots"; // [중앙, 정면, 좌측, 우측] 각각 null | BUILDING_TYPES의 id
 
 // ===== 전투 설정(사용자 확정 - "타이탄처럼 전투 설정이 있어야겠다... 그걸 기준으로 빠른 계산,
@@ -96,12 +95,10 @@ function buildingSuitableRuneNames() {
   return standardSuitableRuneNames(BUILDING_UNSUITABLE_RUNE_LIST, BUILDING_GRADE_ORDER);
 }
 
+// 더 이상 이 페이지만의 별도 저장소가 아니라 "내 공룡" 프로필의 보유 룬 레벨을 그대로 읽음
+// (js/ui/rune-ui.js의 initOwnedRuneGrid, js/data/rune-data.js 참고)
 function loadBuildingOwnedLevels() {
-  return loadOwnedRuneLevels(BUILDING_OWNED_LEVELS_KEY, buildingSuitableRuneNames());
-}
-
-function saveBuildingOwnedLevels(levels) {
-  localStorage.setItem(BUILDING_OWNED_LEVELS_KEY, JSON.stringify(levels));
+  return loadOwnedRuneLevelsFromProfile(buildingSuitableRuneNames());
 }
 
 function defaultBuildingTileSettings() {
@@ -1340,9 +1337,7 @@ function buildingInitOwnedRuneGrid() {
   initOwnedRuneGrid({
     gridId: "buildingOwnedRuneGrid",
     resultElId: "buildingOptimizeResult",
-    suitableNames: buildingSuitableRuneNames,
-    loadLevels: loadBuildingOwnedLevels,
-    saveLevels: saveBuildingOwnedLevels
+    suitableNames: buildingSuitableRuneNames
   });
 }
 

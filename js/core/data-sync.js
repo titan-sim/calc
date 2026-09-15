@@ -74,9 +74,11 @@ async function pullRemoteProfileOnLogin() {
 }
 
 // 타이탄 페이지의 전투 설정(레벨/제한시간/거리/연속전투), 타일 설정(자연의 포옹/부족의 축복/버프
-// 타워), 조합 찾기용 보유 룬 레벨을 하나로 묶어 user_data.titan_config에 동기화. 재생 속도
-// (dino_titan_speed_ms)는 빌드 정보가 아니라 순수 화면 재생 취향이라(다크모드처럼) 동기화 대상에서
-// 뺌. 패턴은 위 dino_profile 동기화와 동일(로그인 상태에서만, 800ms 디바운스).
+// 타워)을 하나로 묶어 user_data.titan_config에 동기화. 재생 속도(dino_titan_speed_ms)는 빌드
+// 정보가 아니라 순수 화면 재생 취향이라(다크모드처럼) 동기화 대상에서 뺌. 패턴은 위 dino_profile
+// 동기화와 동일(로그인 상태에서만, 800ms 디바운스). 조합 찾기용 "보유 룬 레벨"은 더 이상 여기
+// 없음 - profile.ownedRuneLevels로 옮겨가서 dino_profile 동기화(위 queueRemoteSync)에 이미
+// 포함됨(js/data/rune-data.js의 getOwnedRuneLevel/setOwnedRuneLevel 참고)
 let titanSyncDebounceTimer = null;
 // dino_profile과 같은 이유(위 PROFILE_LAST_EDIT_KEY 참고)로 둔 타이탄 설정용 최근 편집 타임스탬프
 const TITAN_LAST_EDIT_KEY = "dino_titan_config_last_edit_ts";
@@ -90,8 +92,7 @@ function queueRemoteTitanSync() {
 
     const titanConfig = {
       config: JSON.parse(localStorage.getItem(TITAN_CONFIG_KEY) || "null"),
-      tileSettings: JSON.parse(localStorage.getItem(TITAN_TILE_KEY) || "null"),
-      ownedRuneLevels: JSON.parse(localStorage.getItem(TITAN_OWNED_LEVELS_KEY) || "null")
+      tileSettings: JSON.parse(localStorage.getItem(TITAN_TILE_KEY) || "null")
     };
 
     const { error } = await supabaseClient
@@ -111,9 +112,7 @@ async function pullRemoteTitanConfigOnLogin() {
   // 설정을 서버의 낡은 값으로 덮어쓰지 않고, 대신 그 값을 다시 서버로 밀어 최신 상태로 맞춤.
   const lastEditTs = Number(localStorage.getItem(TITAN_LAST_EDIT_KEY)) || 0;
   if (Date.now() - lastEditTs < PROFILE_SYNC_GRACE_MS) {
-    const hasLocal = localStorage.getItem(TITAN_CONFIG_KEY)
-      || localStorage.getItem(TITAN_TILE_KEY)
-      || localStorage.getItem(TITAN_OWNED_LEVELS_KEY);
+    const hasLocal = localStorage.getItem(TITAN_CONFIG_KEY) || localStorage.getItem(TITAN_TILE_KEY);
     if (hasLocal) queueRemoteTitanSync();
     if (typeof renderRoute === "function") renderRoute();
     return;
@@ -131,14 +130,11 @@ async function pullRemoteTitanConfigOnLogin() {
   }
 
   if (data && data.titan_config) {
-    const { config, tileSettings, ownedRuneLevels } = data.titan_config;
+    const { config, tileSettings } = data.titan_config;
     if (config) localStorage.setItem(TITAN_CONFIG_KEY, JSON.stringify(config));
     if (tileSettings) localStorage.setItem(TITAN_TILE_KEY, JSON.stringify(tileSettings));
-    if (ownedRuneLevels) localStorage.setItem(TITAN_OWNED_LEVELS_KEY, JSON.stringify(ownedRuneLevels));
   } else {
-    const hasLocal = localStorage.getItem(TITAN_CONFIG_KEY)
-      || localStorage.getItem(TITAN_TILE_KEY)
-      || localStorage.getItem(TITAN_OWNED_LEVELS_KEY);
+    const hasLocal = localStorage.getItem(TITAN_CONFIG_KEY) || localStorage.getItem(TITAN_TILE_KEY);
     if (hasLocal) queueRemoteTitanSync();
   }
 

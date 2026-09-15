@@ -846,3 +846,60 @@ function sanitizeRuneConflicts(runes) {
   });
   return result;
 }
+
+// 룬 레벨은 "프리셋"이 아니라 "그 룬 자체"의 속성(계정이 보유한 아이템 하나를 여러 프리셋에
+// 재배치하는 것뿐, 프리셋마다 별개의 사본이 아님 - 사용자 확정, js/ui/rune-ui.js 참고). 이 룬이
+// profile의 여러 프리셋 중 어딘가에 이미 있으면 그 레벨을(레벨은 게임에서 내려가지 않으므로,
+// 프리셋마다 값이 다른 예전 저장분이 섞여 있어도 그중 가장 높은 값이 실제 최신 레벨일 가능성이
+// 가장 큼) 반환. 한 번도 장착한 적 없으면 null
+function findRuneLevelAcrossPresets(profile, name) {
+  let max = null;
+  (profile.runePresets || []).forEach((preset) => {
+    (preset.runes || []).forEach((r) => {
+      if (r && r.name === name && (max === null || r.lv > max)) max = r.lv;
+    });
+  });
+  return max;
+}
+
+// 룬 하나의 레벨이 어느 프리셋에서든 확정되면(장착 또는 레벨 변경) 같은 룬을 쓰는 다른 모든
+// 프리셋도 그 레벨로 맞춤 - 위 findRuneLevelAcrossPresets와 짝을 이루는 반대 방향(조회 -> 반영).
+// profile을 직접 변형함(호출부가 이미 들고 있는 profile 객체를 저장하기 직전에 부르는 용도라
+// 새 객체를 만들어 반환할 필요가 없음)
+function syncRuneLevelAcrossPresets(profile, name, lv) {
+  (profile.runePresets || []).forEach((preset) => {
+    (preset.runes || []).forEach((r) => {
+      if (r && r.name === name) r.lv = lv;
+    });
+  });
+}
+
+// "보유 룬 레벨"의 진짜 원본(profile.ownedRuneLevels, defaultMyDinoProfile 참고) - 장착 여부와
+// 무관하게 "이 룬을 몇 레벨 가지고 있는지"를 직접 저장함(사용자 확정: "목록에서 레벨을 수정했을 때
+// 반영이 되었으면 한다" - 슬롯에 장착까지 확정하지 않아도 레벨 자체는 남아야 함). 아직 명시적으로
+// 설정된 적 없는 룬은(이 필드가 생기기 전부터 프리셋에 이미 장착돼 있던 경우 대비) 프리셋들을 뒤져
+// 찾은 레벨로 대체함 - 한 번이라도 setOwnedRuneLevel이 불리고 나면 그 뒤로는 항상 이 값이 우선
+function getOwnedRuneLevel(profile, name) {
+  const explicit = profile.ownedRuneLevels && profile.ownedRuneLevels[name];
+  if (Number.isInteger(explicit) && explicit >= 1 && explicit <= 31) return explicit;
+  return findRuneLevelAcrossPresets(profile, name);
+}
+
+// 레벨을 하나 확정(장착 확정 또는 목록의 레벨 드롭다운 선택) - 보유 레벨로 기록하고, 이미 어딘가
+// 장착돼 있던 같은 룬도 전부 이 레벨로 맞춤(같은 아이템이니까, 위 syncRuneLevelAcrossPresets 참고)
+function setOwnedRuneLevel(profile, name, lv) {
+  if (!profile.ownedRuneLevels) profile.ownedRuneLevels = {};
+  profile.ownedRuneLevels[name] = lv;
+  syncRuneLevelAcrossPresets(profile, name, lv);
+}
+
+// 조합 찾기(타이탄/허수아비/건물/공룡 대전) "보유 룬 레벨" 입력 그리드용 - 페이지마다 따로 저장하고
+// "이미 값이 있으면 안 건드린다"던 예전 절충안은 폐기(사용자 확정: "그냥 목록에 되어있는 대로
+// 보유한 룬과 해당 룬들의 레벨만 적용시켜") - "내 공룡" 프로필의 보유 룬 레벨(getOwnedRuneLevel)을
+// 그대로, 항상 그 값 그대로 반영함. suitableNames는 호출자가 이미 계산해 넘김
+function loadOwnedRuneLevelsFromProfile(suitableNames) {
+  const profile = loadMyDinoProfile();
+  const levels = {};
+  suitableNames.forEach((name) => { levels[name] = getOwnedRuneLevel(profile, name) || 0; });
+  return levels;
+}

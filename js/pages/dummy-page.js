@@ -11,7 +11,6 @@
 
 const DUMMY_TILE_KEY = "dino_dummy_tile_settings";
 const DUMMY_SPEED_KEY = "dino_dummy_speed_ms";
-const DUMMY_OWNED_LEVELS_KEY = "dino_dummy_owned_rune_levels";
 
 // 서버 레벨캡(전역 공유 설정, my-dino-page.js) 적용판 - dinoProfileToBattleInputs(profile)를
 // 직접 쓰던 곳을 이걸로 교체
@@ -29,12 +28,10 @@ function dummySuitableRuneNames() {
   return standardSuitableRuneNames(DUMMY_UNSUITABLE_RUNE_LIST, DUMMY_GRADE_ORDER);
 }
 
+// 더 이상 이 페이지만의 별도 저장소가 아니라 "내 공룡" 프로필의 보유 룬 레벨을 그대로 읽음
+// (js/ui/rune-ui.js의 initOwnedRuneGrid, js/data/rune-data.js 참고)
 function loadDummyOwnedLevels() {
-  return loadOwnedRuneLevels(DUMMY_OWNED_LEVELS_KEY, dummySuitableRuneNames());
-}
-
-function saveDummyOwnedLevels(levels) {
-  localStorage.setItem(DUMMY_OWNED_LEVELS_KEY, JSON.stringify(levels));
+  return loadOwnedRuneLevelsFromProfile(dummySuitableRuneNames());
 }
 
 function defaultDummyTileSettings() {
@@ -399,9 +396,7 @@ function dummyInitOwnedRuneGrid() {
   initOwnedRuneGrid({
     gridId: "dummyOwnedRuneGrid",
     resultElId: "dummyOptimizeResult",
-    suitableNames: dummySuitableRuneNames,
-    loadLevels: loadDummyOwnedLevels,
-    saveLevels: saveDummyOwnedLevels
+    suitableNames: dummySuitableRuneNames
   });
 }
 

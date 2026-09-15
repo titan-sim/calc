@@ -22,6 +22,10 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  /* 아래 .slot-lv-tag의 font-size가 이 박스 자신의 폭 기준(cqw)으로 계산되게 함 - 슬롯과 목록
+     아이템은 크기가 서로 다른데 예전엔 둘 다 훨씬 더 먼 조상(.card)의 폭 기준이라 글자 크기가
+     실제 배지 크기에 비례하지 않았음(사용자 지적 - 작은 목록에서 두 자리 레벨이 배지를 가림) */
+  container-type: inline-size;
   cursor: pointer;
 }
 
@@ -66,19 +70,22 @@
   justify-content: center;
   z-index: 10;
   
-  font-size: clamp(9px, 3.2cqw, 16px);
+  /* 배지 폭(위 .slot-lv-tag width:35%) 대비 약 70% 크기(사용자 확정) - .slot/.rune-img-container
+     둘 다 container-type:inline-size라 cqw가 각자의 실제 박스 폭 기준으로 계산됨(먼 조상 기준이던
+     예전과 달리 슬롯/목록 어디서든 배지 크기에 비례). 배지 이미지 자체가 사각형이 아니라 마름모
+     (다이아몬드) 모양이라 실제 안전 영역은 가로 중앙 한 줄에서만 폭 전체에 가깝고 위아래로
+     갈수록 급격히 좁아짐 - 그래서 폭의 70%가 아니라 그보다 확실히 작게 잡아야 두 자리 레벨도
+     모서리를 안 벗어남(사용자 지적: 목록에서 글자가 배지보다 커 보임) */
+  font-size: clamp(6px, 16cqw, 14px);
   font-weight: 900;
   line-height: 1;
-  
+
   color: white;
   text-shadow: 1px 1px 2px #000;
-  
+
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  
-  /* 숫자가 이미지 정중앙에 오도록 미세 조정 (이미지 모양에 따라 필요시 사용) */
-  padding-top: 1px; 
 }
 
 /* 5레벨 단위 배경 이미지 매핑 */
@@ -237,6 +244,22 @@
   filter: grayscale(50%);
 }
 
+/* 레벨을 한 번도 설정한 적 없는(=아직 보유하지 않은) 룬(사용자 확정) - 부적합 룬(.rune-item-dim,
+   위 참고)보다는 덜 죽여서 "이 컨텍스트엔 안 맞음"과 "적합하지만 아직 없음"이 구분되게 함 */
+.rune-item-unowned {
+  opacity: 0.65;
+  filter: grayscale(30%);
+}
+
+/* 부적합 + 미보유가 동시에 해당하는 경우 - 클래스 2개가 각각 opacity/filter를 따로 정의하면
+   CSS는 "합쳐서 적용"이 아니라 소스 순서상 나중 규칙이 통째로 이기므로(사용자 지적 - 부적합인데
+   미보유가 덮어써서 오히려 덜 흐려 보이는 버그), 이 조합 전용 선택자를 더 높은 특이성으로 따로
+   둬서 명시적으로 "가장 안 갖춰진 상태"를 표현함 */
+.rune-item-dim.rune-item-unowned {
+  opacity: 0.3;
+  filter: grayscale(60%);
+}
+
 .rune-img-container {
   width: 90%;
   aspect-ratio: 1 / 1;
@@ -246,6 +269,8 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  position: relative; /* 아래 .rune-item .rune-img-container .slot-lv-tag 배지의 기준점 */
+  container-type: inline-size; /* 위 .slot-lv-tag font-size가 이 박스 자신의 폭 기준으로 계산되게 함 */
 
   /* [추가] 기존 선과 배경색 강제 제거 */
   border: none !important;
@@ -253,6 +278,14 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+/* 룬 선택 목록에서도 슬롯과 같은 레벨 배지(.slot-lv-tag, 위 참고)를 그대로 재사용 - 예전에
+   설정해둔 적 있는 룬이면 목록에서부터 그 레벨이 보여야 새로 장착할 때(또는 슬롯을 비웠다가 다른
+   룬으로 바꿀 때) 몇 레벨이 자동으로 채워질지 미리 알 수 있음(사용자 요청) */
+.rune-item .rune-img-container .slot-lv-tag {
+  top: -4%;
+  right: -4%;
 }
 
 .rune-img-container[style*="일반"] { background-image: url("../assets/rune slot image folder/RuneSlotBG_Normal.png"); }

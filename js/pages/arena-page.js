@@ -979,6 +979,18 @@ function arenaMountSlotEditModal() {
     idPrefix: "arenaSlotEdit_",
     unsuitableList: ARENA_UNSUITABLE_RUNE_LIST,
     unsuitableLabel: t("arena.unsuitableRuneLabel"),
+    // "내 공룡"/"상대 공룡"은 storageKey 자체가 다른 별개의 보유 룬 인벤토리라 서로 안 섞임 -
+    // arenaSlotEditSide는 arenaOpenSlotEditor가 팝업을 열 때마다 다시 가리키는 값을 그대로 씀
+    getSuggestedLevel: (name) => getOwnedRuneLevel(loadMyDinoProfile(arenaProfileStorageKey(arenaSlotEditSide)), name),
+    // 레벨 드롭다운에서 고르는 즉시 호출됨(장착 확정 전에도) - my-dino-page.js와 같은 이유로 그
+    // 자리에서 바로 저장까지 함(위 getSuggestedLevel 주석 참고)
+    onRuneLevelChanged: (name, lv) => {
+      if (arenaSlotEditSide === "opp" && arenaIsOppRunePresetsForeign()) return;
+      const storageKey = arenaProfileStorageKey(arenaSlotEditSide);
+      const profile = loadMyDinoProfile(storageKey);
+      setOwnedRuneLevel(profile, name, lv);
+      saveMyDinoProfile(profile, storageKey);
+    },
     onChange: (runes) => {
       // 상대 진영이 친구 실시간 세션/스냅샷 중이면 남의 프리셋이라 룬 구성을 고치면 안 됨(선택만
       // 가능) - 조용히 무시. arenaOpenSlotEditor에서 애초에 안 열리게 막아도 되지만, 혹시 열려
