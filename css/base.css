@@ -312,6 +312,15 @@ input:focus, select:focus {
   outline-offset: -1px;
 }
 
+/* 이 테두리는 원래 텍스트 입력칸(배경/테두리가 지워져 있어서 편집 중임을 보여줄 다른 방법이
+   없음)용인데, 스튜 토글(.switch, my-dino-page.js)처럼 체크박스가 이 안에 들어가면 클릭 후에도
+   포커스가 계속 남아있어서(텍스트 입력칸과 달리 자연스럽게 빠지지 않음) 다른 곳을 눌러 포커스를
+   옮기기 전까지 테두리가 안 사라지는 문제가 있었음(사용자 지적) - 토글이 들어있는 행에서는
+   꺼둠 */
+.field-icon-row:has(.switch):focus-within {
+  outline: none;
+}
+
 .field-icon,
 .const-badge-icon {
   width: clamp(18px, 5cqw, 24px);
